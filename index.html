@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fcf5ff">
+  <title>A Little Note</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+      color: #59455f;
+      background: #fcf5ff;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      overflow-x: hidden;
+      background:
+        radial-gradient(ellipse at 18% 18%, #fff 0, transparent 34%),
+        radial-gradient(ellipse at 84% 78%, #f9dff0 0, transparent 36%),
+        linear-gradient(135deg, #f8efff, #fff4f7 55%, #f2eaff);
+    }
+
+    .scene {
+      width: min(100% - 32px, 620px);
+      padding: 48px 24px;
+      text-align: center;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .login-panel {
+      width: min(100%, 410px);
+      margin: 0 auto;
+      padding: 32px 26px;
+      border: 1px solid #f1d9e8;
+      border-radius: 18px;
+      background: #fffdfd;
+      box-shadow: 0 10px 28px #8d66841a;
+    }
+
+    .login-panel h1 {
+      font-size: clamp(2rem, 8vw, 3rem);
+    }
+
+    .dedication {
+      margin: 16px 0 22px;
+      color: #8d7993;
+      line-height: 1.65;
+    }
+
+    .password-label {
+      display: block;
+      margin-bottom: 8px;
+      color: #70577b;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .password-input {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 14px;
+      border: 1px solid #d9bfdc;
+      border-radius: 10px;
+      background: #fff;
+      color: #59455f;
+      font: inherit;
+    }
+
+    .password-input:focus-visible {
+      outline: 3px solid #bd91c5;
+      outline-offset: 2px;
+    }
+
+    .login-error {
+      min-height: 1.5em;
+      margin: 12px 0 0;
+      color: #a33f63;
+      font-size: 0.9rem;
+    }
+
+    .security-note {
+      margin: 16px 0 0;
+      color: #9c8b9e;
+      font-size: 0.76rem;
+      line-height: 1.55;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #a17eaa;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: #70577b;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.4rem, 8vw, 3.8rem);
+      font-weight: 500;
+    }
+
+    .prompt {
+      margin: 14px 0 0;
+      color: #8d7993;
+      font-size: 1rem;
+    }
+
+    .mailbox {
+      position: relative;
+      width: min(100%, 410px);
+      height: 310px;
+      margin: 30px auto 0;
+      perspective: 1000px;
+    }
+
+    .letter {
+      position: absolute;
+      z-index: 1;
+      top: 20px;
+      left: 8%;
+      width: 84%;
+      height: 242px;
+      padding: 24px 23px;
+      overflow: auto;
+      border: 1px solid #f1d9e8;
+      border-radius: 16px;
+      background: #fffdfd;
+      box-shadow: 0 10px 28px #8d66841a;
+      text-align: left;
+      pointer-events: none;
+      transform: translateY(120px) scale(.93);
+      transition: transform 800ms cubic-bezier(.2, .8, .2, 1);
+      scrollbar-color: #dfc3df transparent;
+      scrollbar-width: thin;
+    }
+
+    .letter h2 {
+      margin: 0 0 12px;
+      color: #a56d91;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.35rem;
+      font-weight: 500;
+    }
+
+    .letter p {
+      margin: 0;
+      color: #68566c;
+      font-size: 0.98rem;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .envelope {
+      position: absolute;
+      z-index: 2;
+      right: 0;
+      bottom: 4px;
+      left: 0;
+      height: 210px;
+      overflow: hidden;
+      border-radius: 15px;
+      background: #e9c9de;
+      box-shadow: 0 20px 44px #81648624;
+    }
+
+    .envelope-back {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(145deg, #f2dce9, #e6c6df);
+    }
+
+    .flap {
+      position: absolute;
+      z-index: 4;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 110px;
+      background: #f4d8e8;
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      transform-origin: top center;
+      transition: transform 700ms ease, opacity 450ms ease;
+      backface-visibility: hidden;
+    }
+
+    .pocket {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      background: linear-gradient(145deg, transparent 49.5%, #e8c5dc 50%),
+        linear-gradient(215deg, transparent 49.5%, #f1d5e5 50%);
+      clip-path: polygon(0 0, 50% 57%, 100% 0, 100% 100%, 0 100%);
+    }
+
+    .seal {
+      position: absolute;
+      z-index: 5;
+      top: 85px;
+      left: 50%;
+      display: grid;
+      width: 48px;
+      height: 48px;
+      place-items: center;
+      border: 1px solid #d5a5c5;
+      border-radius: 50%;
+      background: #fff1f7;
+      color: #c17fa9;
+      font-size: 1.35rem;
+      transform: translateX(-50%);
+      transition: opacity 250ms ease;
+    }
+
+    .open .letter {
+      z-index: 3;
+      pointer-events: auto;
+      transform: translateY(-20px) scale(1);
+    }
+
+    .open .flap {
+      z-index: 0;
+      opacity: 0.4;
+      transform: rotateX(180deg);
+    }
+
+    .open .seal {
+      opacity: 0;
+    }
+
+    .toggle {
+      min-width: 154px;
+      min-height: 48px;
+      margin-top: 20px;
+      padding: 12px 22px;
+      border: 0;
+      border-radius: 999px;
+      background: #bd91c5;
+      box-shadow: 0 7px 18px #9b70a633;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      transition: transform 180ms ease, background 180ms ease;
+    }
+
+    .toggle:hover {
+      background: #aa7fb4;
+      transform: translateY(-2px);
+    }
+
+    .toggle:focus-visible {
+      outline: 3px solid #82588c;
+      outline-offset: 4px;
+    }
+
+    .privacy {
+      max-width: 360px;
+      margin: 24px auto 0;
+      color: #9c8b9e;
+      font-size: 0.78rem;
+      line-height: 1.6;
+    }
+
+    .diary-link {
+      display: flex;
+      width: fit-content;
+      align-items: center;
+      justify-content: center;
+      margin: 12px auto 0;
+      text-decoration: none;
+    }
+
+    @media (max-width: 420px) {
+      .scene {
+        padding-inline: 8px;
+      }
+
+      .mailbox {
+        height: 290px;
+      }
+
+      .letter {
+        height: 225px;
+        padding: 20px 17px;
+      }
+
+      .envelope {
+        height: 195px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="scene">
+    <section class="login-panel" id="login-panel" aria-labelledby="login-title">
+      <p class="eyebrow">a little something</p>
+      <h1 id="login-title">A Little Note</h1>
+      <p class="dedication">This website is only dedicated to Setael. Only she knows the password.</p>
+      <form id="login-form">
+        <label class="password-label" for="password">Enter the password to open your note</label>
+        <input class="password-input" id="password" name="password" type="password" autocomplete="current-password" required>
+        <button class="toggle" type="submit">Continue</button>
+        <p class="login-error" id="login-error" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <div id="envelope-content" hidden>
+      <p class="eyebrow">a little something</p>
+      <h1>A Little Note</h1>
+      <p class="prompt">Whenever you're ready, open the envelope.</p>
+
+      <section class="mailbox" id="mailbox" aria-label="An envelope containing a note">
+        <article class="letter" id="letter" aria-hidden="true">
+          <h2>dear, mako, my shen setael!</h2>
+          <p id="message">happy 23rd! first of all, i want to start this message by saying na thank you. thank you for everything that you gave me, you made me experience things na i never knew na nag-exist pala to na mga bagay. i really can tell, i am never going to hide it, nor ignore it nga i learned a lot from you. you are the most person alive that i know.
+
+i learned how to be open and be myself because you thought me na kahit lalaki ko, kahit mahadlok ko, tao man gihapon ko. i really love you, i really do. i can proudly tell everyone, and i did na palangga kaayo ko nimo, kay Nakita nako kung unsa nimo na pag show sa akoa, even sa imohang pamilya imoha kong gipaglaban and i know nga palangga jud kayo ko nimo, na love kayo ko nimo.
+
+the reason why i can't stop myself from loving you gud, because you are the most pure person i know, the softest, caring, and loving person. i see you as you, my shen setael, ang bb nako and bb sa imohang family. every time i think about this gud kay ang mag flash lang sa akoang mind and eyes kay ang little you, nag eat ka ice cream, holding a scorpion, feeding an animal, nag sit ka with your short hair and luyang sa imohang hand, a lot of version nimo na little you. do you remember ba sa brgy, when i told you na i am always so proud you, the reason why i said that was because i know kung unsa ang imohang kaya and never tika gina-view as an object na always lang mag ascend and bawal ka makapoy, bawal ko mag stop kasi you are a person man, you are shen setael, but i view you as shen setael nga allowed mag take ug rest, nga allow mag slack off, ng allowed ang tanan buhaton kasi dili man mag matter ang opinion sa uban. you can do whatever you want, you can always take a rest.
+
+always remember, my shen setael nga i am always so proud of you, never sa akoang life nga nag doubt ko sa imoha, gimaliit tika. saksi ko sa tanan nimong achievements and proud kayo ko kasi you achieved those and sa mga muabutay pa, i am going to be always so proud of you. just always remember na you can always take a rest and listen sa imohang self. you are a person, not a machine nga dapat i-satisfy ang gina-think sa uban tao, you are still shen setael nga if naa man something mahitabo sa imoha performance walay mausab sa imoha kasi that won't make you less of a person, you are always going to be shen setael. if everything and everyone man kay talikuran ka, you have raneb, you have vren nga always mag offer ug shoulder for you to lean on. up until now, i am never going to judge you, i never judged you sa bisan unsa man nga nahitabo.
+
+do always remember na you still have me, despite everythat that happened to us, i never hated you, i never blamed you for anything. if everything's foggy and baffling, just reach out to me, you know where to find me. 
+
+do always know na, i love you sooo so much with all that i am. i love you permanently. i am here to love you today, to love you tomorrow, and every tomorrow after that.
+
+you are like the view of a mountain's peak, a living beautiful scenery.
+
+i want to say sorry for what i did sa imoha, for physically harassing you, for affecting your mental health din. i know and i am aware na mali ang akoang gibuhat, sakit ang akoang approach na gibuhat sa imoha and i really crossed everything kaya naabot ta sa ing-ani. i sincerely apologize for what i did, mako. i am not hoping for a forgiveness na mahatag dayon, i am going to work for it. i understand how you feel and i know kung bakit ing-ato imohang reaction sa akoa.
+
+i never hated your family din kasi i know how much they care for me and all the things din na ginahatag nila sa akoa was pagpangga. i am really sorry for all of this, mako.
+
+to be honest, i am still hoping for us hantod karon, after everything that happened. i know aware ko na wala na koy mabuhat and aware din ko na sala nako ang tanan, mali nako kaya nag-stop ta and dawat nako na, pero dili jud na mawala sa akoa nga mag hope ko sa imoha like i always say sa imoha, that's just who you are, dili nako kaya na i-unlove ka and never nako pud itry kasi para sa imoha man ning tanan. i really love you so much with all my heart, mako.
+
+always remember lang jud na naa kay ako nga andam maminaw always sa imoha and if i will have my chance again, i am going to use this para dili na mahitabo ang tanan again.
+
+ayaw lang kalimot, you have the pouch man if mag sakit ang puson, you have your medkit if magkasakit, not too much ang consumption kasi magsakit ang kilid, ayaw kayo pag inom ug kape kay maglisod ka ug sleep, kapag dili makatulog mag reach out sa akoa and i am going to be there for you. i love you!
+
+i hope you are going to do well lang always, dont forget to eat your meals on time and sa pag take care sa imohang sarili. i know kaya na nimo, kayanon nato ning dalawa.
+
+happy 23rd, mako! 1 more month nalang 2nd year na nato.
+
+i love you sooo so much, your lover, raneb <3 </p>
+        </article>
+        <div class="envelope">
+          <div class="envelope-back" aria-hidden="true"></div>
+          <div class="flap" aria-hidden="true"></div>
+          <div class="pocket" aria-hidden="true"></div>
+          <div class="seal" aria-hidden="true">♥</div>
+        </div>
+      </section>
+
+      <button class="toggle" id="toggle" type="button" aria-expanded="false" aria-controls="letter">
+        Open the envelope
+      </button>
+      <a class="toggle diary-link" id="diary-link" href="diary.html">Open the diary</a>
+      <button class="toggle" id="logout" type="button">Log out</button>
+      <p class="privacy">Login outcomes and clicked controls are saved only in this browser, not shared across devices. Passwords and typed text are never recorded.</p>
+      <p id="log-status" class="privacy" role="status" aria-live="polite"></p>
+    </div>
+  </main>
+
+  <script src="activity-log.js"></script>
+  <script>
+    const loginForm = document.getElementById("login-form");
+    const passwordInput = document.getElementById("password");
+    const loginError = document.getElementById("login-error");
+    const loginPanel = document.getElementById("login-panel");
+    const envelopeContent = document.getElementById("envelope-content");
+    const mailbox = document.getElementById("mailbox");
+    const letter = document.getElementById("letter");
+    const toggle = document.getElementById("toggle");
+    const logoutButton = document.getElementById("logout");
+    const logStatus = document.getElementById("log-status");
+
+    if (localStorage.getItem("note-access-granted") === "true") {
+      loginPanel.hidden = true;
+      envelopeContent.hidden = false;
+    }
+
+    loginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (passwordInput.value !== "0713#Sachel!") {
+        window.logActivity("Login failed", "Main note");
+        loginError.textContent = "That password doesn't match. Please try again.";
+        passwordInput.select();
+        return;
+      }
+
+      loginError.textContent = "";
+      window.logActivity("Login succeeded", "Main note");
+      localStorage.setItem("note-access-granted", "true");
+      loginPanel.hidden = true;
+      envelopeContent.hidden = false;
+      toggle.focus();
+    });
+
+    toggle.addEventListener("click", () => {
+      const isOpen = mailbox.classList.toggle("open");
+      if (isOpen) {
+        window.logActivity("Opened envelope");
+        logStatus.textContent = "";
+      }
+      toggle.setAttribute("aria-expanded", String(isOpen));
+      toggle.textContent = isOpen ? "Close the envelope" : "Open the envelope";
+      letter.setAttribute("aria-hidden", String(!isOpen));
+    });
+
+    logoutButton.addEventListener("click", () => {
+      window.logActivity("Logged out", "Main note");
+      localStorage.removeItem("note-access-granted");
+      mailbox.classList.remove("open");
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.textContent = "Open the envelope";
+      letter.setAttribute("aria-hidden", "true");
+      envelopeContent.hidden = true;
+      loginPanel.hidden = false;
+      passwordInput.value = "";
+      loginError.textContent = "";
+      passwordInput.focus();
+    });
+
+  </script>
+</body>
+</html>

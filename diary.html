@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fcf5ff">
+  <title>A Little Diary</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+      color: #59455f;
+      background: #fcf5ff;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      padding: 40px 16px;
+      background:
+        radial-gradient(ellipse at 18% 18%, #fff 0, transparent 34%),
+        radial-gradient(ellipse at 84% 78%, #f9dff0 0, transparent 36%),
+        linear-gradient(135deg, #f8efff, #fff4f7 55%, #f2eaff);
+    }
+
+    .login-panel, .diary-page {
+      width: min(100%, 850px);
+      margin: 0 auto;
+      padding: 30px;
+      border: 1px solid #f1d9e8;
+      border-radius: 20px;
+      background: #fffdfd;
+      box-shadow: 0 16px 42px #8d66841a;
+    }
+
+    .login-panel {
+      max-width: 430px;
+      text-align: center;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #a17eaa;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: #70577b;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2rem, 7vw, 3rem);
+      font-weight: 500;
+    }
+
+    .password-label {
+      display: block;
+      margin: 20px 0 8px;
+      color: #70577b;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .password-input {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 14px;
+      border: 1px solid #d9bfdc;
+      border-radius: 10px;
+      background: #fff;
+      color: #59455f;
+      font: inherit;
+    }
+
+    .password-input:focus-visible, .envelope-button:focus-visible, .button:focus-visible {
+      outline: 3px solid #82588c;
+      outline-offset: 3px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 46px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 14px;
+      padding: 10px 20px;
+      border: 0;
+      border-radius: 999px;
+      background: #bd91c5;
+      box-shadow: 0 7px 18px #9b70a633;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .button:hover {
+      background: #aa7fb4;
+    }
+
+    .login-error {
+      min-height: 1.5em;
+      margin: 12px 0 0;
+      color: #a33f63;
+    }
+
+    .security-note, .privacy {
+      color: #9c8b9e;
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+
+    .security-note {
+      margin: 18px 0 0;
+    }
+
+    .intro {
+      margin: 10px 0 24px;
+      color: #8d7993;
+      line-height: 1.6;
+    }
+
+    .photo-gallery {
+      margin: 30px auto 36px;
+      text-align: center;
+    }
+
+    .photo-gallery h2 {
+      margin: 0 0 14px;
+      color: #a56d91;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+
+    .slideshow-frame {
+      position: relative;
+      width: min(100%, 340px);
+      aspect-ratio: 1.59 / 1;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid #f1d9e8;
+      border-radius: 16px;
+      background: #f8efff;
+      box-shadow: 0 12px 28px #8d668426;
+    }
+
+    .slideshow-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      opacity: 0;
+      transition: opacity 700ms ease;
+    }
+
+    .slideshow-image.is-visible {
+      opacity: 1;
+    }
+
+    .slideshow-dots {
+      display: flex;
+      min-height: 28px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 8px auto 0;
+    }
+
+    .slideshow-dot {
+      flex: 0 0 8px;
+      width: 8px;
+      height: 8px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: #d9c6df;
+      cursor: pointer;
+      transition: background 250ms ease, transform 250ms ease, width 250ms ease;
+    }
+
+    .slideshow-dot:hover {
+      transform: scale(1.2);
+    }
+
+    .slideshow-dot.is-active {
+      flex-basis: 20px;
+      width: 20px;
+      border-radius: 999px;
+      background: #a56d91;
+    }
+
+    .slideshow-dot:focus-visible {
+      outline: 3px solid #82588c;
+      outline-offset: 4px;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .slideshow-status {
+      min-height: 1.6em;
+      margin: 10px 0 0;
+      color: #8d7993;
+      font-size: 0.9rem;
+    }
+
+    .entries {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+      gap: 18px;
+    }
+
+    .entry {
+      overflow: hidden;
+      padding: 20px;
+      border: 1px solid #f1d9e8;
+      border-radius: 16px;
+      background: linear-gradient(145deg, #fff, #fff8fb);
+      text-align: center;
+    }
+
+    .entry h2 {
+      margin: 0 0 14px;
+      color: #a56d91;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.25rem;
+      font-weight: 500;
+    }
+
+    .letter {
+      position: relative;
+      z-index: 2;
+      margin: 0 auto -12px;
+      padding: 16px;
+      border: 1px solid #f1d9e8;
+      border-radius: 12px;
+      background: #fffdfd;
+      box-shadow: 0 8px 20px #8d66841a;
+      text-align: left;
+      animation: letter-in 350ms ease both;
+    }
+
+    .letter p {
+      margin: 0;
+      color: #68566c;
+      line-height: 1.7;
+      overflow-wrap: anywhere;
+    }
+
+    .envelope-button {
+      position: relative;
+      display: grid;
+      width: min(100%, 230px);
+      min-height: 130px;
+      margin: 0 auto;
+      padding: 0;
+      place-items: center;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: #70577b;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .envelope-art {
+      position: absolute;
+      inset: 12px 0 0;
+      overflow: hidden;
+      border-radius: 12px;
+      background: var(--envelope-base);
+      box-shadow: 0 12px 24px #81648624;
+    }
+
+    .envelope-flap {
+      position: absolute;
+      z-index: 2;
+      inset: 0 0 auto;
+      height: 66%;
+      background: var(--envelope-flap);
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      transform-origin: top center;
+      transition: transform 450ms ease;
+    }
+
+    .envelope-pocket {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      background: linear-gradient(145deg, transparent 49.5%, var(--envelope-pocket) 50%),
+        linear-gradient(215deg, transparent 49.5%, var(--envelope-flap) 50%);
+      clip-path: polygon(0 0, 50% 58%, 100% 0, 100% 100%, 0 100%);
+    }
+
+    .envelope-seal {
+      position: absolute;
+      z-index: 4;
+      top: 41%;
+      left: 50%;
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border: 1px solid #ffffff99;
+      border-radius: 50%;
+      background: #fff8;
+      color: #a56d91;
+      transform: translateX(-50%);
+      transition: opacity 200ms ease;
+    }
+
+    .envelope-label {
+      position: relative;
+      z-index: 5;
+      align-self: end;
+      margin: 0 0 4px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-shadow: 0 1px 5px #fff9;
+    }
+
+    .envelope-button[aria-expanded="true"] .envelope-flap {
+      transform: rotateX(180deg);
+    }
+
+    .envelope-button[aria-expanded="true"] .envelope-seal {
+      opacity: 0;
+    }
+
+    .entry-pink {
+      --envelope-base: #e7bfd3;
+      --envelope-flap: #f0d2e1;
+      --envelope-pocket: #ddaec6;
+    }
+
+    .entry-lavender {
+      --envelope-base: #d3c3e6;
+      --envelope-flap: #e5daf0;
+      --envelope-pocket: #c1addb;
+    }
+
+    .message-modal {
+      width: min(calc(100% - 32px), 480px);
+      max-height: min(90vh, 760px);
+      padding: 28px;
+      overflow: auto;
+      border: 1px solid #f1d9e8;
+      border-radius: 20px;
+      background: #fffdfd;
+      box-shadow: 0 24px 70px #59455f40;
+      color: #59455f;
+    }
+
+    .message-modal::backdrop {
+      background: #47344e99;
+      backdrop-filter: blur(4px);
+    }
+
+    .message-modal h2 {
+      margin: 0;
+      color: #70577b;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.7rem;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .modal-envelope {
+      position: relative;
+      margin-top: 24px;
+      padding-bottom: 12px;
+    }
+
+    .modal-letter {
+      position: relative;
+      z-index: 2;
+      width: 90%;
+      min-height: 100px;
+      margin: 0 auto -28px;
+      padding: 18px;
+      border: 1px solid #f1d9e8;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 8px 20px #8d668426;
+      animation: letter-in 350ms ease both;
+    }
+
+    .modal-letter p {
+      margin: 0;
+      color: #68566c;
+      line-height: 1.75;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .modal-envelope-art {
+      position: relative;
+      z-index: 1;
+      height: 150px;
+      overflow: hidden;
+      border-radius: 14px;
+      background: var(--envelope-base, #e7bfd3);
+      box-shadow: 0 12px 24px #81648624;
+    }
+
+    .modal-envelope-flap {
+      position: absolute;
+      z-index: 2;
+      inset: 0 0 auto;
+      height: 68%;
+      background: var(--envelope-flap, #f0d2e1);
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      transform: rotateX(180deg);
+      transform-origin: top center;
+    }
+
+    .modal-envelope-pocket {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      background: linear-gradient(145deg, transparent 49.5%, var(--envelope-pocket, #ddaec6) 50%),
+        linear-gradient(215deg, transparent 49.5%, var(--envelope-flap, #f0d2e1) 50%);
+      clip-path: polygon(0 0, 50% 58%, 100% 0, 100% 100%, 0 100%);
+    }
+
+    .modal-close {
+      display: flex;
+      width: fit-content;
+      margin: 18px auto 0;
+    }
+
+    .privacy {
+      margin: 24px 0 0;
+      text-align: center;
+    }
+
+    @keyframes letter-in {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .login-panel, .diary-page {
+        padding: 22px 16px;
+      }
+
+      .message-modal {
+        padding: 22px 18px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="login-panel" id="login-panel">
+    <p class="eyebrow">A Little Diary</p>
+    <h1>Log in</h1>
+    <form id="login-form">
+      <label class="password-label" for="password">Enter the password to view the diary</label>
+      <input class="password-input" id="password" name="password" type="password" autocomplete="current-password" required>
+      <button class="button" type="submit">Continue</button>
+      <p class="login-error" id="login-error" role="status" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <main class="diary-page" id="diary-page" hidden>
+    <p class="eyebrow">a little something, just for you</p>
+    <p class="intro">i will update this website about what happens to my day, it may not be everyday, but will make sure na every week naay masulod.</p>
+    <h1>A Little Diary</h1>
+    <p class="intro">Choose an envelope to open one little message.</p>
+
+    <section class="photo-gallery" aria-label="Photos from the Sachel folder">
+      <h2>Photos</h2>
+      <div class="slideshow-frame" aria-roledescription="carousel">
+        <img class="slideshow-image" id="slideshow-image-1" alt="">
+        <img class="slideshow-image" id="slideshow-image-2" alt="">
+      </div>
+      <div class="slideshow-dots" id="slideshow-dots" role="group" aria-label="Choose a photo"></div>
+      <p class="slideshow-status visually-hidden" id="slideshow-status" role="status" aria-live="polite">Loading photos...</p>
+    </section>
+
+    <section class="entries" aria-label="Diary messages">
+      <!-- Edit each h2 to change the box title and each hidden paragraph to change its message. -->
+      <article class="entry entry-pink">
+        <h2 id="title-1">10-28-2026</h2>
+        <p id="message-1" hidden>the day started because i missed an exam last week, our prof told me na he will only cater exams and queries sa morning lang. so, i woke up early para maka punta there and maka take ug exam sa major. sadly, i wasn't able to take it kasi natungnan nga naa mi klase online from 9am to 12nn kaya i stayed in front sa laran and registrar para maki wifi kasi wala na ko naka connect sa alumni(they changed the password). after sa amoang class, our prof messaged sa gc na there will be a quiz at 1:30pm for 30mins, but because my phone is so slow, and paspas mag drain ah battery, i was already lowbat at that time tungod sa online class, i even left the olc before it ended kay mamatay na ang phone. kaya nag message ko sa imoha to borrow a device na ma-use nako for the quiz, then i saw you outside naa ka gipalit na clip something sa tindahan, you saw me din with a glare, your eyes locked on me with anger inside you. then my message was delivered sa imohang messenger means you already read it, tapos nag labas ka again to get tubig. after a while, you went outside with jangjang to get inside the school without looking at me. i don't know what's gotten into me, clean na man sana nga ang answer nimo sa akoa is no, i disregarded the signs and still rushed to talk to you. i was so lost ato, i hurt you by forcing you and made you feel scared. i saw your eyes full of fear and you almost cried because of what i did, yet i still pushed myself na makig-talk sa imoha. tbh, i really don't know why nako gi insist ang talk nga device lang man sana to. after moments of pushing you, i finally got a hold of myself nga mali ang akoang ginabuhat kaya i immediately said sorry then walked out. i looked back a couple of times and i saw you struggling with fear.
+
+i want to come closer and help, assure you, say sorry sa akoang gibuhat, but i know na doing that will just make you feel more scared. so, i just looked at you with jangjang and waited for you to get inside the school before i left papunta sa kanto para mag sakay papunta sa bh. 
+
+naka sakay ko pedicab, paid 50 pesos and didn't really care kung pila akoa ma-gasto basta mapag-isa lang ko kasi i want to asses my actions, i want to think about what i did, i want to know why i lost my control sa akoang sarili. pag abot nako sa bh, i immediately took off my clothes with only my shorts on kasi i feel like i am going to suffocate. i fixed the fan and started it tapos nag yaka ko sa floor. i started crying right away kasi nag flashback ang imohang reaction ato na time and ang nabuo ra sa akoang mind ato was "she's so scared of me", i then wrote a message sa imoha asking for forgiveness, i was aware pud na that won't do anything but to just let you know na i am sober and calm ato na time na kasi i really know na mali akoang gibuhat, i went over the line and make you experience a traumatic event, which i am never going to do again if ever man. if makita man nako ikaw sa school, managad lang ko then if you don't want to see my face, i will gladly accept that kasi tanggap nako kay ako ang mali sa nahitabo. 
+
+i then decided to stay there and wait for you. the night before that day kay i went to your bh, waited outside for 2days. on the first day, naka borrow kog motor and you didn't labas for me and you also started to ignore me na man before that pa. i was thinking lang na maybe we can talk about it kasi you said na you want to think muna, i wanted to know kung unsa imoha na think ato na time po sana. so at around 4am, daghan na mga tao sa labas, kaya i decided to go home. i went to bh hoping na naa ka there, pero i was disappointed kasi wala ikaw. ang thought process lang ana is i was rooting for something kasi my birthday was coming na(i am writing this at 10/30 5:23am currently) so like last year, you went out on your own and surprised me and that continued until 10/28. gina think nako na basi naa kah plano to surprise me. 
+
+so i waited until before midnight na mag sugat sa akoa birthday, mga around 11pm, i went outside sa may highway kasi para ma sugat ra tika if ever man muadto ka and until it was midnight na 00:00am october 29, 2026 without you. i felt a lot of kirot, super lipong, and labad sa ulo kasi walay koy eat for 3 whole days tungod gina try nako mag eat but i feel like i-suka ra nako and akoa burp kay lasang suka pud. so i decided to walk pauwi knowing na you're not gonna see me and greet me sa akoang birthday, while walking namantay gihapon ko sa mga mangagi kasi i was hoping na basin late ra ka kay walay masakyan. while walking, tears were bursting through my eyes and it was hard to breathe, but i continued to walk lang. naabot ko sa tulay where we walked papunta sa bingkahan and sang to myself a happy birthday, "happy birthday to me" while my tears are falling. i was glad lang i was able to save myself from being consumed by pain kasi nanghina jud ko atog taman, i was about to fall sa tulay, but nakalingkod ko daplin sa dalan, i did not mind the trucks na mag agi-agi kaysa mahulog ko didto and i don't want anything to happen sa akoa kasi for sure i know na saimoha maduot tanan, even if aware ka nga wala kay mali i know kung unsa imohang ma feel. moments later, nag tindog ko and wala gihapon ko nag stop ug cry then naabot ko sa kanto cinco tapos nag cry pa ko even more kasi ang last date nato there was my birthday pa, naglipat kasi ta didto sa lyr dapit and karon na day wala ikaw sa akoa birthday. pag uwi nako, i stayed up late lang gihapon kay naa pa may 2:04am hantod naabtan kog 4-5am nag message and wait sa imoha. naka mata ko 6-7 pero lowbat akoang phone kaya 9 na ko naka phone snd gina distract lang nako akoang sarili.</p>
+        <button class="envelope-button" type="button" aria-haspopup="dialog" aria-controls="message-dialog" aria-labelledby="title-1 action-1" data-message="message-1">
+          <span class="envelope-art" aria-hidden="true"><span class="envelope-flap"></span><span class="envelope-pocket"></span><span class="envelope-seal">♥</span></span>
+          <span class="envelope-label" id="action-1">Open this envelope</span>
+        </button>
+      </article>
+
+      <article class="entry entry-lavender">
+        <h2 id="title-2">10-29-2026</h2>
+        <p id="message-2" hidden>my birthday, so ayon, to kill time i did a lot of things kasi i checked your schedule and i remembered na 5pm pa mahuman imoha klase(was not aware na nag uwi ka after sa klase atong gahapon because of what happened) and naa ra gihapon sa akoa mind na basi naa gihapon ka plans for my birthday since it's still not too late man. went to pogz to answer quizzes tapos daghan kaayo tao snd i was still distracted kay kahilakon gihapon ko. nag uwi ko around 12 then prep and everything para mag adto sa bh, nagpahatod ko kang papa sa gmall para dili sila makabalo kung asa ko mag-adto, they thought we are going  for a date. went to bh and then nag wait like what i did the day before until nag chat si myles, nakalma ko and nisabot kasi lahi siya kang kikay makig-istorya then she told me na nag uwi na diay ka(mao ni nakapakalma sa akoa kasi ambot i feel like you're with your fam, at least safe ka and less ang fear sa akoa). i was still waiting for your greetings until 2:04am and nothing came, i understood. i found myself earlier that day na blocked na sa tanan social medias and i have a lot of emails pud sa imoha and i hope naga read ikaw atong tanan. mali kaayo nako kasi i am still pushing myself knowing na you have fear inside you. 
+
+after waiting till 2:04, i walked papuntang pogz with tears flowing through my ears, tried to play valo using my main account and i also found out na you blocked or unfriended me sa account nato kaya i added you sa main nako na account(first time opening my account after idk). nahuman ko around 4-5am then right after pag labas nako sa kanto sa um nihilak dayon ko kay narealize agad na dili gihapon diay ko maka-takas. a lot of realizations and i just keep on saying na "shen setael" while crying until naka uwi nalang ko. now, i am writing this diary of myself, para ni sa everyday and i am using this conversation muna sa messenger kay wala pa koy diary na physical for me to write these and give sa imoha kapag mag meet na ta. i just decided na i am never going to spend my birthday without you, so simply, wala ko nag celebrate kay wala man ikaw.
+
+its october 30 na, mamaya na pud again. i have work at 10am kasi padutyhon kog early. i still have you in my mind, i am still crying. 
+
+i am going to do better and be a better person, i am going to make that fear go away, my baba. pasensiya kaayo po for pushing myself and for stressing you out. ill be a look out sa imohang life. i am your number 1 fan, my favorite 13
+
+i never have a single hate sa imoha. i still love you so much, baba. i am always going to root for you always. i love you permanently with all the strings attached. i miss you</p>
+        <button class="envelope-button" type="button" aria-haspopup="dialog" aria-controls="message-dialog" aria-labelledby="title-2 action-2" data-message="message-2">
+          <span class="envelope-art" aria-hidden="true"><span class="envelope-flap"></span><span class="envelope-pocket"></span><span class="envelope-seal">✦</span></span>
+          <span class="envelope-label" id="action-2">Open this envelope</span>
+        </button>
+      </article>
+
+      <article class="entry entry-pink">
+        <h2 id="title-3">10-30-2026</h2>
+        <p id="message-3" hidden>i want to create a maribank account and apply sa card kasi makita nako daghan kaayog cashbacks and i want to ipon para sa atoang dalawa. sorry, still hoping for us and dili ni siya mawala, i am sure. sabay ta mag shopping mag bili sa atoang mga needs sa bh. pag labas nako sa bahay, lola asked me kung ako lang ba daw isa, she was looking for you ngano daw wala tika giuban. another wave nadin sa akoa na naa jud urge to message you nonstop, i feel like I don't do that mag numb akoang whole body sa sakit. i really love you, mako. dili nako kaya na mawala ka sa akoa. i am sorry i lost you. talked to your mama, but i was being careful lang pud sa pag say ug sorry kasi i don't know what imoha gi ingon sa ilaha. i can see din na they are mad at me. i am really sorry, mako.
+
+pag alis nako sa balay off to work, mama was crying kasi nawala iyahang 500 and pang bayad sana to sa interest sa laptop. kagabi, giapas ko niya sa pogz and she asked me if ako ba ang nagkuha and i said no, kasi wala man ko nagpasok sa room nila and i had no idea nga naay kwarta didto. she then asked me again pagka morning multiple times if gikuha ba nako and then nahpadungog dungog sila nga i-uli lang daw. wala may lain tao didto kasi nag work si claudette ato na time and then asleep siya atong gi-ingon to nila kaya ako ang ilahang pasabot ato. but okay lang, sanay na man ko sa ing-ato sakit lang pud makita si mama murag mabuang hinilak. 
+
+i arrived at 10am-ish here sa work and then nag clean ko again, refill sa food and drinks tapos mag take ko ug rest here since wala koy sleep. ive been trying to get some sleep pero more on palpitations akoang mafeel para sana hindi exhausting ang tanan. talked to liemarc sa kitchen and i think dili jud siya maka help kasi lala iyang kalintura and pamaol. right when i entered the court, nag burst out agad ang tears, sudden lang siya kasi i am alone man. i am crying din karon while writing this message and while nah send ko sa imoha email.
+
+wala naka rest kasi nag kuha sa mga karton, ipangbaligya na ang mga nakatambak here. hay, i want to cry right now ba gimingaw man jud kaayo ko oy, every second na mag pass kay mag sakit ra akoang heart kay wala ka sa akoa. 
+
+i still feel the same, wala koy lain ma-feel but pain and sa pagka mingaw sa imoha.
+
+sleepy pero ga palpitate kayo.
+
+nanglimpyo early kasi early nahuman ang customers and then pagkahuman kay nagpasundo ko ni papa tapos nagdala lang kog ulam for dinner kasi if ever man na gutomon naa koy makaon.
+
+im still looking at our pics, i miss you so much.
+
+i am waiting for you hoping na we can play valo together, mahal ko.</p>
+        <button class="envelope-button" type="button" aria-haspopup="dialog" aria-controls="message-dialog" aria-labelledby="title-3 action-3" data-message="message-3">
+          <span class="envelope-art" aria-hidden="true"><span class="envelope-flap"></span><span class="envelope-pocket"></span><span class="envelope-seal">♥</span></span>
+          <span class="envelope-label" id="action-3">Open this envelope</span>
+        </button>
+      </article>
+
+      <article class="entry entry-lavender">
+        <h2 id="title-4">10-31-2026 email</h2>
+        <p id="message-4" hidden>hello, shen setael. 
+
+it's me, raneb. i want to grow as a person and be the raneb na you know. i am here because nagsisi ko sa tanan nako na binuhatan. really, i cant live without you, it's like impossible to breathe na dili gina think na kailangan mag breathe. i always find you in every corner of whatever i am doing and wherever i go. when i sit lang pud, i just cry kasi i think about you man, kapag mag phone pud ko sa imoha ra pud ko padulong like karon nag message ko sa imoha. lisod kaayo ang tanan kapag wala ka. 
+
+i am never going to give you a farewell message, i can never let myself na mawala ka. 
+
+future is ahead with you, future is planned and secured with you. 
+
+mako, i really am sorry for harassing you, wala nako gihuna-huna ang akoang actions towards you kaya naa ta diri karon. i made you feel the fear ns dili nimo gusto ma-feel. pasensiya jud kaayo sa akoang pagpamugos, baba. i am here karon, willing ko mag wait for you kung kanus-a man ta paburan. dili nako gusto sayangan pa ang chance na gihatag, dili nako gusto na mawala pa ikaw sa akoa. i am really sorry for hurting you. i am so sorry in the most sincere way of being sorry. 
+
+i keep on making scenarios of us kung mag talk na ta, the first thing that i would do is hug you and ask for your forgiveness na mapawala nako nang fear inside you para ma-atubang ko nimo always nga walay kahadlok. 
+
+i am going to always hold your hand, walang bibitaw mako. through our ups and downs, let's build our walls together. 
+
+sa kung unsa man ang plano, andam ko always sa imohang kiliran. we have a place to stay na we can use, we can go anywhere you want and i want. let's be together, baba. 
+
+i really really want to talk to you about us, i am not gonna ask you for a chance na pagpamugos, but to earn it by talking to you. 
+
+ali na, palangga. i love you so much. 
+
+reply lang ikaw here or sa messenger, naa ra ko always nag wait sa imoha. bisan dili imohang notification nga sound kay ginacheck gihapon nako kay para makabalo ko if awake ba ka or no. 
+
+i miss you so much, i miss every part of my shen setael. i love you so much, mahal ko</p>
+        <button class="envelope-button" type="button" aria-haspopup="dialog" aria-controls="message-dialog" aria-labelledby="title-4 action-4" data-message="message-4">
+          <span class="envelope-art" aria-hidden="true"><span class="envelope-flap"></span><span class="envelope-pocket"></span><span class="envelope-seal">✦</span></span>
+          <span class="envelope-label" id="action-4">Open this envelope</span>
+        </button>
+      </article>
+
+            <article class="entry entry-pink">
+        <h2 id="title-5">10-31-2026 </h2>
+        <p id="message-5" hidden>i am writing this at 3:47 am on November 1, 2026. my day started at the sound of my alarm at 8:47am, i then checked my phone's notifications to see if i have something from you, but my heart aches when there's nothing but a bunch of scraps. i then messaged you saying na i am going to prep for work and that i have to be early kasi there's a training, but when i arrived sa court, liemarc told me na there's no training for that day kaya nag clean nalang ko sa whole shop and office, then when liemarc went inside kay nag trapo sa whole office and then nag clean sa fan inside sa court, office, and shop. i was also trying to get some sleep pero wala kasi naa mga customers nangabot from time to time when it's supposed to be mingaw. nag try din ko eat ug meal pero i always feel like kasukaon jud kaya naga eat ra kog biscuit and suman tapos wala jud ko batia ug gutom, i feel fine ra man pud and wala ko nag luya so far. 
+
+you messaged ka myles para ipadala sa akoa and it's about the spaylater thingy, you also told me na if i don't stop bothering you, your family will take legal actions para mapa stop lang ko, that hurt me a lot. i made an excuse to go outside tapos i went to the kitchen, nag diretso sa room tapos nag higa ko to cry kasi i really can't hold it in and i needed to cry that time. pero even if that kay never ko nawalaan ug hope na makapag talk pa tayo, i was hoping na sana before mabalik ang klase na makabalik ka sa bh kay makapag talk tayo kasi i really want to personally apologize in front of you kaya i am still here, hopeful. 
+
+as time goes by on that day, you never slipped sa akoa mind, call me weird or what ass-shit pero i keep on going back sa imoha socials with my dump acc. i know na nakabantay ka sa ig kasi imoha siyang gi lock imohang profile. 
+You sent
+i tried my best to refrain myself from  disturbing you, kaya i decided to message myself so that i can feel na i am still talking to you, namasin lang na basin diay imohang i-open ang akoang account then you can still read my messages na para sa imoha
+kapag naa din koy free time, like sa social media, gina open din nako akoa riot and check there if you're playing ba or nakapag play ba ikaw
+Nov 1, 2026, 4:47 AM
+You sent
+at around 4pm, naabot sila king sa court kasi nagpa book sila ni eduard(classmate grade 7) and friends na ka batch ra namo sa techvoc, then naay 3 na from pilot na strand, naa din nasagol na 2 ka girls na i can tell na younger sa amoa/atoa, but I didn't play with them, included lang sila sa group photo kasi they played with them sa ilahang gipa-book na court, they're totally a stranger, i also think na wlw sila dalawa. i am not interested pud sa ilaha, wala din ko wandering eyes kasi every one of them kay they all look the same lang for me, buong-buo sa akoang sarili na ikaw jud ang akoang gusto and ikaw lang ang light sa akoang life, you are the only pretty girl in the whole world. i was also included sa pic kasi we're kaila and friends man and i did not play, king borrowed my shoes pud kasi way sapatos ang buang and bawal ang walay shoes didto mag play, unless staff ka didto. 
+
+at 6pm, queueing starts, dami na agad tao and i stayed lang sa tindahan, why? kasi lima ka bata akoang kailangan bantayan basin manghilabot sila sa mga baligya didto ako ang makasab-an. early din mi nag close ang nanghipos ni liemarc kasi kapoy kaayo and wala man sila coach iaya maka buot-buot ra mig last queue. gi silhigan nako ang office and mop, also the whole court, tapos nag sales sa kita for that day. nag pasundo na din dayon kang papa kay gusto na ko mag uwi para maka emote emote ko and i cried since naka uwi hantod karon. during that time pud kay nag buhat ra ko sa things na mag stalk sa imoha from time to time and check sa riot if open ba ikaw. time check it's 4:42am na and then tomorrow na pud, i am lipong na pero i am not sleepy baba. 
+
+if you're reading this right now, i want to let you know na ikaw ang akoang palangga na shen setael. you are the only person that i want to be with for the rest of my life. i really love you, my shen setael. 
+
+do always know na you are the one that i love, because i am going to love you everyday, tomorrow, and every tomorrow after that. my never ending love for you. 
+
+babye muna for now, i might buy pandesal mamaya for my breakfast, lunch, and maybe dinner. will try to get some rest and eat meals po! i hope na you are doing well karon. mwaaaaa mwa mwaaaa
+
+kalain oy, wala pa gani ko naka sleep kaganina, giyawyawan ko about what i did sa imoha, tho i know man na mali ko wala man ko nangita kakampi and wala amn ko nag ingon na mali to sila pero naa man additional, wala man unta koy gibuhat, birthday na birthday nako tapos niuli rako kadali then ako nay gipasanginlan nga ako ang nagkuha sa 500
+You sent
+"kabalo ko ikaw nagkuha sa 500 ha, tapos imoha rang gi computer wa naka namao" like what do you mean? i was only here sa balay ato for a few moments, i did not even get inside their room and kabalo si sandy ato
+tapos naa sa akoa ang blame
+tapos birthday nako, i did not even receive anything from them
+worst birthday always
+nindot rag naa ka tael
+lain kaayo, mulayas nako diri oy pasanginlan man jud ko pirme bisan walay sala</p>
+        <button class="envelope-button" type="button" aria-haspopup="dialog" aria-controls="message-dialog" aria-labelledby="title-5 action-5" data-message="message-5">
+          <span class="envelope-art" aria-hidden="true"><span class="envelope-flap"></span><span class="envelope-pocket"></span><span class="envelope-seal">✦</span></span>
+          <span class="envelope-label" id="action-5">Open this envelope</span>
+        </button>
+      </article>
+
+      <article class="entry entry-lavender">
+        <h2 id="title-6">11-01-2026</h2>
+        <p id="message-6" hidden>i woke up at around 12nn, nag bangon ko and then nag inom ug coke tapos nag walk ko papunta sa pogz kasi i was planning to work on my capstone sana pero pag abot nako there nag watch lang kog pjs tapos episode 8 na ko, can you believe that? wala lang siya na straight watch per episode kasi nag hapit din ko play ug valo, syempre just to kill time. idk i just want it to be sunday na agad para maka talk na sana ta since tagal na man na since nag reply ka sa akoa atong acquaintance. 
+
+same lang gihapon, spent my time browsing your social media accounts from time to time and check nako ang valo hantod nag 9pm, ayha pako nag uli. niuli ko sa balay to get some sleep tapos nakamata kog 1am, nibalik ra pud kog pogz to do the same thing. wala jud ganap akoang life kasi that's what I've been doing man. play and watch lang ang akoang ginabuhat, 2pm nako naka uwi then sleep tapos karon, 3am ko nag write ani kay mao pa man pag mata nako since 2pm. 
+
+basically, that's my November 1-2. i have a lot sa akoa mind, ill just right a poem about you, kung unsa ikaw sa akoa. i love you and i miss you</p>
+        <button class="envelope-button" type="button" aria-haspopup="dialog" aria-controls="message-dialog" aria-labelledby="title-6 action-6" data-message="message-6">
+          <span class="envelope-art" aria-hidden="true"><span class="envelope-flap"></span><span class="envelope-pocket"></span><span class="envelope-seal">✦</span></span>
+          <span class="envelope-label" id="action-6">Open this envelope</span>
+        </button>
+      </article>
+
+      <article class="entry entry-pink">
+        <h2 id="title-7">Extra Note</h2>
+        <p id="message-7" hidden>nothing happened sa akoang november 3-6, i was just at pogz doing the same thing like atong november 1-2, nag walk lang din ko around digos to places na gina adtoan nato po tapos adto din ko sa bh nato and sa manokan sa imohang bh to ano talk to myself lang
+been there for like 2 times na
+there will be a third one tomorrow
+kanina sa work kay i was talking to maam sharon about you
+she's a mom na and naa siya anak na lalake and babae, both older than us tapos both naa uyab din tapos gipakita nako pics nato together and pics nimo alone
+ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
+😡😡😡😡 shen setael na gud na hmpk</p>
+        <button class="envelope-button" type="button" aria-haspopup="dialog" aria-controls="message-dialog" aria-labelledby="title-7 action-7" data-message="message-7">
+          <span class="envelope-art" aria-hidden="true"><span class="envelope-flap"></span><span class="envelope-pocket"></span><span class="envelope-seal">✦</span></span>
+          <span class="envelope-label" id="action-7">Open this envelope</span>
+        </button>
+      </article>
+
+
+    </section>
+
+    <dialog class="message-modal" id="message-dialog" aria-labelledby="modal-title">
+      <p class="eyebrow">a little message for you</p>
+      <h2 id="modal-title"></h2>
+      <div class="modal-envelope">
+        <div class="modal-letter"><p id="modal-message"></p></div>
+        <div class="modal-envelope-art" aria-hidden="true">
+          <div class="modal-envelope-flap"></div>
+          <div class="modal-envelope-pocket"></div>
+        </div>
+      </div>
+      <button class="button modal-close" id="close-modal" type="button">Close envelope</button>
+    </dialog>
+    
+
+    <p><a class="button" href="index.html">Back to the main envelope</a></p>
+    <p><button class="button" id="logout" type="button">Log out</button></p>
+  </main>
+
+  <script src="activity-log.js"></script>
+  <script>
+    const loginPanel = document.getElementById("login-panel");
+    const diaryPage = document.getElementById("diary-page");
+    const loginForm = document.getElementById("login-form");
+    const passwordInput = document.getElementById("password");
+    const loginError = document.getElementById("login-error");
+    const messageDialog = document.getElementById("message-dialog");
+    const modalTitle = document.getElementById("modal-title");
+    const modalMessage = document.getElementById("modal-message");
+    const closeModalButton = document.getElementById("close-modal");
+    const logoutButton = document.getElementById("logout");
+    const slideshowImages = [
+      document.getElementById("slideshow-image-1"),
+      document.getElementById("slideshow-image-2")
+    ];
+    const slideshowStatus = document.getElementById("slideshow-status");
+    const photoPaths = [
+      "Sachel/010126.png",
+      "Sachel/0126f15d-d460-4dc6-80f2-0b4c2a24afed.jpg",
+      "Sachel/01b36314-d3c6-4bbd-a229-f0067fca2c2c.jpg",
+      "Sachel/0366b9b1-d328-4292-96f4-3ad9716c3db9 (1).jpg",
+      "Sachel/0366b9b1-d328-4292-96f4-3ad9716c3db9.jpg",
+      "Sachel/06a86e1c-1b27-4293-aabb-4c2c85e30bbd.jpg",
+      "Sachel/07af0fc7-be7a-4e2b-9292-7b02746d4e7b.jpg",
+      "Sachel/0b585a57-1ed7-4b9f-ac06-e37b95bbb084.jpg",
+      "Sachel/0cc35493-25eb-4dec-be5d-2bd612d70c2b.jpg",
+      "Sachel/193aad5e-2d83-4ddc-8410-8fcfd7245da0.jpg",
+      "Sachel/195c25f4-126e-4579-b382-6c33f87a77ed.jpg",
+      "Sachel/1st.png",
+      "Sachel/2716b946-8275-431e-a75d-f3071e8902bd.jpg",
+      "Sachel/28079666-1f0f-43de-a9fe-50c146ffb9ff.jpg",
+      "Sachel/42487ddb-7656-43b1-82db-826ee2f9d226.jpg",
+      "Sachel/4962ccc8-f597-4aa3-8319-7cf337352a4a.jpg",
+      "Sachel/4bf1f2c4-c0df-4f15-883c-c6b306841ddd (1).jpg",
+      "Sachel/4bf1f2c4-c0df-4f15-883c-c6b306841ddd.jpg",
+      "Sachel/509edc70-6709-4762-9778-dbf3cd0263af.jpg",
+      "Sachel/55ad9cf1-2934-425f-b15f-f423d54949e8.jpg",
+      "Sachel/5a50dc5e-bc77-40bd-8ead-850f434eea1f.jpg",
+      "Sachel/5b2eb875-5369-4bb3-97af-74b693d82229.jpg",
+      "Sachel/5ba0d1cc-07aa-4d6a-86d7-a138b5097361.jpg",
+      "Sachel/5f0e67e3-c231-474a-a8b3-d9bd7fe239e4.jpg",
+      "Sachel/60325739-0754-48b6-96b0-2939b81dfdbd.jpg",
+      "Sachel/611656256_122239608968154706_2423291302282158935_n.jpg",
+      "Sachel/65f32276-b40d-46d5-a408-63f5e5d515d5 (1).jpg",
+      "Sachel/65f32276-b40d-46d5-a408-63f5e5d515d5.jpg",
+      "Sachel/6818f090-be79-444e-8d2c-949b1a5f7eee.jpg",
+      "Sachel/6905149c-b88b-4d5b-8a88-8f63ee87a2c8.jpg",
+      "Sachel/6d9804f1-1eaa-4c81-842e-cb00a3d1491b.jpg",
+      "Sachel/70fce83c-6ac3-4951-8d8a-f2a594686b01.jpg",
+      "Sachel/710c12cd-d75f-418f-8f36-4739c896bb32.jpg",
+      "Sachel/75ca8fa8-3db7-4120-a670-cde370be71ab.jpg",
+      "Sachel/7697fcb0-013c-4c9b-baa0-a93d31d44951.jpg",
+      "Sachel/7bd3d971-df6e-4d29-8c98-0214e04d8027.jpg",
+      "Sachel/8321f79e-2d6d-47da-a369-d6fbcab5586c.jpg",
+      "Sachel/85e247af-a56c-4c35-9bd8-ea0013e5b393.jpg",
+      "Sachel/8c744b92-61b5-4d35-84f1-e04ca7cc1836.jpg",
+      "Sachel/9386e1d1-22c9-46c8-ac80-8a650f38bd26.jpg",
+      "Sachel/959695ff-4797-432e-923c-3a0ac055206e.jpg",
+      "Sachel/96644244-e853-41c3-b19a-8f8bcfa90a99.jpg",
+      "Sachel/967a8377-20f5-461d-9289-ee5c898bb62b.jpg",
+      "Sachel/998b64da-03f4-484b-b0c9-296be280fa8d.jpg",
+      "Sachel/9c47ba59-27ec-43ac-aff3-e107d48179b8.jpg",
+      "Sachel/9da56432-36b3-4bb2-8be7-74e480ecb655 (1).jpg",
+      "Sachel/9da56432-36b3-4bb2-8be7-74e480ecb655.jpg",
+      "Sachel/A year filled with gentleness and love with setael!.png",
+      "Sachel/Beige Minimal Collage Couple Love Instagram Story.png",
+      "Sachel/ad734dc1-0809-4a50-9fff-b51f25ad48e4.jpg",
+      "Sachel/c47db8e0-b13a-405f-ac6c-df9dfbcb8985.jpg",
+      "Sachel/d483a036-caeb-41d2-b4f8-1e24af96e029.jpg",
+      "Sachel/d484a9fd-c566-4e45-80d1-556659793541.jpg",
+      "Sachel/d4e2dd11-58ae-416c-b64f-d95ce2025223.jpg",
+      "Sachel/da0f35d2-0da3-4369-b33a-40333ee65294.jpg",
+      "Sachel/e200a840-9e97-40f9-be67-6a1245dee166.jpg",
+      "Sachel/e73823ba-cdfd-4bb5-b91f-c5dba5d0f417.jpg",
+      "Sachel/e838a0e3-aeb7-46dc-887f-26fed7f04445.jpg",
+      "Sachel/e88d9cb6-634a-4abd-b321-0855eb03725b.jpg",
+      "Sachel/ec1b5e2a-5ca0-46d5-9b81-ab35e65d3694.jpg",
+      "Sachel/ee4d29e3-4200-43ba-a003-30dd5f358488.jpg",
+      "Sachel/f2d2ab13-42c7-4c73-95b9-81a9d1a987f6.jpg",
+      "Sachel/f5ae032d-e865-40ec-af2c-36e36aeb6e08.jpg",
+      "Sachel/f8eec514-aba3-47de-a9b8-504e8ca33bbb.jpg",
+      "Sachel/fe28a4c1-fccb-4de2-b22e-696b2ca8dbcf.jpg",
+      "Sachel/s1.jpg",
+      "Sachel/s2.jpg",
+      "Sachel/s3.JPG",
+      "Sachel/webcam-toy-photo10.jpg",
+      "Sachel/webcam-toy-photo11.jpg",
+      "Sachel/webcam-toy-photo7.jpg",
+      "Sachel/webcam-toy-photo8.jpg",
+      "Sachel/webcam-toy-photo9.jpg"
+    ];
+    const slideshowDots = document.getElementById("slideshow-dots");
+    const photoDots = photoPaths.map((_, index) => {
+      const dot = document.createElement("button");
+      dot.className = "slideshow-dot";
+      dot.type = "button";
+      dot.setAttribute("aria-label", `Show photo ${index + 1} of ${photoPaths.length}`);
+      dot.addEventListener("click", () => showNextPhoto(1, index));
+      slideshowDots.append(dot);
+      return dot;
+    });
+    const failedPhotos = new Set();
+    let currentPhotoIndex = -1;
+    let activeImageIndex = 0;
+    let photoLoading = false;
+    let slideshowActive = false;
+    let photoTimer;
+
+    function updatePhotoDots() {
+      const visibleDotCount = 7;
+      const firstVisibleDot = Math.max(
+        0,
+        Math.min(currentPhotoIndex - Math.floor(visibleDotCount / 2), photoPaths.length - visibleDotCount)
+      );
+
+      photoDots.forEach((dot, index) => {
+        const isCurrent = index === currentPhotoIndex;
+        dot.hidden = index < firstVisibleDot || index >= firstVisibleDot + visibleDotCount;
+        dot.classList.toggle("is-active", isCurrent);
+        if (isCurrent) {
+          dot.setAttribute("aria-current", "true");
+        } else {
+          dot.removeAttribute("aria-current");
+        }
+      });
+    }
+
+    function findNextPhotoIndex(direction) {
+      for (let step = 1; step <= photoPaths.length; step += 1) {
+        const candidate = currentPhotoIndex === -1
+          ? (direction > 0 ? step - 1 : photoPaths.length - step)
+          : (currentPhotoIndex + direction * step + photoPaths.length) % photoPaths.length;
+        if (!failedPhotos.has(candidate)) {
+          return candidate;
+        }
+      }
+      return -1;
+    }
+
+    function scheduleNextPhoto() {
+      window.clearTimeout(photoTimer);
+      if (!slideshowActive) {
+        return;
+      }
+      photoTimer = window.setTimeout(() => showNextPhoto(1), 5000);
+    }
+
+    function showNextPhoto(direction, requestedIndex) {
+      if (!slideshowActive || photoLoading) {
+        return;
+      }
+
+      const nextIndex = requestedIndex === undefined
+        ? findNextPhotoIndex(direction)
+        : requestedIndex;
+      if (nextIndex === -1) {
+        slideshowStatus.textContent = "No photos could be loaded from the Sachel folder.";
+        return;
+      }
+      if (failedPhotos.has(nextIndex)) {
+        showNextPhoto(direction);
+        return;
+      }
+      if (nextIndex === currentPhotoIndex) {
+        return;
+      }
+
+      photoLoading = true;
+      const preloadedPhoto = new Image();
+      preloadedPhoto.onload = () => {
+        const nextImageIndex = currentPhotoIndex === -1 ? 0 : 1 - activeImageIndex;
+        const nextImage = slideshowImages[nextImageIndex];
+        nextImage.src = photoPaths[nextIndex];
+        nextImage.alt = `Photo ${nextIndex + 1} of ${photoPaths.length}`;
+        nextImage.classList.remove("is-visible");
+        void nextImage.offsetWidth;
+        nextImage.classList.add("is-visible");
+
+        if (currentPhotoIndex !== -1) {
+          slideshowImages[activeImageIndex].classList.remove("is-visible");
+        }
+        currentPhotoIndex = nextIndex;
+        activeImageIndex = nextImageIndex;
+        slideshowStatus.textContent = `Photo ${currentPhotoIndex + 1} of ${photoPaths.length}`;
+        updatePhotoDots();
+        photoLoading = false;
+        scheduleNextPhoto();
+      };
+      preloadedPhoto.onerror = () => {
+        console.error("Could not load slideshow photo.", photoPaths[nextIndex]);
+        failedPhotos.add(nextIndex);
+        slideshowStatus.textContent = "A photo could not be loaded. Skipping it.";
+        photoLoading = false;
+        showNextPhoto(direction);
+      };
+      preloadedPhoto.src = photoPaths[nextIndex];
+    }
+
+    function startSlideshow() {
+      slideshowActive = true;
+      if (currentPhotoIndex === -1) {
+        showNextPhoto(1);
+      } else {
+        scheduleNextPhoto();
+      }
+    }
+
+    function stopSlideshow() {
+      slideshowActive = false;
+      window.clearTimeout(photoTimer);
+    }
+
+    function showDiary() {
+      loginPanel.hidden = true;
+      diaryPage.hidden = false;
+      startSlideshow();
+    }
+
+    if (localStorage.getItem("note-access-granted") === "true") {
+      showDiary();
+    }
+
+    loginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (passwordInput.value !== "0713#Sachel!") {
+        window.logActivity("Login failed", "Diary");
+        loginError.textContent = "That password doesn't match. Please try again.";
+        passwordInput.select();
+        return;
+      }
+
+      window.logActivity("Login succeeded", "Diary");
+      localStorage.setItem("note-access-granted", "true");
+      loginError.textContent = "";
+      showDiary();
+    });
+
+    logoutButton.addEventListener("click", () => {
+      window.logActivity("Logged out", "Diary");
+      localStorage.removeItem("note-access-granted");
+      stopSlideshow();
+      if (messageDialog.open) {
+        messageDialog.close();
+      }
+      diaryPage.hidden = true;
+      loginPanel.hidden = false;
+      passwordInput.value = "";
+      loginError.textContent = "";
+      passwordInput.focus();
+    });
+
+    document.querySelectorAll(".envelope-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const entry = button.closest(".entry");
+        const title = entry && entry.querySelector("h2");
+        const message = document.getElementById(button.dataset.message);
+        const messageText = message && message.textContent;
+        if (!entry || !title || messageText === null || messageText === undefined) {
+          console.error("Could not find the title or message for this diary envelope.");
+          return;
+        }
+
+        modalTitle.textContent = title.textContent;
+        modalMessage.textContent = messageText;
+        messageDialog.classList.remove("entry-pink", "entry-lavender");
+        const colorClass = [...entry.classList].find((className) => className.startsWith("entry-"));
+        if (colorClass) {
+          messageDialog.classList.add(colorClass);
+        }
+        messageDialog.showModal();
+      });
+    });
+
+    closeModalButton.addEventListener("click", () => {
+      messageDialog.close();
+    });
+
+    messageDialog.addEventListener("click", (event) => {
+      if (event.target === messageDialog) {
+        messageDialog.close();
+      }
+    });
+
+    messageDialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      messageDialog.close();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && messageDialog.open) {
+        messageDialog.close();
+      }
+    });
+  </script>
+</body>
+</html>

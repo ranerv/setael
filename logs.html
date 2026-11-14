@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fcf5ff">
+  <title>Activity Logs</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+      color: #59455f;
+      background: #fcf5ff;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      padding: 48px 16px;
+      background:
+        radial-gradient(ellipse at 18% 18%, #fff 0, transparent 34%),
+        radial-gradient(ellipse at 84% 78%, #f9dff0 0, transparent 36%),
+        linear-gradient(135deg, #f8efff, #fff4f7 55%, #f2eaff);
+    }
+
+    main {
+      width: min(100%, 680px);
+      margin: 0 auto;
+      padding: 30px;
+      border: 1px solid #f1d9e8;
+      border-radius: 20px;
+      background: #fffdfd;
+      box-shadow: 0 16px 42px #8d66841a;
+    }
+
+    .login {
+      max-width: 430px;
+      text-align: center;
+    }
+
+    .login h1 {
+      font-size: clamp(2rem, 7vw, 3rem);
+    }
+
+    .password-label {
+      display: block;
+      margin: 20px 0 8px;
+      color: #70577b;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .password-input {
+      width: 100%;
+      min-height: 46px;
+      padding: 10px 14px;
+      border: 1px solid #d9bfdc;
+      border-radius: 10px;
+      background: #fff;
+      color: #59455f;
+      font: inherit;
+    }
+
+    .password-input:focus-visible {
+      outline: 3px solid #bd91c5;
+      outline-offset: 2px;
+    }
+
+    .login-error {
+      min-height: 1.5em;
+      margin: 12px 0 0;
+      color: #a33f63;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #a17eaa;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: #70577b;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2rem, 7vw, 3rem);
+      font-weight: 500;
+    }
+
+    .description, .privacy, #status {
+      color: #8d7993;
+      line-height: 1.6;
+    }
+
+    .description {
+      margin: 12px 0 24px;
+    }
+
+    .summary {
+      margin: 0 0 16px;
+      color: #70577b;
+      font-weight: 700;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid #f1d9e8;
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 13px 15px;
+      border-bottom: 1px solid #f1d9e8;
+    }
+
+    th {
+      background: #fff4f8;
+      color: #70577b;
+      font-size: 0.9rem;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    #empty-row td {
+      color: #8d7993;
+      text-align: center;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 999px;
+      background: #bd91c5;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .button:hover {
+      background: #aa7fb4;
+    }
+
+    .button:focus-visible {
+      outline: 3px solid #82588c;
+      outline-offset: 3px;
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .privacy {
+      margin: 22px 0 0;
+      font-size: 0.84rem;
+    }
+
+    #status {
+      min-height: 1.6em;
+    }
+
+    @media (max-width: 480px) {
+      main {
+        padding: 22px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="login" id="login-panel">
+    <p class="eyebrow">Activity Logs</p>
+    <h1>Log in</h1>
+    <form id="login-form">
+      <label class="password-label" for="password">Enter the password to view logs</label>
+      <input class="password-input" id="password" name="password" type="password" autocomplete="current-password" required>
+      <button class="button" type="submit">Continue</button>
+      <p class="login-error" id="login-error" role="status" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <main id="logs-content" hidden>
+    <p class="eyebrow">private to this browser only</p>
+    <h1>Activity Logs</h1>
+    <p class="description">This page shows login outcomes and clicks saved by this browser. Passwords and typed text are never recorded.</p>
+    <p id="summary" class="summary" aria-live="polite">Loading logs...</p>
+    <p id="status" role="status" aria-live="polite"></p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">When</th>
+            <th scope="col">Action</th>
+            <th scope="col">Page</th>
+            <th scope="col">Target</th>
+          </tr>
+        </thead>
+        <tbody id="log-list"></tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <a class="button" href="index.html">Back to the note</a>
+      <button class="button" id="clear-logs" type="button">Clear logs</button>
+      <button class="button" id="logout" type="button">Log out</button>
+    </div>
+    <p class="privacy">These logs are stored only in this browser; GitHub Pages cannot share them across devices without a separate backend. This password screen is a friendly lock, not secure protection: the password is included in the public page code.</p>
+  </main>
+
+  <script src="activity-log.js"></script>
+  <script>
+    const loginForm = document.getElementById("login-form");
+    const passwordInput = document.getElementById("password");
+    const loginError = document.getElementById("login-error");
+    const loginPanel = document.getElementById("login-panel");
+    const logsContent = document.getElementById("logs-content");
+    const logList = document.getElementById("log-list");
+    const summary = document.getElementById("summary");
+    const status = document.getElementById("status");
+    const clearButton = document.getElementById("clear-logs");
+    const logoutButton = document.getElementById("logout");
+    const storageKey = "activity-logs";
+
+    loginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (passwordInput.value !== "ilovemyself123!") {
+        window.logActivity("Login failed", "Activity logs");
+        loginError.textContent = "That password doesn't match. Please try again.";
+        passwordInput.select();
+        return;
+      }
+
+      loginError.textContent = "";
+      window.logActivity("Login succeeded", "Activity logs");
+      loginPanel.hidden = true;
+      logsContent.hidden = false;
+      renderLogs();
+    });
+
+    logoutButton.addEventListener("click", () => {
+      window.logActivity("Logged out", "Activity logs");
+      localStorage.removeItem("note-access-granted");
+      logsContent.hidden = true;
+      loginPanel.hidden = false;
+      passwordInput.value = "";
+      loginError.textContent = "";
+      passwordInput.focus();
+    });
+
+    function getLogs() {
+      const storedLogs = localStorage.getItem(storageKey);
+      const logs = storedLogs ? JSON.parse(storedLogs) : [];
+      if (!Array.isArray(logs)) {
+        throw new Error("Saved activity logs are not in the expected format.");
+      }
+      const validLogs = logs.filter((log) =>
+        log &&
+        typeof log.action === "string" &&
+        typeof log.timestamp === "string" &&
+        !Number.isNaN(Date.parse(log.timestamp))
+      );
+      const legacyStoredLogs = localStorage.getItem("envelope-open-logs");
+      const legacyLogs = legacyStoredLogs ? JSON.parse(legacyStoredLogs) : [];
+      if (!Array.isArray(legacyLogs)) {
+        throw new Error("Saved envelope logs are not in the expected format.");
+      }
+      legacyLogs.filter((log) =>
+        log &&
+        log.action === "Opened envelope" &&
+        typeof log.timestamp === "string" &&
+        !Number.isNaN(Date.parse(log.timestamp))
+      ).forEach((log) => validLogs.push({
+        action: log.action,
+        timestamp: log.timestamp,
+        page: "index.html",
+        target: ""
+      }));
+      return validLogs;
+    }
+
+    function renderLogs() {
+      try {
+        const logs = getLogs();
+        logList.replaceChildren();
+        summary.textContent = `${logs.length} ${logs.length === 1 ? "event" : "events"} recorded in this browser`;
+        clearButton.disabled = logs.length === 0;
+        status.textContent = "";
+
+        if (logs.length === 0) {
+          const row = document.createElement("tr");
+          row.id = "empty-row";
+          const cell = document.createElement("td");
+          cell.colSpan = 4;
+          cell.textContent = "No activity recorded yet.";
+          row.append(cell);
+          logList.append(row);
+          return;
+        }
+
+        [...logs].reverse().forEach((log) => {
+          const row = document.createElement("tr");
+          const timeCell = document.createElement("td");
+          const actionCell = document.createElement("td");
+          const pageCell = document.createElement("td");
+          const targetCell = document.createElement("td");
+          timeCell.textContent = new Date(log.timestamp).toLocaleString();
+          actionCell.textContent = log.action;
+          pageCell.textContent = typeof log.page === "string" ? log.page : "";
+          targetCell.textContent = typeof log.target === "string" ? log.target : "";
+          row.append(timeCell, actionCell, pageCell, targetCell);
+          logList.append(row);
+        });
+      } catch (error) {
+        console.error("Could not read the activity logs.", error);
+        summary.textContent = "Logs could not be loaded.";
+        status.textContent = "This browser could not read its saved logs.";
+        clearButton.disabled = true;
+      }
+    }
+
+    clearButton.addEventListener("click", () => {
+      if (!window.confirm("Clear all activity logs saved in this browser?")) {
+        return;
+      }
+
+      try {
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem("envelope-open-logs");
+        window.logActivity("Cleared activity logs", "Activity logs");
+        renderLogs();
+      } catch (error) {
+        console.error("Could not clear the activity logs.", error);
+        status.textContent = "The saved logs could not be cleared.";
+      }
+    });
+
+    window.addEventListener("storage", (event) => {
+      if (event.key === storageKey || event.key === null) {
+        renderLogs();
+      }
+    });
+    window.addEventListener("activitylogchange", renderLogs);
+
+  </script>
+</body>
+</html>
