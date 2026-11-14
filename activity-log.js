@@ -40,6 +40,12 @@
   }
 
   window.logActivity = async function (action, target) {
+    if (action === "Login succeeded" && typeof window.gtag === "function") {
+      window.gtag("event", "login", {
+        method: "site_password"
+      });
+    }
+
     if (!isConfigured) {
       if (!configurationWarningShown) {
         configurationWarningShown = true;
