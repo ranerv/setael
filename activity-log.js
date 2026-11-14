@@ -22,6 +22,23 @@
     }));
   }
 
+  async function getDeviceModel() {
+    const userAgentData = navigator.userAgentData;
+    if (!userAgentData || typeof userAgentData.getHighEntropyValues !== "function") {
+      return "unknown";
+    }
+
+    try {
+      const details = await userAgentData.getHighEntropyValues(["model"]);
+      return typeof details.model === "string" && details.model.trim()
+        ? details.model.trim().slice(0, 100)
+        : "unknown";
+    } catch (error) {
+      console.warn("Could not read device model from browser.", error);
+      return "unknown";
+    }
+  }
+
   window.logActivity = async function (action, target) {
     if (!isConfigured) {
       if (!configurationWarningShown) {
@@ -31,10 +48,12 @@
       return false;
     }
 
+    const deviceModel = await getDeviceModel();
     const record = {
       action: action,
       page: page,
-      target: typeof target === "string" ? target.slice(0, 100) : ""
+      target: typeof target === "string" ? target.slice(0, 100) : "",
+      device_model: deviceModel
     };
 
     try {
