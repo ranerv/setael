@@ -65,13 +65,17 @@ create table if not exists public.diary_entries (
   id bigint generated always as identity primary key,
   created_at timestamptz not null default now(),
   title text not null check (char_length(title) between 1 and 120 and title = btrim(title)),
-  content text not null check (char_length(content) between 1 and 20000 and content = btrim(content))
+  content text not null check (char_length(content) between 1 and 20000 and content = btrim(content)),
+  music_path text check (music_path is null or char_length(music_path) <= 255)
 );
+
+alter table public.diary_entries
+  add column if not exists music_path text check (music_path is null or char_length(music_path) <= 255);
 
 alter table public.diary_entries enable row level security;
 revoke all on public.diary_entries from anon, authenticated;
 grant select on public.diary_entries to anon, authenticated;
-grant insert (title, content) on public.diary_entries to authenticated;
+grant insert (title, content, music_path) on public.diary_entries to authenticated;
 grant usage, select on sequence public.diary_entries_id_seq to authenticated;
 
 drop policy if exists "Anyone can view diary envelopes" on public.diary_entries;
@@ -87,6 +91,62 @@ on public.diary_entries
 for insert
 to authenticated
 with check ((select public.is_log_admin()));
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'diary-music',
+  'diary-music',
+  true,
+  20971520,
+  array[
+    'audio/mpeg',
+    'audio/mp4',
+    'audio/aac',
+    'audio/ogg',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/webm',
+    'audio/flac',
+    'audio/x-m4a',
+    'audio/m4a',
+    'audio/opus',
+    'audio/aiff',
+    'audio/3gpp',
+    'audio/3gpp2'
+  ]
+)
+on conflict (id) do update
+set name = excluded.name,
+    public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Anyone can listen to diary music" on storage.objects;
+create policy "Anyone can listen to diary music"
+on storage.objects
+for select
+to anon, authenticated
+using (bucket_id = 'diary-music');
+
+drop policy if exists "Only the listed owner can upload diary music" on storage.objects;
+create policy "Only the listed owner can upload diary music"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'diary-music'
+  and (select public.is_log_admin())
+);
+
+drop policy if exists "Only the listed owner can remove diary music" on storage.objects;
+create policy "Only the listed owner can remove diary music"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'diary-music'
+  and (select public.is_log_admin())
+);
 
 -- After creating your Supabase Auth user, add its email as the only log admin:
 -- insert into public.log_admins (email) values (lower('YOUR_EMAIL_ADDRESS'));

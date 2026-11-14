@@ -426,6 +426,12 @@
       white-space: pre-wrap;
     }
 
+    .diary-music-player {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+    }
+
     .modal-envelope-art {
       position: relative;
       z-index: 1;
@@ -701,6 +707,8 @@ ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
           <div class="modal-envelope-pocket"></div>
         </div>
       </div>
+      <audio class="diary-music-player" id="modal-music" controls preload="none" hidden></audio>
+      <p class="privacy" id="modal-music-status" role="status" aria-live="polite" hidden></p>
       <button class="button modal-close" id="close-modal" type="button">Close envelope</button>
     </dialog>
     
@@ -721,6 +729,8 @@ ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
     const messageDialog = document.getElementById("message-dialog");
     const modalTitle = document.getElementById("modal-title");
     const modalMessage = document.getElementById("modal-message");
+    const modalMusic = document.getElementById("modal-music");
+    const modalMusicStatus = document.getElementById("modal-music-status");
     const closeModalButton = document.getElementById("close-modal");
     const logoutButton = document.getElementById("logout");
     const customEntries = document.getElementById("custom-entries");
@@ -955,7 +965,7 @@ ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
       customEntriesStatus.hidden = true;
       try {
         const response = await fetch(
-          supabaseUrl + "/rest/v1/diary_entries?select=id,created_at,title,content&order=created_at.desc,id.desc",
+          supabaseUrl + "/rest/v1/diary_entries?select=id,created_at,title,content,music_path&order=created_at.desc,id.desc",
           { headers: { apikey: publishableKey } }
         );
         if (!response.ok) {
@@ -988,6 +998,9 @@ ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
           button.setAttribute("aria-labelledby", `${title.id} custom-action-${entry.id}`);
           button.dataset.message = message.id;
           button.dataset.customTitle = title.id;
+          if (typeof entry.music_path === "string" && entry.music_path) {
+            button.dataset.musicPath = entry.music_path;
+          }
           button.innerHTML = '<span class="envelope-art" aria-hidden="true"><span class="envelope-flap"></span><span class="envelope-pocket"></span><span class="envelope-seal">♥</span></span>';
           const label = document.createElement("span");
           label.className = "envelope-label";
@@ -1059,7 +1072,29 @@ ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
       if (colorClass) {
         messageDialog.classList.add(colorClass);
       }
+      stopModalMusic();
+      const hasMusic = Boolean(button.dataset.musicPath);
+      if (hasMusic) {
+        modalMusic.src = `${supabaseUrl}/storage/v1/object/public/diary-music/${encodeURIComponent(button.dataset.musicPath)}`;
+        modalMusic.hidden = false;
+      }
       messageDialog.showModal();
+      if (hasMusic) {
+        modalMusic.play().catch((error) => {
+          console.warn("Could not start diary envelope music automatically.", error);
+          modalMusicStatus.textContent = "Press play on the music player to listen.";
+          modalMusicStatus.hidden = false;
+        });
+      }
+    }
+
+    function stopModalMusic() {
+      modalMusic.pause();
+      modalMusic.removeAttribute("src");
+      modalMusic.load();
+      modalMusic.hidden = true;
+      modalMusicStatus.textContent = "";
+      modalMusicStatus.hidden = true;
     }
 
     document.querySelectorAll(".envelope-button").forEach((button) => {
@@ -1080,6 +1115,8 @@ ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
       event.preventDefault();
       messageDialog.close();
     });
+
+    messageDialog.addEventListener("close", stopModalMusic);
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && messageDialog.open) {

@@ -260,6 +260,9 @@
         <input class="password-input" id="diary-title" name="title" type="text" maxlength="120" required>
         <label class="password-label" for="diary-content">Content</label>
         <textarea class="password-input" id="diary-content" name="content" maxlength="20000" required></textarea>
+        <label class="password-label" for="diary-music">Music (optional)</label>
+        <input class="password-input" id="diary-music" name="music" type="file" accept="audio/*">
+        <p class="privacy">Optional audio file, up to 20 MB. Music is public to diary viewers and plays when this envelope is opened.</p>
         <button class="button" id="save-diary-entry" type="submit">Add envelope</button>
       </form>
       <p id="diary-entry-status" role="status" aria-live="polite"></p>
@@ -306,6 +309,7 @@
     const diaryEntryForm = document.getElementById("diary-entry-form");
     const diaryTitleInput = document.getElementById("diary-title");
     const diaryContentInput = document.getElementById("diary-content");
+    const diaryMusicInput = document.getElementById("diary-music");
     const diaryEntryStatus = document.getElementById("diary-entry-status");
     const saveDiaryEntryButton = document.getElementById("save-diary-entry");
     const config = window.ACTIVITY_LOG_CONFIG || {};
@@ -344,6 +348,32 @@
         apikey: publishableKey,
         Authorization: `Bearer ${accessToken}`
       };
+    }
+
+    function createDiaryMusicPath(file) {
+      const extension = file.name.includes(".")
+        ? file.name.split(".").pop().toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12)
+        : "audio";
+      const uniqueName = window.crypto && typeof window.crypto.randomUUID === "function"
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      return `${uniqueName}.${extension || "audio"}`;
+    }
+
+    async function uploadDiaryMusic(file, musicPath) {
+      const response = await fetch(
+        `${supabaseUrl}/storage/v1/object/diary-music/${musicPath}`,
+        {
+          method: "POST",
+          headers: {
+            ...authorizationHeaders(),
+            "Content-Type": file.type,
+            "x-upsert": "false"
+          },
+          body: file
+        }
+      );
+      await readResponse(response);
     }
 
     loginForm.addEventListener("submit", async (event) => {
@@ -469,15 +499,32 @@
       diaryEntryStatus.textContent = "";
       const title = diaryTitleInput.value.trim();
       const content = diaryContentInput.value.trim();
+      const musicFile = diaryMusicInput.files[0] || null;
       if (!title || !content) {
         diaryEntryStatus.textContent = "Enter both a title and content before adding the envelope.";
         (title ? diaryContentInput : diaryTitleInput).focus();
         return;
       }
+      if (musicFile && !musicFile.type.startsWith("audio/")) {
+        diaryEntryStatus.textContent = "Choose a supported audio file.";
+        diaryMusicInput.focus();
+        return;
+      }
+      if (musicFile && musicFile.size > 20 * 1024 * 1024) {
+        diaryEntryStatus.textContent = "Music files must be 20 MB or smaller.";
+        diaryMusicInput.focus();
+        return;
+      }
 
       saveDiaryEntryButton.disabled = true;
+      let uploadedMusicPath = null;
 
       try {
+        if (musicFile) {
+          diaryEntryStatus.textContent = "Uploading music and saving the envelope...";
+          uploadedMusicPath = createDiaryMusicPath(musicFile);
+          await uploadDiaryMusic(musicFile, uploadedMusicPath);
+        }
         const response = await fetch(supabaseUrl + "/rest/v1/diary_entries", {
           method: "POST",
           headers: {
@@ -487,13 +534,34 @@
           },
           body: JSON.stringify({
             title,
-            content
+            content,
+            music_path: uploadedMusicPath
           })
         });
         await readResponse(response);
         diaryEntryForm.reset();
-        diaryEntryStatus.textContent = "The new envelope was added to the diary.";
+        diaryEntryStatus.textContent = musicFile
+          ? "The new envelope and its music were added to the diary."
+          : "The new envelope was added to the diary.";
       } catch (error) {
+        if (uploadedMusicPath) {
+          try {
+            const cleanupResponse = await fetch(
+              `${supabaseUrl}/storage/v1/object/diary-music`,
+              {
+                method: "DELETE",
+                headers: {
+                  ...authorizationHeaders(),
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ prefixes: [uploadedMusicPath] })
+              }
+            );
+            await readResponse(cleanupResponse);
+          } catch (cleanupError) {
+            console.error("Could not remove uploaded music after the diary save failed.", cleanupError);
+          }
+        }
         console.error("Could not save the diary envelope.", error);
         diaryEntryStatus.textContent = error.message || "The envelope could not be saved.";
       } finally {
