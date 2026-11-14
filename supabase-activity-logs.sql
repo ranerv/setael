@@ -61,5 +61,32 @@ for delete
 to authenticated
 using ((select public.is_log_admin()));
 
+create table if not exists public.diary_entries (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  title text not null check (char_length(title) between 1 and 120 and title = btrim(title)),
+  content text not null check (char_length(content) between 1 and 20000 and content = btrim(content))
+);
+
+alter table public.diary_entries enable row level security;
+revoke all on public.diary_entries from anon, authenticated;
+grant select on public.diary_entries to anon, authenticated;
+grant insert (title, content) on public.diary_entries to authenticated;
+grant usage, select on sequence public.diary_entries_id_seq to authenticated;
+
+drop policy if exists "Anyone can view diary envelopes" on public.diary_entries;
+create policy "Anyone can view diary envelopes"
+on public.diary_entries
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Only the listed owner can add diary envelopes" on public.diary_entries;
+create policy "Only the listed owner can add diary envelopes"
+on public.diary_entries
+for insert
+to authenticated
+with check ((select public.is_log_admin()));
+
 -- After creating your Supabase Auth user, add its email as the only log admin:
 -- insert into public.log_admins (email) values (lower('YOUR_EMAIL_ADDRESS'));

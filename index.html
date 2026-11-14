@@ -297,6 +297,50 @@
       text-decoration: none;
     }
 
+    .latest-diary {
+      margin: 24px auto 0;
+      padding: 20px;
+      border: 1px solid #f1d9e8;
+      border-radius: 16px;
+      background: #fffdfd;
+      box-shadow: 0 10px 28px #8d66841a;
+      text-align: left;
+    }
+
+    .latest-diary h2 {
+      margin: 0 0 10px;
+      color: #a56d91;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.35rem;
+      font-weight: 500;
+    }
+
+    .latest-diary-title {
+      margin: 0 0 8px;
+      color: #70577b;
+      font-weight: 700;
+    }
+
+    .latest-diary-content {
+      max-height: 150px;
+      margin: 0;
+      overflow: auto;
+      color: #68566c;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .latest-diary-date, .latest-diary-status {
+      color: #8d7993;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .latest-diary-status {
+      margin: 10px 0 0;
+    }
+
     @media (max-width: 420px) {
       .scene {
         padding-inline: 8px;
@@ -345,6 +389,14 @@
       <p class="eyebrow">a little something</p>
       <h1>A Little Note</h1>
       <p class="prompt">Whenever you're ready, open the envelope.</p>
+      <section class="latest-diary" aria-labelledby="latest-diary-heading">
+        <h2 id="latest-diary-heading">Latest diary update</h2>
+        <p class="latest-diary-title" id="latest-diary-title">Loading the latest envelope...</p>
+        <p class="latest-diary-content" id="latest-diary-content"></p>
+        <p class="latest-diary-date" id="latest-diary-date"></p>
+        <p class="latest-diary-status" id="latest-diary-status" role="status" aria-live="polite"></p>
+        <a class="toggle diary-link" href="diary.html">Open the diary</a>
+      </section>
 
       <section class="mailbox" id="mailbox" aria-label="An envelope containing a note">
         <article class="letter" id="letter" aria-hidden="true">
@@ -411,6 +463,49 @@ i love you sooo so much, your lover, raneb <3 </p>
     const logoutButton = document.getElementById("logout");
     const logStatus = document.getElementById("log-status");
     const loginLogStatus = document.getElementById("login-log-status");
+    const latestDiaryTitle = document.getElementById("latest-diary-title");
+    const latestDiaryContent = document.getElementById("latest-diary-content");
+    const latestDiaryDate = document.getElementById("latest-diary-date");
+    const latestDiaryStatus = document.getElementById("latest-diary-status");
+    const config = window.ACTIVITY_LOG_CONFIG || {};
+    const supabaseUrl = typeof config.supabaseUrl === "string"
+      ? config.supabaseUrl.replace(/\/+$/, "")
+      : "";
+    const publishableKey = typeof config.publishableKey === "string"
+      ? config.publishableKey.trim()
+      : "";
+
+    async function loadLatestDiaryEntry() {
+      latestDiaryStatus.textContent = "";
+      try {
+        const response = await fetch(
+          supabaseUrl + "/rest/v1/diary_entries?select=created_at,title,content&order=created_at.desc,id.desc&limit=1",
+          { headers: { apikey: publishableKey } }
+        );
+        if (!response.ok) {
+          throw new Error(`The latest diary update could not be loaded (${response.status}).`);
+        }
+        const entries = await response.json();
+        if (!Array.isArray(entries)) {
+          throw new Error("The diary returned an unexpected response.");
+        }
+        if (entries.length === 0) {
+          latestDiaryTitle.textContent = "No diary envelopes yet.";
+          latestDiaryContent.textContent = "";
+          latestDiaryDate.textContent = "";
+          return;
+        }
+
+        const latestEntry = entries[0];
+        latestDiaryTitle.textContent = latestEntry.title;
+        latestDiaryContent.textContent = latestEntry.content;
+        latestDiaryDate.textContent = new Date(latestEntry.created_at).toLocaleString();
+      } catch (error) {
+        console.error("Could not load the latest diary update.", error);
+        latestDiaryTitle.textContent = "The latest diary update is unavailable.";
+        latestDiaryStatus.textContent = error.message || "Check the diary database setup and try again.";
+      }
+    }
 
     window.addEventListener("activitylogerror", (event) => {
       const visibleStatus = envelopeContent.hidden ? loginLogStatus : logStatus;
@@ -420,6 +515,7 @@ i love you sooo so much, your lover, raneb <3 </p>
     if (localStorage.getItem("note-access-granted") === "true") {
       loginPanel.hidden = true;
       envelopeContent.hidden = false;
+      loadLatestDiaryEntry();
     }
 
     loginForm.addEventListener("submit", (event) => {
@@ -436,6 +532,7 @@ i love you sooo so much, your lover, raneb <3 </p>
       localStorage.setItem("note-access-granted", "true");
       loginPanel.hidden = true;
       envelopeContent.hidden = false;
+      loadLatestDiaryEntry();
       toggle.focus();
     });
 

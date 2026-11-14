@@ -86,6 +86,27 @@
       outline-offset: 2px;
     }
 
+    .diary-form {
+      margin-top: 24px;
+      padding: 20px;
+      border: 1px solid #f1d9e8;
+      border-radius: 14px;
+      background: #fff8fb;
+    }
+
+    .diary-form h2 {
+      margin: 0;
+      color: #70577b;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.45rem;
+      font-weight: 500;
+    }
+
+    .diary-form textarea {
+      min-height: 150px;
+      resize: vertical;
+    }
+
     .login-error {
       min-height: 1.5em;
       margin: 12px 0 0;
@@ -231,6 +252,18 @@
     <p class="description">Events submitted by visitors to the website. Passwords and typed text are never recorded.</p>
     <p id="summary" class="summary" aria-live="polite">Loading logs...</p>
     <p id="status" role="status" aria-live="polite"></p>
+    <section class="diary-form" aria-labelledby="diary-form-title">
+      <h2 id="diary-form-title">Add a diary envelope</h2>
+      <p class="description">Write a title and message to add a new envelope to the diary.</p>
+      <form id="diary-entry-form">
+        <label class="password-label" for="diary-title">Title</label>
+        <input class="password-input" id="diary-title" name="title" type="text" maxlength="120" required>
+        <label class="password-label" for="diary-content">Content</label>
+        <textarea class="password-input" id="diary-content" name="content" maxlength="20000" required></textarea>
+        <button class="button" id="save-diary-entry" type="submit">Add envelope</button>
+      </form>
+      <p id="diary-entry-status" role="status" aria-live="polite"></p>
+    </section>
     <div class="table-wrap">
       <table>
         <thead>
@@ -246,6 +279,7 @@
     </div>
     <div class="actions">
       <a class="button" href="index.html">Back to the note</a>
+      <a class="button" href="diary.html">View the diary</a>
       <button class="button" id="refresh-logs" type="button">Refresh</button>
       <button class="button" id="clear-logs" type="button">Clear all logs</button>
       <button class="button" id="logout" type="button">Log out</button>
@@ -269,6 +303,11 @@
     const clearButton = document.getElementById("clear-logs");
     const refreshButton = document.getElementById("refresh-logs");
     const logoutButton = document.getElementById("logout");
+    const diaryEntryForm = document.getElementById("diary-entry-form");
+    const diaryTitleInput = document.getElementById("diary-title");
+    const diaryContentInput = document.getElementById("diary-content");
+    const diaryEntryStatus = document.getElementById("diary-entry-status");
+    const saveDiaryEntryButton = document.getElementById("save-diary-entry");
     const config = window.ACTIVITY_LOG_CONFIG || {};
     const supabaseUrl = typeof config.supabaseUrl === "string"
       ? config.supabaseUrl.replace(/\/+$/, "")
@@ -424,6 +463,43 @@
     }
 
     refreshButton.addEventListener("click", renderLogs);
+
+    diaryEntryForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      diaryEntryStatus.textContent = "";
+      const title = diaryTitleInput.value.trim();
+      const content = diaryContentInput.value.trim();
+      if (!title || !content) {
+        diaryEntryStatus.textContent = "Enter both a title and content before adding the envelope.";
+        (title ? diaryContentInput : diaryTitleInput).focus();
+        return;
+      }
+
+      saveDiaryEntryButton.disabled = true;
+
+      try {
+        const response = await fetch(supabaseUrl + "/rest/v1/diary_entries", {
+          method: "POST",
+          headers: {
+            ...authorizationHeaders(),
+            "Content-Type": "application/json",
+            Prefer: "return=minimal"
+          },
+          body: JSON.stringify({
+            title,
+            content
+          })
+        });
+        await readResponse(response);
+        diaryEntryForm.reset();
+        diaryEntryStatus.textContent = "The new envelope was added to the diary.";
+      } catch (error) {
+        console.error("Could not save the diary envelope.", error);
+        diaryEntryStatus.textContent = error.message || "The envelope could not be saved.";
+      } finally {
+        saveDiaryEntryButton.disabled = false;
+      }
+    });
 
     clearButton.addEventListener("click", async () => {
       if (!window.confirm("Clear all shared activity logs for every visitor?")) {

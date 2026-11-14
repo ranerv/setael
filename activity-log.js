@@ -91,7 +91,8 @@
       return;
     }
 
-    const label = control.getAttribute("aria-label") ||
+    const label = control.getAttribute("data-log-target") ||
+      control.getAttribute("aria-label") ||
       control.getAttribute("title") ||
       control.textContent.trim().replace(/\s+/g, " ");
     window.logActivity("Click", label || control.tagName.toLowerCase());

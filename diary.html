@@ -529,6 +529,9 @@
       <p class="slideshow-status visually-hidden" id="slideshow-status" role="status" aria-live="polite">Loading photos...</p>
     </section>
 
+    <p class="intro" id="custom-entries-status" role="status" aria-live="polite" hidden></p>
+    <section class="entries" id="custom-entries" aria-label="New diary envelopes" hidden></section>
+
     <section class="entries" aria-label="Diary messages">
       <!-- Edit each h2 to change the box title and each hidden paragraph to change its message. -->
       <article class="entry entry-pink">
@@ -720,6 +723,15 @@ ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
     const modalMessage = document.getElementById("modal-message");
     const closeModalButton = document.getElementById("close-modal");
     const logoutButton = document.getElementById("logout");
+    const customEntries = document.getElementById("custom-entries");
+    const customEntriesStatus = document.getElementById("custom-entries-status");
+    const config = window.ACTIVITY_LOG_CONFIG || {};
+    const supabaseUrl = typeof config.supabaseUrl === "string"
+      ? config.supabaseUrl.replace(/\/+$/, "")
+      : "";
+    const publishableKey = typeof config.publishableKey === "string"
+      ? config.publishableKey.trim()
+      : "";
     const slideshowImages = [
       document.getElementById("slideshow-image-1"),
       document.getElementById("slideshow-image-2")
@@ -935,6 +947,63 @@ ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
       loginPanel.hidden = true;
       diaryPage.hidden = false;
       startSlideshow();
+      loadCustomDiaryEntries();
+    }
+
+    async function loadCustomDiaryEntries() {
+      customEntriesStatus.textContent = "";
+      customEntriesStatus.hidden = true;
+      try {
+        const response = await fetch(
+          supabaseUrl + "/rest/v1/diary_entries?select=id,created_at,title,content&order=created_at.desc,id.desc",
+          { headers: { apikey: publishableKey } }
+        );
+        if (!response.ok) {
+          throw new Error(`Diary entries could not be loaded (${response.status}).`);
+        }
+        const entries = await response.json();
+        if (!Array.isArray(entries)) {
+          throw new Error("The diary returned an unexpected response.");
+        }
+
+        customEntries.replaceChildren();
+        entries.forEach((entry, index) => {
+          const article = document.createElement("article");
+          article.className = `entry ${index % 2 === 0 ? "entry-pink" : "entry-lavender"}`;
+
+          const title = document.createElement("h2");
+          title.id = `custom-title-${entry.id}`;
+          title.textContent = entry.title;
+
+          const message = document.createElement("p");
+          message.id = `custom-message-${entry.id}`;
+          message.hidden = true;
+          message.textContent = entry.content;
+
+          const button = document.createElement("button");
+          button.className = "envelope-button";
+          button.type = "button";
+          button.setAttribute("aria-haspopup", "dialog");
+          button.setAttribute("aria-controls", "message-dialog");
+          button.setAttribute("aria-labelledby", `${title.id} custom-action-${entry.id}`);
+          button.dataset.message = message.id;
+          button.dataset.customTitle = title.id;
+          button.innerHTML = '<span class="envelope-art" aria-hidden="true"><span class="envelope-flap"></span><span class="envelope-pocket"></span><span class="envelope-seal">♥</span></span>';
+          const label = document.createElement("span");
+          label.className = "envelope-label";
+          label.id = `custom-action-${entry.id}`;
+          label.textContent = "Open this envelope";
+          button.append(label);
+          button.addEventListener("click", () => openEnvelope(button));
+          article.append(title, message, button);
+          customEntries.append(article);
+        });
+        customEntries.hidden = entries.length === 0;
+      } catch (error) {
+        console.error("Could not load diary envelopes.", error);
+        customEntriesStatus.textContent = error.message || "New diary envelopes could not be loaded.";
+        customEntriesStatus.hidden = false;
+      }
     }
 
     if (localStorage.getItem("note-access-granted") === "true") {
@@ -970,26 +1039,31 @@ ana siya sa akoa "bantog ra diay naibog ka niya, gwapa man pud diay"
       passwordInput.focus();
     });
 
-    document.querySelectorAll(".envelope-button").forEach((button) => {
-      button.addEventListener("click", () => {
-        const entry = button.closest(".entry");
-        const title = entry && entry.querySelector("h2");
-        const message = document.getElementById(button.dataset.message);
-        const messageText = message && message.textContent;
-        if (!entry || !title || messageText === null || messageText === undefined) {
-          console.error("Could not find the title or message for this diary envelope.");
-          return;
-        }
+    function openEnvelope(button) {
+      const entry = button.closest(".entry");
+      const title = button.dataset.customTitle
+        ? document.getElementById(button.dataset.customTitle)
+        : entry && entry.querySelector("h2");
+      const message = document.getElementById(button.dataset.message);
+      const messageText = message && message.textContent;
+      if (!entry || !title || messageText === null || messageText === undefined) {
+        console.error("Could not find the title or message for this diary envelope.");
+        return;
+      }
 
-        modalTitle.textContent = title.textContent;
-        modalMessage.textContent = messageText;
-        messageDialog.classList.remove("entry-pink", "entry-lavender");
-        const colorClass = [...entry.classList].find((className) => className.startsWith("entry-"));
-        if (colorClass) {
-          messageDialog.classList.add(colorClass);
-        }
-        messageDialog.showModal();
-      });
+      button.dataset.logTarget = title.textContent.trim();
+      modalTitle.textContent = title.textContent;
+      modalMessage.textContent = messageText;
+      messageDialog.classList.remove("entry-pink", "entry-lavender");
+      const colorClass = [...entry.classList].find((className) => className.startsWith("entry-"));
+      if (colorClass) {
+        messageDialog.classList.add(colorClass);
+      }
+      messageDialog.showModal();
+    }
+
+    document.querySelectorAll(".envelope-button").forEach((button) => {
+      button.addEventListener("click", () => openEnvelope(button));
     });
 
     closeModalButton.addEventListener("click", () => {
