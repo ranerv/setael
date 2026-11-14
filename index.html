@@ -321,17 +321,7 @@
       font-weight: 700;
     }
 
-    .latest-diary-content {
-      max-height: 150px;
-      margin: 0;
-      overflow: auto;
-      color: #68566c;
-      line-height: 1.7;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-
-    .latest-diary-date, .latest-diary-status {
+    .latest-diary-status {
       color: #8d7993;
       font-size: 0.85rem;
       line-height: 1.5;
@@ -392,8 +382,6 @@
       <section class="latest-diary" aria-labelledby="latest-diary-heading">
         <h2 id="latest-diary-heading">Latest diary update</h2>
         <p class="latest-diary-title" id="latest-diary-title">Loading the latest envelope...</p>
-        <p class="latest-diary-content" id="latest-diary-content"></p>
-        <p class="latest-diary-date" id="latest-diary-date"></p>
         <p class="latest-diary-status" id="latest-diary-status" role="status" aria-live="polite"></p>
         <a class="toggle diary-link" href="diary.html">Open the diary</a>
       </section>
@@ -464,8 +452,6 @@ i love you sooo so much, your lover, raneb <3 </p>
     const logStatus = document.getElementById("log-status");
     const loginLogStatus = document.getElementById("login-log-status");
     const latestDiaryTitle = document.getElementById("latest-diary-title");
-    const latestDiaryContent = document.getElementById("latest-diary-content");
-    const latestDiaryDate = document.getElementById("latest-diary-date");
     const latestDiaryStatus = document.getElementById("latest-diary-status");
     const config = window.ACTIVITY_LOG_CONFIG || {};
     const supabaseUrl = typeof config.supabaseUrl === "string"
@@ -479,7 +465,7 @@ i love you sooo so much, your lover, raneb <3 </p>
       latestDiaryStatus.textContent = "";
       try {
         const response = await fetch(
-          supabaseUrl + "/rest/v1/diary_entries?select=created_at,title,content&order=created_at.desc,id.desc&limit=1",
+          supabaseUrl + "/rest/v1/diary_entries?select=title&order=created_at.desc,id.desc&limit=1",
           { headers: { apikey: publishableKey } }
         );
         if (!response.ok) {
@@ -491,15 +477,11 @@ i love you sooo so much, your lover, raneb <3 </p>
         }
         if (entries.length === 0) {
           latestDiaryTitle.textContent = "No diary envelopes yet.";
-          latestDiaryContent.textContent = "";
-          latestDiaryDate.textContent = "";
           return;
         }
 
         const latestEntry = entries[0];
         latestDiaryTitle.textContent = latestEntry.title;
-        latestDiaryContent.textContent = latestEntry.content;
-        latestDiaryDate.textContent = new Date(latestEntry.created_at).toLocaleString();
       } catch (error) {
         console.error("Could not load the latest diary update.", error);
         latestDiaryTitle.textContent = "The latest diary update is unavailable.";
