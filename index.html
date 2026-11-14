@@ -330,6 +330,8 @@
         <button class="toggle" type="submit">Continue</button>
         <p class="login-error" id="login-error" role="status" aria-live="polite"></p>
       </form>
+      <p class="privacy">Login outcomes and clicked button or link labels are sent to the shared activity log. Passwords and typed text are never recorded.</p>
+      <p id="login-log-status" class="privacy" role="status" aria-live="polite"></p>
     </section>
 
     <div id="envelope-content" hidden>
@@ -383,11 +385,12 @@ i love you sooo so much, your lover, raneb <3 </p>
       </button>
       <a class="toggle diary-link" id="diary-link" href="diary.html">Open the diary</a>
       <button class="toggle" id="logout" type="button">Log out</button>
-      <p class="privacy">Login outcomes and clicked controls are saved only in this browser, not shared across devices. Passwords and typed text are never recorded.</p>
+      <p class="privacy">Login outcomes and clicked button or link labels are sent to the shared activity log. Passwords and typed text are never recorded.</p>
       <p id="log-status" class="privacy" role="status" aria-live="polite"></p>
     </div>
   </main>
 
+  <script src="activity-log-config.js"></script>
   <script src="activity-log.js"></script>
   <script>
     const loginForm = document.getElementById("login-form");
@@ -400,6 +403,12 @@ i love you sooo so much, your lover, raneb <3 </p>
     const toggle = document.getElementById("toggle");
     const logoutButton = document.getElementById("logout");
     const logStatus = document.getElementById("log-status");
+    const loginLogStatus = document.getElementById("login-log-status");
+
+    window.addEventListener("activitylogerror", (event) => {
+      const visibleStatus = envelopeContent.hidden ? loginLogStatus : logStatus;
+      visibleStatus.textContent = event.detail;
+    });
 
     if (localStorage.getItem("note-access-granted") === "true") {
       loginPanel.hidden = true;

@@ -205,19 +205,23 @@
 <body>
   <main class="login" id="login-panel">
     <p class="eyebrow">Activity Logs</p>
-    <h1>Log in</h1>
+    <h1>Owner sign in</h1>
     <form id="login-form">
-      <label class="password-label" for="password">Enter the password to view logs</label>
+      <label class="password-label" for="email">Admin email</label>
+      <input class="password-input" id="email" name="email" type="email" autocomplete="username" required>
+      <label class="password-label" for="password">Admin password</label>
       <input class="password-input" id="password" name="password" type="password" autocomplete="current-password" required>
       <button class="button" type="submit">Continue</button>
       <p class="login-error" id="login-error" role="status" aria-live="polite"></p>
     </form>
+    <p id="login-log-status" role="status" aria-live="polite"></p>
+    <p class="privacy">Use the administrator account you created in Supabase. Passwords are sent only to Supabase Auth and are never added to activity logs.</p>
   </main>
 
   <main id="logs-content" hidden>
-    <p class="eyebrow">private to this browser only</p>
-    <h1>Activity Logs</h1>
-    <p class="description">This page shows login outcomes and clicks saved by this browser. Passwords and typed text are never recorded.</p>
+    <p class="eyebrow">owner-only view</p>
+    <h1>Shared Activity Logs</h1>
+    <p class="description">Events submitted by visitors to the website. Passwords and typed text are never recorded.</p>
     <p id="summary" class="summary" aria-live="polite">Loading logs...</p>
     <p id="status" role="status" aria-live="polite"></p>
     <div class="table-wrap">
@@ -235,88 +239,148 @@
     </div>
     <div class="actions">
       <a class="button" href="index.html">Back to the note</a>
-      <button class="button" id="clear-logs" type="button">Clear logs</button>
+      <button class="button" id="refresh-logs" type="button">Refresh</button>
+      <button class="button" id="clear-logs" type="button">Clear all logs</button>
       <button class="button" id="logout" type="button">Log out</button>
     </div>
-    <p class="privacy">These logs are stored only in this browser; GitHub Pages cannot share them across devices without a separate backend. This password screen is a friendly lock, not secure protection: the password is included in the public page code.</p>
+    <p class="privacy">Only the administrator email listed in the database can view or clear these shared logs.</p>
   </main>
 
+  <script src="activity-log-config.js"></script>
   <script src="activity-log.js"></script>
   <script>
     const loginForm = document.getElementById("login-form");
+    const emailInput = document.getElementById("email");
     const passwordInput = document.getElementById("password");
     const loginError = document.getElementById("login-error");
+    const loginLogStatus = document.getElementById("login-log-status");
     const loginPanel = document.getElementById("login-panel");
     const logsContent = document.getElementById("logs-content");
     const logList = document.getElementById("log-list");
     const summary = document.getElementById("summary");
     const status = document.getElementById("status");
     const clearButton = document.getElementById("clear-logs");
+    const refreshButton = document.getElementById("refresh-logs");
     const logoutButton = document.getElementById("logout");
-    const storageKey = "activity-logs";
+    const config = window.ACTIVITY_LOG_CONFIG || {};
+    const supabaseUrl = typeof config.supabaseUrl === "string"
+      ? config.supabaseUrl.replace(/\/+$/, "")
+      : "";
+    const publishableKey = typeof config.publishableKey === "string"
+      ? config.publishableKey.trim()
+      : "";
+    let accessToken = "";
 
-    loginForm.addEventListener("submit", (event) => {
+    function responseError(data, fallback) {
+      return data && (data.msg || data.message || data.error_description)
+        ? (data.msg || data.message || data.error_description)
+        : fallback;
+    }
+
+    async function readResponse(response) {
+      const text = await response.text();
+      let data = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch (error) {
+          data = {};
+        }
+      }
+      if (!response.ok) {
+        throw new Error(responseError(data, `Request failed (${response.status}).`));
+      }
+      return data;
+    }
+
+    function authorizationHeaders() {
+      return {
+        apikey: publishableKey,
+        Authorization: `Bearer ${accessToken}`
+      };
+    }
+
+    loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (passwordInput.value !== "ilovemyself123!") {
-        window.logActivity("Login failed", "Activity logs");
-        loginError.textContent = "That password doesn't match. Please try again.";
-        passwordInput.select();
+      loginError.textContent = "";
+      loginLogStatus.textContent = "";
+      if (!window.ACTIVITY_LOG_READY) {
+        loginError.textContent = "Shared logging is not configured yet.";
         return;
       }
 
-      loginError.textContent = "";
-      window.logActivity("Login succeeded", "Activity logs");
-      loginPanel.hidden = true;
-      logsContent.hidden = false;
-      renderLogs();
+      try {
+        const response = await fetch(supabaseUrl + "/auth/v1/token?grant_type=password", {
+          method: "POST",
+          headers: {
+            apikey: publishableKey,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email: emailInput.value.trim(),
+            password: passwordInput.value
+          })
+        });
+        const session = await readResponse(response);
+        accessToken = session.access_token;
+        await window.logActivity("Login succeeded", "Activity logs");
+        passwordInput.value = "";
+        loginPanel.hidden = true;
+        logsContent.hidden = false;
+        await renderLogs();
+      } catch (error) {
+        await window.logActivity("Login failed", "Activity logs");
+        console.error("Could not sign in to shared activity logs.", error);
+        loginError.textContent = error.message || "Sign-in failed. Check your email and password.";
+        passwordInput.select();
+      }
     });
 
-    logoutButton.addEventListener("click", () => {
+    logoutButton.addEventListener("click", async () => {
       window.logActivity("Logged out", "Activity logs");
-      localStorage.removeItem("note-access-granted");
+      accessToken = "";
       logsContent.hidden = true;
       loginPanel.hidden = false;
+      emailInput.value = "";
       passwordInput.value = "";
       loginError.textContent = "";
-      passwordInput.focus();
+      emailInput.focus();
     });
 
-    function getLogs() {
-      const storedLogs = localStorage.getItem(storageKey);
-      const logs = storedLogs ? JSON.parse(storedLogs) : [];
-      if (!Array.isArray(logs)) {
-        throw new Error("Saved activity logs are not in the expected format.");
+    async function getLogs() {
+      const logs = [];
+      const pageSize = 500;
+      for (let offset = 0; ; offset += pageSize) {
+        const response = await fetch(
+          supabaseUrl + "/rest/v1/activity_logs?select=id,created_at,action,page,target&order=created_at.desc,id.desc",
+          {
+            headers: {
+              ...authorizationHeaders(),
+              "Range-Unit": "items",
+              Range: `${offset}-${offset + pageSize - 1}`
+            }
+          }
+        );
+        const pageLogs = await readResponse(response);
+        if (!Array.isArray(pageLogs)) {
+          throw new Error("The shared activity log returned an unexpected response.");
+        }
+        logs.push(...pageLogs);
+        if (pageLogs.length < pageSize) {
+          return logs;
+        }
       }
-      const validLogs = logs.filter((log) =>
-        log &&
-        typeof log.action === "string" &&
-        typeof log.timestamp === "string" &&
-        !Number.isNaN(Date.parse(log.timestamp))
-      );
-      const legacyStoredLogs = localStorage.getItem("envelope-open-logs");
-      const legacyLogs = legacyStoredLogs ? JSON.parse(legacyStoredLogs) : [];
-      if (!Array.isArray(legacyLogs)) {
-        throw new Error("Saved envelope logs are not in the expected format.");
-      }
-      legacyLogs.filter((log) =>
-        log &&
-        log.action === "Opened envelope" &&
-        typeof log.timestamp === "string" &&
-        !Number.isNaN(Date.parse(log.timestamp))
-      ).forEach((log) => validLogs.push({
-        action: log.action,
-        timestamp: log.timestamp,
-        page: "index.html",
-        target: ""
-      }));
-      return validLogs;
     }
 
-    function renderLogs() {
+    async function renderLogs() {
+      if (!accessToken) {
+        return;
+      }
+
       try {
-        const logs = getLogs();
+        const logs = await getLogs();
         logList.replaceChildren();
-        summary.textContent = `${logs.length} ${logs.length === 1 ? "event" : "events"} recorded in this browser`;
+        summary.textContent = `${logs.length} ${logs.length === 1 ? "event" : "events"} from all visitors`;
         clearButton.disabled = logs.length === 0;
         status.textContent = "";
 
@@ -331,50 +395,60 @@
           return;
         }
 
-        [...logs].reverse().forEach((log) => {
+        logs.forEach((log) => {
           const row = document.createElement("tr");
           const timeCell = document.createElement("td");
           const actionCell = document.createElement("td");
           const pageCell = document.createElement("td");
           const targetCell = document.createElement("td");
-          timeCell.textContent = new Date(log.timestamp).toLocaleString();
+          timeCell.textContent = new Date(log.created_at).toLocaleString();
           actionCell.textContent = log.action;
-          pageCell.textContent = typeof log.page === "string" ? log.page : "";
-          targetCell.textContent = typeof log.target === "string" ? log.target : "";
+          pageCell.textContent = log.page;
+          targetCell.textContent = log.target;
           row.append(timeCell, actionCell, pageCell, targetCell);
           logList.append(row);
         });
       } catch (error) {
-        console.error("Could not read the activity logs.", error);
-        summary.textContent = "Logs could not be loaded.";
-        status.textContent = "This browser could not read its saved logs.";
+        console.error("Could not load shared activity logs.", error);
+        summary.textContent = "Shared logs could not be loaded.";
+        status.textContent = error.message || "Check the database setup and try again.";
         clearButton.disabled = true;
       }
     }
 
-    clearButton.addEventListener("click", () => {
-      if (!window.confirm("Clear all activity logs saved in this browser?")) {
+    refreshButton.addEventListener("click", renderLogs);
+
+    clearButton.addEventListener("click", async () => {
+      if (!window.confirm("Clear all shared activity logs for every visitor?")) {
         return;
       }
 
       try {
-        localStorage.removeItem(storageKey);
-        localStorage.removeItem("envelope-open-logs");
-        window.logActivity("Cleared activity logs", "Activity logs");
-        renderLogs();
+        const response = await fetch(supabaseUrl + "/rest/v1/activity_logs?id=gt.0", {
+          method: "DELETE",
+          headers: {
+            ...authorizationHeaders(),
+            Prefer: "return=minimal"
+          }
+        });
+        await readResponse(response);
+        await window.logActivity("Cleared activity logs", "Activity Logs");
+        await renderLogs();
       } catch (error) {
-        console.error("Could not clear the activity logs.", error);
-        status.textContent = "The saved logs could not be cleared.";
+        console.error("Could not clear shared activity logs.", error);
+        status.textContent = error.message || "The shared logs could not be cleared.";
       }
     });
 
-    window.addEventListener("storage", (event) => {
-      if (event.key === storageKey || event.key === null) {
+    window.addEventListener("activitylogerror", (event) => {
+      const visibleStatus = logsContent.hidden ? loginLogStatus : status;
+      visibleStatus.textContent = event.detail;
+    });
+    window.addEventListener("activitylogchange", () => {
+      if (!logsContent.hidden) {
         renderLogs();
       }
     });
-    window.addEventListener("activitylogchange", renderLogs);
-
   </script>
 </body>
 </html>
