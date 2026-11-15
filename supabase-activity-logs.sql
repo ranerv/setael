@@ -3,8 +3,12 @@ create table if not exists public.activity_logs (
   created_at timestamptz not null default now(),
   action text not null check (char_length(action) <= 40),
   page text not null check (char_length(page) <= 40),
-  target text not null default '' check (char_length(target) <= 100)
+  target text not null default '' check (char_length(target) <= 100),
+  device_model text not null default 'unknown' check (char_length(device_model) <= 100)
 );
+
+alter table public.activity_logs
+  add column if not exists device_model text not null default 'unknown' check (char_length(device_model) <= 100);
 
 create table if not exists public.log_admins (
   email text primary key check (email = lower(email))
@@ -15,7 +19,7 @@ alter table public.log_admins enable row level security;
 
 revoke all on public.activity_logs from anon, authenticated;
 revoke all on public.log_admins from anon, authenticated;
-grant insert (action, page, target) on public.activity_logs to anon, authenticated;
+grant insert (action, page, target, device_model) on public.activity_logs to anon, authenticated;
 grant select, delete on public.activity_logs to authenticated;
 grant usage, select on sequence public.activity_logs_id_seq to anon, authenticated;
 
@@ -45,6 +49,7 @@ with check (
   action in ('Click', 'Login succeeded', 'Login failed', 'Opened envelope', 'Logged out', 'Cleared activity logs')
   and page in ('index.html', 'diary.html', 'logs.html')
   and char_length(target) <= 100
+  and char_length(device_model) <= 100
 );
 
 drop policy if exists "Only the listed owner can view activity" on public.activity_logs;
@@ -145,6 +150,86 @@ for delete
 to authenticated
 using (
   bucket_id = 'diary-music'
+  and (select public.is_log_admin())
+);
+
+create table if not exists public.site_invitation (
+  id smallint primary key default 1 check (id = 1),
+  title text not null check (char_length(title) between 1 and 120 and title = btrim(title)),
+  message text not null check (char_length(message) between 1 and 2000 and message = btrim(message)),
+  image_path text check (
+    image_path is null
+    or (char_length(image_path) <= 255 and image_path = btrim(image_path))
+  ),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.site_invitation enable row level security;
+revoke all on public.site_invitation from anon, authenticated;
+grant select on public.site_invitation to anon, authenticated;
+grant insert (id, title, message, image_path, updated_at) on public.site_invitation to authenticated;
+grant update (title, message, image_path, updated_at) on public.site_invitation to authenticated;
+
+drop policy if exists "Anyone can view the site invitation" on public.site_invitation;
+create policy "Anyone can view the site invitation"
+on public.site_invitation
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Only the listed owner can add the site invitation" on public.site_invitation;
+create policy "Only the listed owner can add the site invitation"
+on public.site_invitation
+for insert
+to authenticated
+with check ((select public.is_log_admin()));
+
+drop policy if exists "Only the listed owner can update the site invitation" on public.site_invitation;
+create policy "Only the listed owner can update the site invitation"
+on public.site_invitation
+for update
+to authenticated
+using ((select public.is_log_admin()))
+with check ((select public.is_log_admin()));
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'invitation-photos',
+  'invitation-photos',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif']
+)
+on conflict (id) do update
+set name = excluded.name,
+    public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Anyone can view invitation photos" on storage.objects;
+create policy "Anyone can view invitation photos"
+on storage.objects
+for select
+to anon, authenticated
+using (bucket_id = 'invitation-photos');
+
+drop policy if exists "Only the listed owner can upload invitation photos" on storage.objects;
+create policy "Only the listed owner can upload invitation photos"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'invitation-photos'
+  and (select public.is_log_admin())
+);
+
+drop policy if exists "Only the listed owner can remove invitation photos" on storage.objects;
+create policy "Only the listed owner can remove invitation photos"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'invitation-photos'
   and (select public.is_log_admin())
 );
 

@@ -331,9 +331,56 @@
       margin: 10px 0 0;
     }
 
+    .invitation-card {
+      margin: 24px auto 0;
+      padding: 24px;
+      border: 1px solid #e8cadd;
+      border-radius: 20px;
+      background: linear-gradient(145deg, #fffdfd, #fff6fa);
+      box-shadow: 0 12px 30px #8d66841a;
+      text-align: left;
+    }
+
+    .invitation-card h2 {
+      margin: 0;
+      color: #a56d91;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.8rem;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .invitation-copy {
+      margin: 12px 0 18px;
+      color: #68566c;
+      line-height: 1.7;
+      text-align: center;
+    }
+
+    .invitation-photo {
+      display: block;
+      width: 100%;
+      max-height: 320px;
+      margin: 0 auto 16px;
+      border-radius: 14px;
+      object-fit: cover;
+    }
+
+    .photo-status {
+      min-height: 1.5em;
+      margin: 10px 0 0;
+      color: #9c8b9e;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
     @media (max-width: 420px) {
       .scene {
         padding-inline: 8px;
+      }
+
+      .invitation-card {
+        padding: 20px 16px;
       }
 
       .mailbox {
@@ -386,6 +433,14 @@
         <a class="toggle diary-link" href="diary.html">Open the diary</a>
       </section>
 
+      <section class="invitation-card" id="invitation-card" aria-labelledby="invitation-heading" hidden>
+        <p class="eyebrow">a little invitation</p>
+        <h2 id="invitation-heading"></h2>
+        <p class="invitation-copy" id="invitation-copy"></p>
+        <img class="invitation-photo" id="invitation-photo" alt="Photo for the invitation" hidden>
+        <p class="photo-status" id="invitation-status" role="status" aria-live="polite"></p>
+      </section>
+
       <section class="mailbox" id="mailbox" aria-label="An envelope containing a note">
         <article class="letter" id="letter" aria-hidden="true">
           <h2>dear, mako, my shen setael!</h2>
@@ -432,7 +487,6 @@ i love you sooo so much, your lover, raneb <3 </p>
       </button>
       <a class="toggle diary-link" id="diary-link" href="diary.html">Open the diary</a>
       <button class="toggle" id="logout" type="button">Log out</button>
-      <p class="privacy">Login outcomes and clicked button or link labels are sent to the shared activity log. Passwords and typed text are never recorded.</p>
       <p id="log-status" class="privacy" role="status" aria-live="polite"></p>
     </div>
   </main>
@@ -453,6 +507,11 @@ i love you sooo so much, your lover, raneb <3 </p>
     const loginLogStatus = document.getElementById("login-log-status");
     const latestDiaryTitle = document.getElementById("latest-diary-title");
     const latestDiaryStatus = document.getElementById("latest-diary-status");
+    const invitationCard = document.getElementById("invitation-card");
+    const invitationHeading = document.getElementById("invitation-heading");
+    const invitationCopy = document.getElementById("invitation-copy");
+    const invitationPhoto = document.getElementById("invitation-photo");
+    const invitationStatus = document.getElementById("invitation-status");
     const config = window.ACTIVITY_LOG_CONFIG || {};
     const supabaseUrl = typeof config.supabaseUrl === "string"
       ? config.supabaseUrl.replace(/\/+$/, "")
@@ -489,6 +548,50 @@ i love you sooo so much, your lover, raneb <3 </p>
       }
     }
 
+    async function loadInvitation() {
+      try {
+        const response = await fetch(
+          supabaseUrl + "/rest/v1/site_invitation?id=eq.1&select=title,message,image_path",
+          { headers: { apikey: publishableKey } }
+        );
+        if (!response.ok) {
+          throw new Error(`The invitation could not be loaded (${response.status}).`);
+        }
+        const invitations = await response.json();
+        if (!Array.isArray(invitations)) {
+          throw new Error("The invitation returned an unexpected response.");
+        }
+        if (invitations.length === 0) {
+          invitationCard.hidden = true;
+          return;
+        }
+
+        const invitation = invitations[0];
+        invitationHeading.textContent = invitation.title;
+        invitationCopy.textContent = invitation.message;
+        if (invitation.image_path) {
+          invitationPhoto.src = `${supabaseUrl}/storage/v1/object/public/invitation-photos/${encodeURIComponent(invitation.image_path)}`;
+          invitationPhoto.hidden = false;
+        } else {
+          invitationPhoto.hidden = true;
+          invitationPhoto.removeAttribute("src");
+        }
+        invitationCard.hidden = false;
+      } catch (error) {
+        console.error("Could not load the shared invitation.", error);
+        invitationHeading.textContent = "Invitation unavailable";
+        invitationCopy.textContent = "The invitation could not be loaded right now. Please try again later.";
+        invitationPhoto.hidden = true;
+        invitationPhoto.removeAttribute("src");
+        invitationCard.hidden = false;
+      }
+    }
+
+    invitationPhoto.addEventListener("error", () => {
+      invitationPhoto.hidden = true;
+      invitationStatus.textContent = "The invitation photo could not be loaded.";
+    });
+
     window.addEventListener("activitylogerror", (event) => {
       const visibleStatus = envelopeContent.hidden ? loginLogStatus : logStatus;
       visibleStatus.textContent = event.detail;
@@ -498,6 +601,7 @@ i love you sooo so much, your lover, raneb <3 </p>
       loginPanel.hidden = true;
       envelopeContent.hidden = false;
       loadLatestDiaryEntry();
+      loadInvitation();
     }
 
     loginForm.addEventListener("submit", (event) => {
@@ -515,6 +619,7 @@ i love you sooo so much, your lover, raneb <3 </p>
       loginPanel.hidden = true;
       envelopeContent.hidden = false;
       loadLatestDiaryEntry();
+      loadInvitation();
       toggle.focus();
     });
 

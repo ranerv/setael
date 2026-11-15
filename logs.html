@@ -107,6 +107,36 @@
       resize: vertical;
     }
 
+    .invitation-form {
+      margin-top: 24px;
+      padding: 20px;
+      border: 1px solid #f1d9e8;
+      border-radius: 14px;
+      background: #fff8fb;
+    }
+
+    .invitation-form h2 {
+      margin: 0;
+      color: #70577b;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.45rem;
+      font-weight: 500;
+    }
+
+    .invitation-form textarea {
+      min-height: 130px;
+      resize: vertical;
+    }
+
+    .invitation-preview {
+      display: block;
+      width: min(100%, 360px);
+      max-height: 260px;
+      margin-top: 12px;
+      border-radius: 12px;
+      object-fit: cover;
+    }
+
     .login-error {
       min-height: 1.5em;
       margin: 12px 0 0;
@@ -267,6 +297,25 @@
       </form>
       <p id="diary-entry-status" role="status" aria-live="polite"></p>
     </section>
+    <section class="invitation-form" aria-labelledby="invitation-form-title">
+      <h2 id="invitation-form-title">Edit the shared invitation</h2>
+      <p class="description">Save one invitation for all visitors to see on the main page. Attach a photo to make it part of the shared card.</p>
+      <form id="invitation-entry-form">
+        <label class="password-label" for="invitation-title">Heading</label>
+        <input class="password-input" id="invitation-title" name="title" type="text" maxlength="120" required>
+        <label class="password-label" for="invitation-message">Invitation message</label>
+        <textarea class="password-input" id="invitation-message" name="message" maxlength="2000" required></textarea>
+        <label class="password-label" for="invitation-image">Photo (optional, up to 5 MB)</label>
+        <input class="password-input" id="invitation-image" name="image" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif">
+        <img class="invitation-preview" id="invitation-preview" alt="Current invitation photo" hidden>
+        <label class="password-label">
+          <input id="remove-invitation-image" type="checkbox">
+          Remove the current photo when saving
+        </label>
+        <button class="button" id="save-invitation" type="submit">Save invitation</button>
+      </form>
+      <p id="invitation-entry-status" role="status" aria-live="polite">Loading the saved invitation...</p>
+    </section>
     <div class="table-wrap">
       <table>
         <thead>
@@ -312,6 +361,15 @@
     const diaryMusicInput = document.getElementById("diary-music");
     const diaryEntryStatus = document.getElementById("diary-entry-status");
     const saveDiaryEntryButton = document.getElementById("save-diary-entry");
+    const invitationEntryForm = document.getElementById("invitation-entry-form");
+    const invitationTitleInput = document.getElementById("invitation-title");
+    const invitationMessageInput = document.getElementById("invitation-message");
+    const invitationImageInput = document.getElementById("invitation-image");
+    const invitationPreview = document.getElementById("invitation-preview");
+    const removeInvitationImageInput = document.getElementById("remove-invitation-image");
+    const invitationEntryStatus = document.getElementById("invitation-entry-status");
+    const saveInvitationButton = document.getElementById("save-invitation");
+    let savedInvitationImagePath = null;
     const config = window.ACTIVITY_LOG_CONFIG || {};
     const supabaseUrl = typeof config.supabaseUrl === "string"
       ? config.supabaseUrl.replace(/\/+$/, "")
@@ -376,6 +434,91 @@
       await readResponse(response);
     }
 
+    function invitationPhotoUrl(path) {
+      return `${supabaseUrl}/storage/v1/object/public/invitation-photos/${encodeURIComponent(path)}`;
+    }
+
+    function createInvitationPhotoPath(file) {
+      const extension = file.name.includes(".")
+        ? file.name.split(".").pop().toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12)
+        : "image";
+      const uniqueName = window.crypto && typeof window.crypto.randomUUID === "function"
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      return `${uniqueName}.${extension || "image"}`;
+    }
+
+    async function uploadInvitationPhoto(file, imagePath) {
+      const response = await fetch(
+        `${supabaseUrl}/storage/v1/object/invitation-photos/${imagePath}`,
+        {
+          method: "POST",
+          headers: {
+            ...authorizationHeaders(),
+            "Content-Type": file.type,
+            "x-upsert": "false"
+          },
+          body: file
+        }
+      );
+      await readResponse(response);
+    }
+
+    async function removeInvitationPhoto(imagePath) {
+      const response = await fetch(
+        `${supabaseUrl}/storage/v1/object/invitation-photos`,
+        {
+          method: "DELETE",
+          headers: {
+            ...authorizationHeaders(),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ prefixes: [imagePath] })
+        }
+      );
+      await readResponse(response);
+    }
+
+    async function loadInvitation() {
+      invitationEntryStatus.textContent = "Loading the saved invitation...";
+      try {
+        const response = await fetch(
+          `${supabaseUrl}/rest/v1/site_invitation?id=eq.1&select=title,message,image_path`,
+          { headers: authorizationHeaders() }
+        );
+        const invitations = await readResponse(response);
+        if (!Array.isArray(invitations)) {
+          throw new Error("The invitation returned an unexpected response.");
+        }
+
+        const invitation = invitations[0];
+        if (!invitation) {
+          invitationEntryForm.reset();
+          savedInvitationImagePath = null;
+          invitationPreview.hidden = true;
+          invitationPreview.removeAttribute("src");
+          invitationEntryStatus.textContent = "No invitation has been saved yet.";
+          return;
+        }
+
+        invitationTitleInput.value = invitation.title;
+        invitationMessageInput.value = invitation.message;
+        savedInvitationImagePath = invitation.image_path;
+        removeInvitationImageInput.checked = false;
+        if (savedInvitationImagePath) {
+          invitationPreview.src = invitationPhotoUrl(savedInvitationImagePath);
+          invitationPreview.hidden = false;
+        } else {
+          invitationPreview.hidden = true;
+          invitationPreview.removeAttribute("src");
+        }
+        invitationEntryStatus.textContent = "Saved invitation loaded.";
+      } catch (error) {
+        console.error("Could not load the saved invitation.", error);
+        invitationEntryStatus.textContent = error.message || "The saved invitation could not be loaded.";
+      }
+    }
+
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       loginError.textContent = "";
@@ -403,7 +546,7 @@
         passwordInput.value = "";
         loginPanel.hidden = true;
         logsContent.hidden = false;
-        await renderLogs();
+        await Promise.all([renderLogs(), loadInvitation()]);
       } catch (error) {
         await window.logActivity("Login failed", "Activity logs");
         console.error("Could not sign in to shared activity logs.", error);
@@ -566,6 +709,98 @@
         diaryEntryStatus.textContent = error.message || "The envelope could not be saved.";
       } finally {
         saveDiaryEntryButton.disabled = false;
+      }
+    });
+
+    invitationEntryForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      invitationEntryStatus.textContent = "";
+      const title = invitationTitleInput.value.trim();
+      const message = invitationMessageInput.value.trim();
+      const imageFile = invitationImageInput.files[0] || null;
+      if (!title || !message) {
+        invitationEntryStatus.textContent = "Enter both a heading and invitation message before saving.";
+        (title ? invitationMessageInput : invitationTitleInput).focus();
+        return;
+      }
+      const supportedImageTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"];
+      if (imageFile && !supportedImageTypes.includes(imageFile.type)) {
+        invitationEntryStatus.textContent = "Choose a JPEG, PNG, GIF, WebP, or AVIF image.";
+        invitationImageInput.focus();
+        return;
+      }
+      if (imageFile && imageFile.size > 5 * 1024 * 1024) {
+        invitationEntryStatus.textContent = "Photos must be 5 MB or smaller.";
+        invitationImageInput.focus();
+        return;
+      }
+
+      saveInvitationButton.disabled = true;
+      let uploadedImagePath = null;
+      const previousImagePath = savedInvitationImagePath;
+      const imagePath = imageFile
+        ? createInvitationPhotoPath(imageFile)
+        : (removeInvitationImageInput.checked ? null : savedInvitationImagePath);
+
+      try {
+        if (imageFile) {
+          invitationEntryStatus.textContent = "Uploading the photo and saving the invitation...";
+          uploadedImagePath = imagePath;
+          await uploadInvitationPhoto(imageFile, imagePath);
+        }
+
+        const response = await fetch(
+          `${supabaseUrl}/rest/v1/site_invitation?on_conflict=id`,
+          {
+            method: "POST",
+            headers: {
+              ...authorizationHeaders(),
+              "Content-Type": "application/json",
+              Prefer: "resolution=merge-duplicates,return=minimal"
+            },
+            body: JSON.stringify({
+              id: 1,
+              title,
+              message,
+              image_path: imagePath,
+              updated_at: new Date().toISOString()
+            })
+          }
+        );
+        await readResponse(response);
+        savedInvitationImagePath = imagePath;
+        invitationImageInput.value = "";
+        removeInvitationImageInput.checked = false;
+        if (imagePath) {
+          invitationPreview.src = invitationPhotoUrl(imagePath);
+          invitationPreview.hidden = false;
+        } else {
+          invitationPreview.hidden = true;
+          invitationPreview.removeAttribute("src");
+        }
+
+        if (previousImagePath && previousImagePath !== imagePath) {
+          try {
+            await removeInvitationPhoto(previousImagePath);
+          } catch (cleanupError) {
+            console.error("Could not remove the replaced invitation photo.", cleanupError);
+            invitationEntryStatus.textContent = `Invitation saved, but the old photo could not be removed: ${cleanupError.message}`;
+            return;
+          }
+        }
+        invitationEntryStatus.textContent = "Invitation saved and visible to all visitors on the main page.";
+      } catch (error) {
+        if (uploadedImagePath) {
+          try {
+            await removeInvitationPhoto(uploadedImagePath);
+          } catch (cleanupError) {
+            console.error("Could not remove the uploaded photo after the invitation save failed.", cleanupError);
+          }
+        }
+        console.error("Could not save the invitation.", error);
+        invitationEntryStatus.textContent = error.message || "The invitation could not be saved.";
+      } finally {
+        saveInvitationButton.disabled = false;
       }
     });
 
