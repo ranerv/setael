@@ -167,8 +167,7 @@ create table if not exists public.site_invitation (
 alter table public.site_invitation enable row level security;
 revoke all on public.site_invitation from anon, authenticated;
 grant select on public.site_invitation to anon, authenticated;
-grant insert (id, title, message, image_path, updated_at) on public.site_invitation to authenticated;
-grant update (title, message, image_path, updated_at) on public.site_invitation to authenticated;
+grant insert, update on public.site_invitation to authenticated;
 
 drop policy if exists "Anyone can view the site invitation" on public.site_invitation;
 create policy "Anyone can view the site invitation"

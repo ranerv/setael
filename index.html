@@ -350,8 +350,27 @@
       text-align: center;
     }
 
+    .invitation-toggle {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .invitation-toggle:focus-visible {
+      border-radius: 4px;
+      outline: 3px solid #82588c;
+      outline-offset: 6px;
+    }
+
+    .invitation-details {
+      margin-top: 12px;
+    }
+
     .invitation-copy {
-      margin: 12px 0 18px;
+      margin: 0 0 18px;
       color: #68566c;
       line-height: 1.7;
       text-align: center;
@@ -434,11 +453,12 @@
       </section>
 
       <section class="invitation-card" id="invitation-card" aria-labelledby="invitation-heading" hidden>
-        <p class="eyebrow">a little invitation</p>
-        <h2 id="invitation-heading"></h2>
-        <p class="invitation-copy" id="invitation-copy"></p>
-        <img class="invitation-photo" id="invitation-photo" alt="Photo for the invitation" hidden>
-        <p class="photo-status" id="invitation-status" role="status" aria-live="polite"></p>
+        <h2><button class="invitation-toggle" id="invitation-toggle" type="button" aria-expanded="false" aria-controls="invitation-details"><span id="invitation-heading"></span></button></h2>
+        <div class="invitation-details" id="invitation-details" hidden>
+          <p class="invitation-copy" id="invitation-copy"></p>
+          <img class="invitation-photo" id="invitation-photo" alt="Photo for the invitation" hidden>
+          <p class="photo-status" id="invitation-status" role="status" aria-live="polite"></p>
+        </div>
       </section>
 
       <section class="mailbox" id="mailbox" aria-label="An envelope containing a note">
@@ -508,6 +528,8 @@ i love you sooo so much, your lover, raneb <3 </p>
     const latestDiaryTitle = document.getElementById("latest-diary-title");
     const latestDiaryStatus = document.getElementById("latest-diary-status");
     const invitationCard = document.getElementById("invitation-card");
+    const invitationToggle = document.getElementById("invitation-toggle");
+    const invitationDetails = document.getElementById("invitation-details");
     const invitationHeading = document.getElementById("invitation-heading");
     const invitationCopy = document.getElementById("invitation-copy");
     const invitationPhoto = document.getElementById("invitation-photo");
@@ -590,6 +612,15 @@ i love you sooo so much, your lover, raneb <3 </p>
     invitationPhoto.addEventListener("error", () => {
       invitationPhoto.hidden = true;
       invitationStatus.textContent = "The invitation photo could not be loaded.";
+    });
+
+    invitationToggle.addEventListener("click", () => {
+      const isOpen = invitationToggle.getAttribute("aria-expanded") !== "true";
+      invitationToggle.setAttribute("aria-expanded", String(isOpen));
+      invitationDetails.hidden = !isOpen;
+      if (isOpen) {
+        window.logActivity("Opened invitation", invitationHeading.textContent);
+      }
     });
 
     window.addEventListener("activitylogerror", (event) => {
