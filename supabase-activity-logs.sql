@@ -234,3 +234,125 @@ using (
 
 -- After creating your Supabase Auth user, add its email as the only log admin:
 -- insert into public.log_admins (email) values (lower('YOUR_EMAIL_ADDRESS'));
+
+-- Owner-managed visitor site content
+grant update, delete on public.diary_entries to authenticated;
+
+alter table public.diary_entries
+  add column if not exists is_published boolean not null default false;
+grant insert (created_at, title, content, music_path, is_published) on public.diary_entries to authenticated;
+
+drop policy if exists "Anyone can view diary envelopes" on public.diary_entries;
+drop policy if exists "Visitors can view published diary entries" on public.diary_entries;
+create policy "Visitors can view published diary entries"
+on public.diary_entries
+for select
+to anon, authenticated
+using (is_published);
+
+drop policy if exists "Only the listed owner can view all diary entries" on public.diary_entries;
+create policy "Only the listed owner can view all diary entries"
+on public.diary_entries
+for select
+to authenticated
+using ((select public.is_log_admin()));
+
+drop policy if exists "Only the listed owner can edit diary envelopes" on public.diary_entries;
+create policy "Only the listed owner can edit diary envelopes"
+on public.diary_entries
+for update
+to authenticated
+using ((select public.is_log_admin()))
+with check ((select public.is_log_admin()));
+
+drop policy if exists "Only the listed owner can remove diary envelopes" on public.diary_entries;
+create policy "Only the listed owner can remove diary envelopes"
+on public.diary_entries
+for delete
+to authenticated
+using ((select public.is_log_admin()));
+
+create table if not exists public.site_settings (
+  id smallint primary key default 1 check (id = 1),
+  site_title text not null check (char_length(site_title) between 1 and 80 and site_title = btrim(site_title)),
+  tagline text not null check (char_length(tagline) between 1 and 180 and tagline = btrim(tagline)),
+  about text not null check (char_length(about) between 1 and 1000 and about = btrim(about)),
+  daily_note_title text not null default '',
+  daily_note_content text not null default '',
+  daily_note_updated_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.site_settings
+  add column if not exists daily_note_title text not null default '',
+  add column if not exists daily_note_content text not null default '',
+  add column if not exists daily_note_updated_at timestamptz;
+
+insert into public.site_settings (id, site_title, tagline, about)
+values (1, 'A Little Diary', 'Small moments, remembered.', 'A quiet collection of notes and photographs.')
+on conflict (id) do nothing;
+
+alter table public.site_settings enable row level security;
+revoke all on public.site_settings from anon, authenticated;
+grant select on public.site_settings to anon, authenticated;
+grant update on public.site_settings to authenticated;
+
+drop policy if exists "Anyone can view site settings" on public.site_settings;
+create policy "Anyone can view site settings"
+on public.site_settings
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Only the listed owner can update site settings" on public.site_settings;
+create policy "Only the listed owner can update site settings"
+on public.site_settings
+for update
+to authenticated
+using ((select public.is_log_admin()))
+with check ((select public.is_log_admin()));
+
+create table if not exists public.site_photos (
+  id bigint generated always as identity primary key,
+  photo_path text not null unique check (char_length(photo_path) between 1 and 255),
+  alt_text text not null default '' check (char_length(alt_text) <= 160),
+  position integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.site_photos enable row level security;
+revoke all on public.site_photos from anon, authenticated;
+grant select on public.site_photos to anon, authenticated;
+grant insert, update, delete on public.site_photos to authenticated;
+grant usage, select on sequence public.site_photos_id_seq to authenticated;
+
+drop policy if exists "Anyone can view published site photos" on public.site_photos;
+create policy "Anyone can view published site photos"
+on public.site_photos
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Only the listed owner can add site photos" on public.site_photos;
+create policy "Only the listed owner can add site photos"
+on public.site_photos
+for insert
+to authenticated
+with check ((select public.is_log_admin()));
+
+drop policy if exists "Only the listed owner can edit site photos" on public.site_photos;
+create policy "Only the listed owner can edit site photos"
+on public.site_photos
+for update
+to authenticated
+using ((select public.is_log_admin()))
+with check ((select public.is_log_admin()));
+
+drop policy if exists "Only the listed owner can remove site photos" on public.site_photos;
+create policy "Only the listed owner can remove site photos"
+on public.site_photos
+for delete
+to authenticated
+using ((select public.is_log_admin()));
+
+notify pgrst, 'reload schema';

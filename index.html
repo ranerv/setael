@@ -3,682 +3,1510 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#fcf5ff">
-  <title>A Little Note</title>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-SQG65GV1SY"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-SQG65GV1SY');
-  </script>
+  <meta name="theme-color" content="#f5f2ee">
+  <meta name="description" content="A quiet collection of notes and photographs.">
+  <title>A Little Diary</title>
   <style>
     :root {
       color-scheme: light;
       font-family: "Segoe UI", "Trebuchet MS", sans-serif;
-      color: #59455f;
-      background: #fcf5ff;
+      color: #24211f;
+      background: #f5f2ee;
       font-synthesis: none;
       text-rendering: optimizeLegibility;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
+      --ink: #24211f;
+      --muted: #817a72;
+      --line: #e8e2d9;
+      --paper: #fffefa;
+      --accent: #876f59;
+      --sidebar-width: 258px;
     }
-
-    * {
-      box-sizing: border-box;
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button { font: inherit; }
+    a { color: inherit; }
+    button:focus-visible, a:focus-visible {
+      outline: 3px solid #a68b70;
+      outline-offset: 3px;
     }
-
-    body {
-      min-width: 320px;
-      min-height: 100vh;
-      margin: 0;
+    .sidebar {
+      position: fixed;
+      z-index: 20;
+      inset: 0 auto 0 0;
+      display: flex;
+      width: var(--sidebar-width);
+      flex-direction: column;
+      padding: 28px 20px 20px;
+      border-right: 1px solid var(--line);
+      background: var(--paper);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 8px;
+      text-decoration: none;
+    }
+    .brand-mark {
       display: grid;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
       place-items: center;
-      overflow-x: hidden;
-      background:
-        radial-gradient(ellipse at 18% 18%, #fff 0, transparent 34%),
-        radial-gradient(ellipse at 84% 78%, #f9dff0 0, transparent 36%),
-        linear-gradient(135deg, #f8efff, #fff4f7 55%, #f2eaff);
+      border-radius: 14px;
+      background: #eee5da;
+      color: #695747;
+      font-family: Georgia, serif;
+      font-size: 1.3rem;
     }
-
-    .scene {
-      width: min(100% - 32px, 620px);
-      padding: 48px 24px;
+    .brand-name { font-family: Georgia, serif; font-size: 1.1rem; }
+    .brand-caption { display: block; margin-top: 3px; color: var(--muted); font-size: .73rem; }
+    .nav-label { margin: 46px 10px 12px; color: #a1978b; font-size: .68rem; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+    .side-nav, .bottom-nav { display: grid; gap: 6px; }
+    .nav-link {
+      display: flex;
+      min-height: 46px;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 13px;
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      color: #625c54;
+      cursor: pointer;
+      font-size: .94rem;
+      text-align: left;
+      text-decoration: none;
+    }
+    .nav-link:hover { background: #f6f2ec; }
+    .nav-link[aria-current="page"] { background: #eee8df; color: #302b25; font-weight: 700; }
+    .nav-icon { display: inline-grid; width: 20px; place-items: center; color: #84745f; font-size: 1.08rem; }
+    .sidebar-bottom { margin-top: auto; }
+    .sidebar-note { margin: 0 10px 18px; color: #8c847b; font-size: .8rem; line-height: 1.6; }
+    .main-shell { min-height: 100vh; margin-left: var(--sidebar-width); }
+    .topbar {
+      display: flex;
+      min-height: 72px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px clamp(22px, 5vw, 76px);
+      border-bottom: 1px solid #e8e2d9b8;
+      background: #f5f2eecc;
+    }
+    .mobile-brand { display: none; }
+    .top-caption { color: var(--muted); font-size: .85rem; }
+    .page-content { width: min(100% - 48px, 1050px); margin: 0 auto; padding: 38px 0 80px; }
+    .page-heading { margin-bottom: 27px; }
+    .eyebrow { margin: 0 0 9px; color: #8d7965; font-size: .72rem; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
+    h1 { margin-bottom: 10px; font-size: clamp(2.2rem, 5vw, 3.4rem); letter-spacing: -.025em; }
+    h2 { font-size: 1.55rem; }
+    .page-description { max-width: 650px; margin-bottom: 0; color: var(--muted); font-size: 1rem; line-height: 1.7; }
+    .home-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 270px); gap: 28px; align-items: end; margin-bottom: 34px; }
+    .home-intro p:last-child { max-width: 560px; margin-bottom: 0; color: var(--muted); line-height: 1.75; }
+    .date-stamp { justify-self: end; color: #877d71; font-size: .82rem; text-align: right; }
+    .feature-card {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(23px, 4vw, 42px);
+      border: 1px solid #e5ddd2;
+      border-radius: 20px;
+      background: linear-gradient(120deg, #fffefa 0%, #fffefa 65%, #eee5da 160%);
+      box-shadow: 0 14px 36px #3931260b;
+    }
+    .feature-card::after {
+      position: absolute;
+      top: -60px;
+      right: -40px;
+      width: 200px;
+      height: 200px;
+      border: 1px solid #e6ddd1;
+      border-radius: 50%;
+      content: "";
+      pointer-events: none;
+    }
+    .feature-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; color: #8d7965; font-size: .77rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .feature-meta::before { width: 7px; height: 7px; border-radius: 50%; background: #9c8061; content: ""; }
+    .feature-card h2 { max-width: 700px; margin-bottom: 14px; font-size: clamp(1.7rem, 4vw, 2.45rem); }
+    .feature-excerpt { max-width: 720px; margin-bottom: 24px; color: #70685f; font-size: 1rem; line-height: 1.8; white-space: pre-line; }
+    .text-button {
+      display: inline-flex;
+      min-height: 42px;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      border: 0;
+      background: transparent;
+      color: #514638;
+      cursor: pointer;
+      font-weight: 750;
+    }
+    .text-button span { transition: transform 160ms ease; }
+    .text-button:hover span { transform: translateX(4px); }
+    .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 15px; margin: 42px 0 16px; }
+    .section-heading h2 { margin: 0; }
+    .section-heading button { border: 0; background: none; color: #75634f; cursor: pointer; font-size: .88rem; font-weight: 700; }
+    .entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .entry-card {
+      display: grid;
+      width: 100%;
+      min-height: 180px;
+      justify-items: center;
+      align-content: center;
+      gap: 14px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
       text-align: center;
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
     }
-
-    [hidden] {
-      display: none !important;
-    }
-
-    .login-panel {
-      width: min(100%, 410px);
-      margin: 0 auto;
-      padding: 32px 26px;
-      border: 1px solid #f1d9e8;
-      border-radius: 18px;
-      background: #fffdfd;
-      box-shadow: 0 10px 28px #8d66841a;
-    }
-
-    .login-panel h1 {
-      font-size: clamp(2rem, 8vw, 3rem);
-    }
-
-    .dedication {
-      margin: 16px 0 22px;
-      color: #8d7993;
-      line-height: 1.65;
-    }
-
-    .password-label {
+    .entry-card:hover { transform: translateY(-3px); border-color: #e8bfcb; box-shadow: 0 12px 26px #8e58650f; }
+    .entry-card:focus-visible { outline: 3px solid #e8a9ba; outline-offset: 3px; }
+    .entry-card-title { max-width: 100%; overflow-wrap: anywhere; font-family: Georgia, serif; font-size: 1.18rem; font-weight: 500; }
+    .entry-envelope-art {
+      position: relative;
       display: block;
-      margin-bottom: 8px;
-      color: #70577b;
-      font-weight: 700;
+      width: 86px;
+      height: 60px;
+      overflow: hidden;
+      border: 1px solid #e8bac8;
+      border-radius: 8px;
+      background: #fff5f7;
+      perspective: 300px;
+    }
+    .entry-envelope-art::before {
+      position: absolute;
+      z-index: 1;
+      inset: 0;
+      background: #f4cad5;
+      clip-path: polygon(0 0, 50% 56%, 100% 0, 100% 100%, 0 100%);
+      content: "";
+    }
+    .entry-envelope-flap {
+      position: absolute;
+      z-index: 2;
+      inset: 0 0 auto;
+      height: 100%;
+      background: #f9e3e9;
+      clip-path: polygon(0 0, 100% 0, 50% 63%);
+      transform-origin: top;
+      transition: transform 320ms ease;
+    }
+    .entry-envelope-seal {
+      position: absolute;
+      z-index: 3;
+      top: 26px;
+      left: 50%;
+      display: grid;
+      width: 19px;
+      height: 19px;
+      place-items: center;
+      border-radius: 50%;
+      background: #df91a8;
+      color: #fff;
+      font-size: .7rem;
+      transform: translateX(-50%);
+    }
+    .entry-card:hover .entry-envelope-flap, .entry-card:focus-visible .entry-envelope-flap { transform: rotateX(180deg); }
+    .empty-state, .load-error { padding: 24px; border: 1px dashed #d7cec2; border-radius: 14px; color: var(--muted); line-height: 1.65; }
+    .photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .photo-item { overflow: hidden; margin: 0; border: 1px solid var(--line); border-radius: 15px; background: #fff; }
+    .photo-open { position: relative; display: block; width: 100%; overflow: hidden; padding: 0; border: 0; background: #f8eef2; cursor: zoom-in; }
+    .photo-item img, .photo-item video { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; transition: transform 240ms ease; }
+    .photo-item:hover img, .photo-item:hover video { transform: scale(1.025); }
+    .photo-video-badge { position: absolute; right: 10px; bottom: 10px; padding: 5px 9px; border-radius: 999px; background: #28242ccc; color: #fff; font-size: .7rem; font-weight: 750; pointer-events: none; }
+    .photo-item figcaption { padding: 11px 13px; background: var(--paper); color: #746d64; font-size: .82rem; }
+    .about-card { max-width: 760px; padding: clamp(23px, 4vw, 40px); border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+    .about-card p { margin: 0; color: #70685f; line-height: 1.8; white-space: pre-line; }
+    .visitor-invitation { margin-top: 40px; }
+    .invitation-envelope { max-width: 420px; }
+
+    .mobile-menu-button {
+      display: none;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--paper);
+      color: #514638;
+      cursor: pointer;
+      font-size: 1.25rem;
+    }
+    .drawer-scrim { display: none; }
+    .bottom-nav { display: none; }
+    .entry-dialog {
+      width: min(calc(100% - 28px), 680px);
+      max-height: min(88vh, 850px);
+      padding: clamp(23px, 5vw, 42px);
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 19px;
+      background: var(--paper);
+      color: var(--ink);
+      animation: dialog-appear 260ms ease both;
+    }
+    .entry-dialog::backdrop { background: #25211dcc; backdrop-filter: blur(4px); }
+    .dialog-envelope-art {
+      position: relative;
+      width: 84px;
+      height: 58px;
+      margin: 0 auto 22px;
+      overflow: hidden;
+      border: 1px solid #e8bac8;
+      border-radius: 8px;
+      background: #fff5f7;
+      perspective: 300px;
+    }
+    .dialog-envelope-art::before {
+      position: absolute;
+      z-index: 1;
+      inset: 0;
+      background: #f4cad5;
+      clip-path: polygon(0 0, 50% 56%, 100% 0, 100% 100%, 0 100%);
+      content: "";
+    }
+    .dialog-envelope-flap {
+      position: absolute;
+      z-index: 2;
+      inset: 0 0 auto;
+      height: 100%;
+      background: #f9e3e9;
+      clip-path: polygon(0 0, 100% 0, 50% 63%);
+      transform-origin: top;
+      animation: envelope-open 440ms ease-out 80ms both;
+    }
+    .dialog-reveal { animation: letter-reveal 380ms ease-out 180ms both; }
+    .dialog-date { margin-bottom: 12px; color: #8b7967; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .entry-dialog h2 { margin-bottom: 20px; font-size: 2rem; }
+    .dialog-content { color: #625c54; line-height: 1.85; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .invitation-dialog { width: min(calc(100% - 28px), 760px); }
+    .invitation-dialog .dialog-content { margin-bottom: 22px; }
+    .invitation-dialog img {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: min(62vh, 680px);
+      margin: 0 auto;
+      border-radius: 12px;
+      background: #fff7f9;
+      object-fit: contain;
+      object-position: center;
+    }
+    .dialog-actions { display: flex; justify-content: end; margin-top: 24px; }
+    .dialog-close { min-height: 42px; padding: 9px 16px; border: 1px solid #e2dacf; border-radius: 10px; background: #f7f4f0; color: #39342e; cursor: pointer; font: inherit; font-weight: 700; }
+    @keyframes envelope-open { from { transform: rotateX(0); } to { transform: rotateX(180deg); } }
+    @keyframes letter-reveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes dialog-appear { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @media (prefers-reduced-motion: reduce) {
+      .entry-card, .entry-envelope-flap, .entry-dialog, .dialog-envelope-flap, .dialog-reveal {
+        animation-delay: 0ms !important;
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+      }
+    }
+    @media (max-width: 900px) {
+      :root { --sidebar-width: 228px; }
+      .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .home-intro { grid-template-columns: 1fr auto; }
+    }
+    @media (max-width: 720px) {
+      .sidebar {
+        z-index: 31;
+        width: min(84vw, 310px);
+        transform: translateX(-105%);
+        transition: transform 220ms ease;
+      }
+      body.menu-open .sidebar { transform: translateX(0); }
+      .drawer-scrim {
+        position: fixed;
+        z-index: 30;
+        inset: 0;
+        display: block;
+        background: #211e1a66;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 220ms ease;
+      }
+      body.menu-open .drawer-scrim { opacity: 1; pointer-events: auto; }
+      .main-shell { margin-left: 0; }
+      .topbar { min-height: 64px; padding: 10px 16px; }
+      .mobile-brand { display: flex; align-items: center; gap: 10px; font-family: Georgia, serif; font-size: 1.04rem; }
+      .mobile-brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; background: #eee5da; color: #695747; }
+      .mobile-menu-button { display: grid; }
+      .top-caption { display: none; }
+      .page-content { width: min(100% - 34px, 650px); padding: 27px 0 104px; }
+      .home-intro { grid-template-columns: 1fr; gap: 14px; }
+      .date-stamp { justify-self: start; text-align: left; }
+      .feature-card { border-radius: 16px; }
+      .entry-grid { grid-template-columns: 1fr; }
+      .entry-card { min-height: auto; }
+      .bottom-nav {
+        position: fixed;
+        z-index: 25;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line);
+        background: #fffefaed;
+        backdrop-filter: blur(14px);
+      }
+      .bottom-nav .nav-link { min-height: 54px; flex-direction: column; justify-content: center; gap: 3px; padding: 5px 3px; font-size: .69rem; text-align: center; }
+      .bottom-nav .nav-icon { font-size: 1.08rem; }
+      body.menu-open .bottom-nav { pointer-events: none; }
+    }
+    @media (max-width: 430px) {
+      .photo-grid { gap: 9px; }
+      .photo-item figcaption { padding: 9px; font-size: .76rem; }
+      .page-heading { margin-bottom: 21px; }
+      .feature-meta { margin-bottom: 15px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+  </style>
+  <style>
+    :root {
+      color: #56555d;
+      background: #fbfafc;
+      --ink: #56555d;
+      --muted: #9a98a0;
+      --line: #f0e9ed;
+      --paper: #fff;
+      --accent: #f3a9c0;
+      --sidebar-width: 210px;
+    }
+    body { background: #fbfafc; color: var(--ink); }
+    .sidebar { padding: 26px 15px 18px; border-right-color: #f2edf0; background: #fff; }
+    .brand { min-height: 66px; padding: 0 15px; }
+    .brand-mark {
+      display: flex;
+      width: auto;
+      height: auto;
+      flex-direction: column;
+      place-items: initial;
+      border-radius: 0;
+      background: transparent;
+      color: #ee9db8;
+      font-family: "Segoe UI", sans-serif;
+      font-size: .99rem;
+      font-weight: 850;
+      letter-spacing: -.025em;
+      line-height: .96;
+    }
+    .brand-mark strong { color: #cddd76; font-weight: 850; }
+    .brand-caption { display: none; }
+    .nav-label { margin: 30px 12px 12px; color: #b7b3b8; font-size: .66rem; }
+    .nav-link {
+      min-height: 45px;
+      border-radius: 999px;
+      color: #77767d;
+      font-size: .84rem;
+      font-weight: 650;
+    }
+    .nav-link:hover { background: #fff3f7; }
+    .nav-link[aria-current="page"] {
+      background: linear-gradient(100deg, #f8c3d2, #f5a8bf);
+      color: #fff;
+      box-shadow: 0 5px 13px #f4aec433;
+    }
+    .nav-link[aria-current="page"] .nav-icon { color: #fff; }
+    .nav-icon { color: #88878c; font-size: 1.02rem; }
+    .sidebar-bottom { margin-top: auto; }
+    .sidebar-note { color: #aaa5aa; font-size: .75rem; }
+    .main-shell { margin-left: var(--sidebar-width); }
+    .topbar {
+      position: sticky;
+      z-index: 15;
+      top: 0;
+      min-height: 78px;
+      gap: 20px;
+      padding: 12px clamp(22px, 3.2vw, 45px);
+      border: 0;
+      background: #fbfafceF;
+      backdrop-filter: blur(12px);
+    }
+    .topbar-start { display: flex; min-width: 0; align-items: center; gap: 15px; }
+    .mobile-brand { color: #5b5960; font-family: "Segoe UI", sans-serif; font-weight: 750; }
+    .mobile-brand-mark { background: #f8e6ec; color: #e48da8; }
+    .top-caption { display: none; }
+    .search-box {
+      display: flex;
+      width: min(100%, 520px);
+      min-height: 44px;
+      align-items: center;
+      gap: 10px;
+      margin: 0 auto;
+      padding: 0 15px;
+      border: 1px solid #f3eef1;
+      border-radius: 13px;
+      background: #fff;
+      color: #b4aeb5;
+    }
+    .search-box svg { width: 17px; height: 17px; flex: 0 0 auto; }
+    .search-box input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #5b5960; font: inherit; font-size: .86rem; }
+    .search-box input::placeholder { color: #b3afb4; }
+    .top-actions { display: flex; gap: 9px; }
+    .icon-button {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border: 1px solid #f3d9e2;
+      border-radius: 13px;
+      background: #f6b2c7;
+      box-shadow: 0 4px 9px #e892ad44;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+    .icon-button:hover { background: #ef9eb7; }
+    .dashboard-grid {
+      display: grid;
+      max-width: 1520px;
+      grid-template-columns: minmax(0, 1fr) 258px;
+      align-items: start;
+      margin: 0 auto;
+    }
+    .page-content {
+      width: auto;
+      min-width: 0;
+      margin: 0;
+      padding: 18px clamp(20px, 3.3vw, 46px) 64px;
+    }
+    .home-intro { display: none; }
+    .hero {
+      position: relative;
+      display: flex;
+      min-height: 270px;
+      align-items: center;
+      overflow: hidden;
+      padding: clamp(24px, 3.4vw, 42px);
+      border-radius: 31px;
+      background: linear-gradient(112deg, #f8c1d1 0%, #f5b1c6 61%, #f5a9c0 100%);
+      color: #fff;
+      isolation: isolate;
+    }
+    .hero::after {
+      position: absolute;
+      z-index: -1;
+      top: -55px;
+      right: -40px;
+      width: 320px;
+      height: 320px;
+      border: 1px solid #ffffff44;
+      border-radius: 50%;
+      box-shadow: 0 0 0 23px #ffffff12, 0 0 0 47px #ffffff0d;
+      content: "";
+    }
+    .hero-copy { position: relative; z-index: 2; width: min(67%, 515px); }
+    .hero .eyebrow { color: #fff; opacity: .9; }
+    .hero h1 { margin-bottom: 12px; color: #fff; font-family: "Segoe UI", sans-serif; font-size: clamp(2rem, 3.4vw, 3.05rem); font-weight: 700; letter-spacing: -.035em; line-height: 1.08; }
+    .hero-tagline { margin-bottom: 18px; color: #fff; font-size: .95rem; line-height: 1.65; opacity: .93; }
+    .feature-card {
+      max-width: 475px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .feature-card::after { display: none; }
+    .feature-meta { margin-bottom: 7px; color: #fff; font-size: .69rem; letter-spacing: .1em; opacity: .9; }
+    .feature-meta::before { background: #fff; }
+    .feature-card h2 { margin-bottom: 8px; color: #fff; font-family: Georgia, serif; font-size: clamp(1.2rem, 2.3vw, 1.65rem); font-weight: 500; }
+    .feature-excerpt { display: -webkit-box; max-width: 445px; margin-bottom: 15px; overflow: hidden; color: #fff; font-size: .81rem; line-height: 1.55; opacity: .93; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .hero #daily-note-content { display: block; overflow: visible; white-space: pre-line; -webkit-line-clamp: unset; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+    .hero .text-button { min-height: 37px; padding: 8px 17px; border-radius: 999px; background: #fff; color: #df8da7; font-size: .78rem; }
+    .hero .text-button.secondary { border: 1px solid #ffffff8a; background: transparent; color: #fff; }
+    .hero-art { position: absolute; right: 1%; bottom: -8px; width: min(43%, 330px); height: 285px; opacity: .97; pointer-events: none; }
+    .hero-art .petal { fill: #fff1f4; stroke: #e89daf; stroke-width: 1.5; }
+    .hero-art .leaf { fill: #dce99c; stroke: #b6c66b; stroke-width: 1; }
+    .hero-art .door { fill: #fff5f4; stroke: #d78c9c; stroke-width: 4; }
+    .hero-art .wood { fill: #f1cfb8; stroke: #d49f8c; stroke-width: 2; }
+    .hero-art .door-detail { fill: #9bd5de; stroke: #7fb9c6; stroke-width: 2; }
+    .hero-art .stem { fill: none; stroke: #a6bd6b; stroke-width: 3; stroke-linecap: round; }
+    .section-heading { align-items: center; margin: 30px 0 14px; }
+    .section-heading h2 { color: #55535b; font-family: "Segoe UI", sans-serif; font-size: 1.02rem; font-weight: 750; }
+    .section-heading button { color: #dc8ea7; font-size: .78rem; }
+    .entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+    .entry-card {
+      min-height: 168px;
+      padding: 17px;
+      border-color: #f0e9ed;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 7px 20px #65505b08;
+    }
+    .entry-date { margin-bottom: 8px; color: #d990a8; font-size: .66rem; }
+    .entry-card h3 { margin-bottom: 7px; color: #55535b; font-family: "Segoe UI", sans-serif; font-size: 1rem; font-weight: 700; }
+    .entry-card p { color: #939097; font-size: .79rem; line-height: 1.55; }
+    .entry-card .text-button { min-height: 29px; color: #e08da7; font-size: .75rem; }
+    .photo-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .photo-item { border-color: #f0e9ed; border-radius: 17px; background: #fff; box-shadow: 0 7px 20px #65505b08; }
+    .photo-item img, .photo-item video { aspect-ratio: 1 / .86; }
+    .photo-item figcaption { color: #89858c; font-size: .76rem; }
+    .about-card { border-color: #f0e9ed; border-radius: 18px; color: #89858c; }
+    .right-rail {
+      position: sticky;
+      top: 78px;
+      min-height: calc(100vh - 78px);
+      padding: 25px 20px 36px;
+      border-left: 1px solid #f0e9ed;
+      background: #fff;
+    }
+    .profile-card { display: flex; align-items: center; gap: 11px; margin-bottom: 25px; }
+    .profile-avatar {
+      display: grid;
+      width: 43px;
+      height: 43px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid #f7d8e2;
+      border-radius: 50%;
+      background: #fff0f4;
+      color: #df91aa;
+      font-family: Georgia, serif;
+      font-size: 1.25rem;
+    }
+    .profile-name { margin: 0 0 3px; color: #5c5960; font-size: .79rem; font-weight: 750; }
+    .profile-caption { margin: 0; color: #a29da4; font-size: .7rem; }
+    .rail-social { display: flex; gap: 8px; margin-top: 8px; color: #aaa4ab; font-size: .7rem; }
+    .rail-section { margin: 24px 0 0; }
+    .rail-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; color: #69666d; font-size: .82rem; font-weight: 750; }
+    .rail-heading button { border: 0; background: transparent; color: #aaa4ab; cursor: pointer; font-size: .85rem; }
+    .color-tags { display: flex; gap: 6px; }
+    .color-tag { width: 40px; height: 10px; border-radius: 999px; background: #f5b0c5; }
+    .color-tag:nth-child(2) { background: #dce99c; }
+    .color-tag:nth-child(3) { background: #e9d8ee; }
+    .color-tag:nth-child(4) { background: #f4e3bf; }
+    .rail-entry-list { display: grid; gap: 9px; }
+    .rail-entry {
+      display: flex;
+      width: 100%;
+      min-height: 52px;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border: 1px solid #f4eef1;
+      border-radius: 13px;
+      background: #fcfbfc;
+      color: #6a666e;
+      cursor: pointer;
       text-align: left;
     }
-
+    .rail-entry:hover { background: #fff1f5; }
+    .rail-entry-icon { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 11px; background: #f9d5e0; color: #df8ba5; font-size: .9rem; }
+    .rail-entry-title { display: block; overflow: hidden; font-size: .71rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+    .rail-entry-date { display: block; margin-top: 3px; color: #a29da4; font-size: .63rem; }
+    .rail-photos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .rail-photo {
+      overflow: hidden;
+      padding: 0;
+      border: 1px solid #f0e9ed;
+      border-radius: 12px;
+      background: #f8f2f5;
+      cursor: pointer;
+    }
+    .rail-photo img { display: block; width: 100%; aspect-ratio: 1 / .85; object-fit: cover; }
+    .rail-photo-empty { display: grid; min-height: 70px; place-items: center; border: 1px dashed #eedfe6; border-radius: 12px; color: #b1aab1; font-size: .72rem; text-align: center; }
+    .rail-about { padding: 13px; border-radius: 14px; background: #fff3f7; color: #8d7c83; font-size: .72rem; line-height: 1.6; }
+    .load-error { margin: 0 24px 24px; border-color: #f3cbd7; background: #fff7fa; color: #a5687d; font-size: .82rem; }
+    .drawer-scrim { border: 0; padding: 0; }
+    @media (max-width: 980px) {
+      :root { --sidebar-width: 218px; }
+      .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+      .right-rail { display: none; }
+      .page-content { max-width: 930px; margin: 0 auto; }
+      .hero-copy { width: 70%; }
+    }
+    @media (max-width: 720px) {
+      .sidebar { width: min(84vw, 300px); }
+      .main-shell { margin-left: 0; }
+      .topbar { position: sticky; min-height: 68px; flex-wrap: wrap; gap: 9px; padding: 10px 15px; }
+      .topbar-start { min-height: 40px; flex: 1 1 100%; justify-content: space-between; }
+      .mobile-brand { display: flex; }
+      .search-box { order: 2; width: auto; min-height: 40px; flex: 1; margin: 0; }
+      .top-actions { order: 3; }
+      .icon-button { width: 40px; height: 40px; }
+      .page-content { width: min(100% - 28px, 620px); padding: 20px 0 104px; }
+      .hero { min-height: 250px; padding: 23px 20px; border-radius: 23px; }
+      .hero-copy { width: 75%; }
+      .hero-art { right: -7%; width: 47%; opacity: .78; }
+      .hero h1 { font-size: clamp(1.7rem, 7vw, 2.3rem); }
+      .feature-excerpt { font-size: .76rem; }
+      .entry-grid { grid-template-columns: 1fr; }
+      .entry-card { min-height: 145px; }
+      .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .section-heading { margin-top: 26px; }
+    }
+    @media (max-width: 430px) {
+      .top-actions { display: none; }
+      .search-box { width: 100%; }
+      .hero { min-height: 270px; }
+      .hero-copy { width: 82%; }
+      .hero-art { right: -13%; width: 56%; opacity: .55; }
+      .hero .text-button { min-height: 34px; padding: 7px 12px; }
+    }
+    .login-screen {
+      position: fixed;
+      z-index: 100;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background:
+        radial-gradient(ellipse at 14% 12%, #fff 0, transparent 38%),
+        radial-gradient(ellipse at 88% 90%, #f8dce7 0, transparent 32%),
+        #fbf8fa;
+    }
+    .login-card {
+      width: min(100%, 410px);
+      padding: clamp(25px, 6vw, 40px);
+      border: 1px solid #f0e2e8;
+      border-radius: 22px;
+      background: #fff;
+      box-shadow: 0 18px 55px #6c4a5b12;
+    }
+    .login-logo {
+      margin: 0 0 24px;
+      color: #ee9db8;
+      font-size: .82rem;
+      font-weight: 850;
+      letter-spacing: .03em;
+      line-height: 1;
+    }
+    .login-logo span { display: block; color: #cddd76; }
+    .login-card h1 { margin-bottom: 10px; color: #54525a; font-size: 2rem; }
+    .login-description { margin-bottom: 25px; color: #98939a; font-size: .9rem; line-height: 1.65; }
+    .password-label { display: block; margin-bottom: 8px; color: #66616a; font-size: .84rem; font-weight: 700; }
     .password-input {
       width: 100%;
       min-height: 48px;
-      padding: 10px 14px;
-      border: 1px solid #d9bfdc;
-      border-radius: 10px;
+      padding: 11px 14px;
+      border: 1px solid #eadfe4;
+      border-radius: 11px;
       background: #fff;
-      color: #59455f;
+      color: #57535a;
       font: inherit;
+      font-size: .9rem;
     }
-
-    .password-input:focus-visible {
-      outline: 3px solid #bd91c5;
-      outline-offset: 2px;
-    }
-
-    .login-error {
-      min-height: 1.5em;
-      margin: 12px 0 0;
-      color: #a33f63;
-      font-size: 0.9rem;
-    }
-
-    .security-note {
-      margin: 16px 0 0;
-      color: #9c8b9e;
-      font-size: 0.76rem;
-      line-height: 1.55;
-    }
-
-    .eyebrow {
-      margin: 0 0 10px;
-      color: #a17eaa;
-      font-size: 0.76rem;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-
-    h1 {
-      margin: 0;
-      color: #70577b;
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(2.4rem, 8vw, 3.8rem);
-      font-weight: 500;
-    }
-
-    .prompt {
-      margin: 14px 0 0;
-      color: #8d7993;
-      font-size: 1rem;
-    }
-
-    .mailbox {
-      position: relative;
-      width: min(100%, 410px);
-      height: 310px;
-      margin: 30px auto 0;
-      perspective: 1000px;
-    }
-
-    .letter {
-      position: absolute;
-      z-index: 1;
-      top: 20px;
-      left: 8%;
-      width: 84%;
-      height: 242px;
-      padding: 24px 23px;
-      overflow: auto;
-      border: 1px solid #f1d9e8;
-      border-radius: 16px;
-      background: #fffdfd;
-      box-shadow: 0 10px 28px #8d66841a;
-      text-align: left;
-      pointer-events: none;
-      transform: translateY(120px) scale(.93);
-      transition: transform 800ms cubic-bezier(.2, .8, .2, 1);
-      scrollbar-color: #dfc3df transparent;
-      scrollbar-width: thin;
-    }
-
-    .letter h2 {
-      margin: 0 0 12px;
-      color: #a56d91;
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 1.35rem;
-      font-weight: 500;
-    }
-
-    .letter p {
-      margin: 0;
-      color: #68566c;
-      font-size: 0.98rem;
-      line-height: 1.75;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-
-    .envelope {
-      position: absolute;
-      z-index: 2;
-      right: 0;
-      bottom: 4px;
-      left: 0;
-      height: 210px;
-      overflow: hidden;
-      border-radius: 15px;
-      background: #e9c9de;
-      box-shadow: 0 20px 44px #81648624;
-    }
-
-    .envelope-back {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(145deg, #f2dce9, #e6c6df);
-    }
-
-    .flap {
-      position: absolute;
-      z-index: 4;
-      top: 0;
-      left: 0;
+    .password-input:focus-visible { outline: 3px solid #f2b4c7; outline-offset: 2px; }
+    .login-button {
       width: 100%;
-      height: 110px;
-      background: #f4d8e8;
-      clip-path: polygon(0 0, 100% 0, 50% 100%);
-      transform-origin: top center;
-      transition: transform 700ms ease, opacity 450ms ease;
-      backface-visibility: hidden;
-    }
-
-    .pocket {
-      position: absolute;
-      z-index: 3;
-      inset: 0;
-      background: linear-gradient(145deg, transparent 49.5%, #e8c5dc 50%),
-        linear-gradient(215deg, transparent 49.5%, #f1d5e5 50%);
-      clip-path: polygon(0 0, 50% 57%, 100% 0, 100% 100%, 0 100%);
-    }
-
-    .seal {
-      position: absolute;
-      z-index: 5;
-      top: 85px;
-      left: 50%;
-      display: grid;
-      width: 48px;
-      height: 48px;
-      place-items: center;
-      border: 1px solid #d5a5c5;
-      border-radius: 50%;
-      background: #fff1f7;
-      color: #c17fa9;
-      font-size: 1.35rem;
-      transform: translateX(-50%);
-      transition: opacity 250ms ease;
-    }
-
-    .open .letter {
-      z-index: 3;
-      pointer-events: auto;
-      transform: translateY(-20px) scale(1);
-    }
-
-    .open .flap {
-      z-index: 0;
-      opacity: 0.4;
-      transform: rotateX(180deg);
-    }
-
-    .open .seal {
-      opacity: 0;
-    }
-
-    .toggle {
-      min-width: 154px;
-      min-height: 48px;
-      margin-top: 20px;
-      padding: 12px 22px;
+      min-height: 47px;
+      margin-top: 15px;
       border: 0;
       border-radius: 999px;
-      background: #bd91c5;
-      box-shadow: 0 7px 18px #9b70a633;
+      background: linear-gradient(100deg, #f3b4c8, #ed9db6);
+      box-shadow: 0 6px 15px #e894af35;
       color: #fff;
       cursor: pointer;
       font: inherit;
-      font-weight: 700;
-      transition: transform 180ms ease, background 180ms ease;
+      font-size: .91rem;
+      font-weight: 750;
     }
-
-    .toggle:hover {
-      background: #aa7fb4;
-      transform: translateY(-2px);
-    }
-
-    .toggle:focus-visible {
-      outline: 3px solid #82588c;
-      outline-offset: 4px;
-    }
-
-    .privacy {
-      max-width: 360px;
-      margin: 24px auto 0;
-      color: #9c8b9e;
-      font-size: 0.78rem;
-      line-height: 1.6;
-    }
-
-    .diary-link {
-      display: flex;
-      width: fit-content;
-      align-items: center;
-      justify-content: center;
-      margin: 12px auto 0;
-      text-decoration: none;
-    }
-
-    .latest-diary {
-      margin: 24px auto 0;
-      padding: 20px;
-      border: 1px solid #f1d9e8;
-      border-radius: 16px;
-      background: #fffdfd;
-      box-shadow: 0 10px 28px #8d66841a;
-      text-align: left;
-    }
-
-    .latest-diary h2 {
-      margin: 0 0 10px;
-      color: #a56d91;
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 1.35rem;
-      font-weight: 500;
-    }
-
-    .latest-diary-title {
-      margin: 0 0 8px;
-      color: #70577b;
-      font-weight: 700;
-    }
-
-    .latest-diary-status {
-      color: #8d7993;
-      font-size: 0.85rem;
-      line-height: 1.5;
-    }
-
-    .latest-diary-status {
-      margin: 10px 0 0;
-    }
-
-    .invitation-card {
-      margin: 24px auto 0;
-      padding: 24px;
-      border: 1px solid #e8cadd;
-      border-radius: 20px;
-      background: linear-gradient(145deg, #fffdfd, #fff6fa);
-      box-shadow: 0 12px 30px #8d66841a;
-      text-align: left;
-    }
-
-    .invitation-card h2 {
+    .login-button:hover { background: #e995b1; }
+    .login-error { min-height: 1.5em; margin: 12px 0 0; color: #a64e68; font-size: .82rem; }
+    .login-note { margin: 16px 0 0; color: #aaa4aa; font-size: .72rem; line-height: 1.55; }
+    .media-status { min-height: 1.5em; margin: 12px 0 0; color: #a5687d; font-size: .8rem; text-align: center; }
+    .media-viewer {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      max-width: none;
+      height: 100vh;
+      height: 100dvh;
+      max-height: none;
       margin: 0;
-      color: #a56d91;
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 1.8rem;
-      font-weight: 500;
-      text-align: center;
-    }
-
-    .invitation-toggle {
-      padding: 0;
+      padding: 58px 18px 18px;
+      overflow: hidden;
       border: 0;
-      background: none;
-      color: inherit;
-      cursor: pointer;
-      font: inherit;
+      background: #211e23;
+      color: #fff;
     }
-
-    .invitation-toggle:focus-visible {
-      border-radius: 4px;
-      outline: 3px solid #82588c;
-      outline-offset: 6px;
-    }
-
-    .invitation-details {
-      margin-top: 12px;
-    }
-
-    .invitation-copy {
-      margin: 0 0 18px;
-      color: #68566c;
-      line-height: 1.7;
-      text-align: center;
-    }
-
-    .invitation-photo {
-      display: block;
-      width: 100%;
-      max-height: 320px;
-      margin: 0 auto 16px;
-      border-radius: 14px;
-      object-fit: cover;
-    }
-
-    .photo-status {
-      min-height: 1.5em;
-      margin: 10px 0 0;
-      color: #9c8b9e;
-      font-size: 0.8rem;
-      text-align: center;
-    }
-
-    @media (max-width: 420px) {
-      .scene {
-        padding-inline: 8px;
-      }
-
-      .invitation-card {
-        padding: 20px 16px;
-      }
-
-      .mailbox {
-        height: 290px;
-      }
-
-      .letter {
-        height: 225px;
-        padding: 20px 17px;
-      }
-
-      .envelope {
-        height: 195px;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
-        animation-duration: 0.01ms !important;
-      }
+    .media-viewer[open] { display: grid; grid-template-rows: minmax(0, 1fr) auto; place-items: center; gap: 12px; }
+    .media-viewer::backdrop { background: #17151bdc; backdrop-filter: blur(7px); }
+    .media-viewer-content { display: grid; width: 100%; height: 100%; min-height: 0; place-items: center; }
+    .media-viewer-image, .media-viewer-video { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 100px); max-height: calc(100dvh - 100px); object-fit: contain; }
+    .media-viewer-video { width: min(100%, 1200px); }
+    .media-viewer-close { position: absolute; z-index: 1; top: 12px; right: 16px; display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid #ffffff55; border-radius: 50%; background: #ffffff20; color: #fff; cursor: pointer; font-size: 1.75rem; }
+    .media-viewer-close:hover { background: #ffffff35; }
+    .media-viewer-caption { margin: 0; color: #f6edf1; font-size: .88rem; text-align: center; }
+    .rail-photo-video { display: grid; width: 100%; aspect-ratio: 1 / .85; place-items: center; background: #fae9ef; color: #df8ba5; font-size: 1.3rem; }
+    .rail-entry-list .empty-state { padding: 12px; font-size: .72rem; }
+    @media (max-width: 720px) {
+      .media-viewer { padding: 56px 10px 12px; }
+      .media-viewer-image, .media-viewer-video { max-height: calc(100vh - 88px); max-height: calc(100dvh - 88px); }
+      .media-viewer-close { top: 8px; right: 10px; }
     }
   </style>
 </head>
 <body>
-  <main class="scene">
-    <section class="login-panel" id="login-panel" aria-labelledby="login-title">
-      <p class="eyebrow">a little something</p>
-      <h1 id="login-title">A Little Note</h1>
-      <p class="dedication">This website is only dedicated to Setael. Only she knows the password.</p>
+  <main class="login-screen" id="login-screen">
+    <section class="login-card" aria-labelledby="login-title">
+      <p class="login-logo">A LITTLE<span>DIARY</span></p>
+      <h1 id="login-title">Welcome back</h1>
+      <p class="login-description">Enter the password to open this little collection.</p>
       <form id="login-form">
-        <label class="password-label" for="password">Enter the password to open your note</label>
-        <input class="password-input" id="password" name="password" type="password" autocomplete="current-password" required>
-        <button class="toggle" type="submit">Continue</button>
+        <label class="password-label" for="site-password">Password</label>
+        <input class="password-input" id="site-password" name="password" type="password" autocomplete="current-password" required>
+        <button class="login-button" type="submit">Continue</button>
         <p class="login-error" id="login-error" role="status" aria-live="polite"></p>
       </form>
-      <p class="privacy">Login outcomes and clicked button or link labels are sent to the shared activity log. Passwords and typed text are never recorded.</p>
-      <p id="login-log-status" class="privacy" role="status" aria-live="polite"></p>
+      <p class="login-note">Your visitor access is read-only. You can browse shared entries, photos, and videos.</p>
     </section>
-
-    <div id="envelope-content" hidden>
-      <p class="eyebrow">a little something</p>
-      <h1>A Little Note</h1>
-      <p class="prompt">Whenever you're ready, open the envelope.</p>
-      <section class="latest-diary" aria-labelledby="latest-diary-heading">
-        <h2 id="latest-diary-heading">Latest diary update</h2>
-        <p class="latest-diary-title" id="latest-diary-title">Loading the latest envelope...</p>
-        <p class="latest-diary-status" id="latest-diary-status" role="status" aria-live="polite"></p>
-        <a class="toggle diary-link" href="diary.html">Open the diary</a>
-      </section>
-
-      <section class="invitation-card" id="invitation-card" aria-labelledby="invitation-heading" hidden>
-        <h2><button class="invitation-toggle" id="invitation-toggle" type="button" aria-expanded="false" aria-controls="invitation-details"><span id="invitation-heading"></span></button></h2>
-        <div class="invitation-details" id="invitation-details" hidden>
-          <p class="invitation-copy" id="invitation-copy"></p>
-          <img class="invitation-photo" id="invitation-photo" alt="Photo for the invitation" hidden>
-          <p class="photo-status" id="invitation-status" role="status" aria-live="polite"></p>
-        </div>
-      </section>
-
-      <section class="mailbox" id="mailbox" aria-label="An envelope containing a note">
-        <article class="letter" id="letter" aria-hidden="true">
-          <h2>dear, mako, my shen setael!</h2>
-          <p id="message">happy 23rd! first of all, i want to start this message by saying na thank you. thank you for everything that you gave me, you made me experience things na i never knew na nag-exist pala to na mga bagay. i really can tell, i am never going to hide it, nor ignore it nga i learned a lot from you. you are the most person alive that i know.
-
-i learned how to be open and be myself because you thought me na kahit lalaki ko, kahit mahadlok ko, tao man gihapon ko. i really love you, i really do. i can proudly tell everyone, and i did na palangga kaayo ko nimo, kay Nakita nako kung unsa nimo na pag show sa akoa, even sa imohang pamilya imoha kong gipaglaban and i know nga palangga jud kayo ko nimo, na love kayo ko nimo.
-
-the reason why i can't stop myself from loving you gud, because you are the most pure person i know, the softest, caring, and loving person. i see you as you, my shen setael, ang bb nako and bb sa imohang family. every time i think about this gud kay ang mag flash lang sa akoang mind and eyes kay ang little you, nag eat ka ice cream, holding a scorpion, feeding an animal, nag sit ka with your short hair and luyang sa imohang hand, a lot of version nimo na little you. do you remember ba sa brgy, when i told you na i am always so proud you, the reason why i said that was because i know kung unsa ang imohang kaya and never tika gina-view as an object na always lang mag ascend and bawal ka makapoy, bawal ko mag stop kasi you are a person man, you are shen setael, but i view you as shen setael nga allowed mag take ug rest, nga allow mag slack off, ng allowed ang tanan buhaton kasi dili man mag matter ang opinion sa uban. you can do whatever you want, you can always take a rest.
-
-always remember, my shen setael nga i am always so proud of you, never sa akoang life nga nag doubt ko sa imoha, gimaliit tika. saksi ko sa tanan nimong achievements and proud kayo ko kasi you achieved those and sa mga muabutay pa, i am going to be always so proud of you. just always remember na you can always take a rest and listen sa imohang self. you are a person, not a machine nga dapat i-satisfy ang gina-think sa uban tao, you are still shen setael nga if naa man something mahitabo sa imoha performance walay mausab sa imoha kasi that won't make you less of a person, you are always going to be shen setael. if everything and everyone man kay talikuran ka, you have raneb, you have vren nga always mag offer ug shoulder for you to lean on. up until now, i am never going to judge you, i never judged you sa bisan unsa man nga nahitabo.
-
-do always remember na you still have me, despite everythat that happened to us, i never hated you, i never blamed you for anything. if everything's foggy and baffling, just reach out to me, you know where to find me. 
-
-do always know na, i love you sooo so much with all that i am. i love you permanently. i am here to love you today, to love you tomorrow, and every tomorrow after that.
-
-you are like the view of a mountain's peak, a living beautiful scenery.
-
-i want to say sorry for what i did sa imoha, for physically harassing you, for affecting your mental health din. i know and i am aware na mali ang akoang gibuhat, sakit ang akoang approach na gibuhat sa imoha and i really crossed everything kaya naabot ta sa ing-ani. i sincerely apologize for what i did, mako. i am not hoping for a forgiveness na mahatag dayon, i am going to work for it. i understand how you feel and i know kung bakit ing-ato imohang reaction sa akoa.
-
-i never hated your family din kasi i know how much they care for me and all the things din na ginahatag nila sa akoa was pagpangga. i am really sorry for all of this, mako.
-
-to be honest, i am still hoping for us hantod karon, after everything that happened. i know aware ko na wala na koy mabuhat and aware din ko na sala nako ang tanan, mali nako kaya nag-stop ta and dawat nako na, pero dili jud na mawala sa akoa nga mag hope ko sa imoha like i always say sa imoha, that's just who you are, dili nako kaya na i-unlove ka and never nako pud itry kasi para sa imoha man ning tanan. i really love you so much with all my heart, mako.
-
-always remember lang jud na naa kay ako nga andam maminaw always sa imoha and if i will have my chance again, i am going to use this para dili na mahitabo ang tanan again.
-
-ayaw lang kalimot, you have the pouch man if mag sakit ang puson, you have your medkit if magkasakit, not too much ang consumption kasi magsakit ang kilid, ayaw kayo pag inom ug kape kay maglisod ka ug sleep, kapag dili makatulog mag reach out sa akoa and i am going to be there for you. i love you!
-
-i hope you are going to do well lang always, dont forget to eat your meals on time and sa pag take care sa imohang sarili. i know kaya na nimo, kayanon nato ning dalawa.
-
-happy 23rd, mako! 1 more month nalang 2nd year na nato.
-
-i love you sooo so much, your lover, raneb <3 </p>
-        </article>
-        <div class="envelope">
-          <div class="envelope-back" aria-hidden="true"></div>
-          <div class="flap" aria-hidden="true"></div>
-          <div class="pocket" aria-hidden="true"></div>
-          <div class="seal" aria-hidden="true">♥</div>
-        </div>
-      </section>
-
-      <button class="toggle" id="toggle" type="button" aria-expanded="false" aria-controls="letter">
-        Open the envelope
-      </button>
-      <a class="toggle diary-link" id="diary-link" href="diary.html">Open the diary</a>
-      <button class="toggle" id="logout" type="button">Log out</button>
-      <p id="log-status" class="privacy" role="status" aria-live="polite"></p>
-    </div>
   </main>
+  <div id="site-app" hidden>
+  <button class="drawer-scrim" id="drawer-scrim" type="button" aria-label="Close menu"></button>
+  <aside class="sidebar" id="sidebar" aria-label="Main sidebar">
+    <a class="brand" href="#home" data-page="home">
+      <span class="brand-mark" id="sidebar-title" aria-label="A Little Diary"><span>A LITTLE</span><strong>DIARY</strong></span>
+    </a>
+    <p class="nav-label">Explore</p>
+    <nav class="side-nav" aria-label="Main navigation">
+      <button class="nav-link" type="button" data-page="home" aria-current="page"><span class="nav-icon" aria-hidden="true">⌂</span>Home</button>
+      <button class="nav-link" type="button" data-page="entries"><span class="nav-icon" aria-hidden="true">▤</span>Entries</button>
+      <button class="nav-link" type="button" data-page="photos"><span class="nav-icon" aria-hidden="true">▧</span>Photos</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <p class="sidebar-note">A collection of little moments, shared with care.</p>
+    </div>
+  </aside>
+
+  <nav class="bottom-nav" aria-label="Quick navigation">
+    <button class="nav-link" type="button" data-page="home" aria-current="page"><span class="nav-icon" aria-hidden="true">⌂</span>Home</button>
+    <button class="nav-link" type="button" data-page="entries"><span class="nav-icon" aria-hidden="true">▤</span>Entries</button>
+    <button class="nav-link" type="button" data-page="photos"><span class="nav-icon" aria-hidden="true">▧</span>Photos</button>
+  </nav>
+
+  <div class="main-shell">
+    <header class="topbar">
+      <div class="topbar-start">
+        <button class="mobile-menu-button" id="menu-button" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">☰</button>
+        <div class="mobile-brand"><span class="mobile-brand-mark" aria-hidden="true">✿</span><span id="mobile-title">A Little Diary</span></div>
+      </div>
+      <label class="search-box" for="entry-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.5 4.5"></path></svg>
+        <input id="entry-search" type="search" placeholder="Search entries" autocomplete="off">
+      </label>
+      <div class="top-actions" aria-label="Quick links">
+        <button class="icon-button" type="button" data-page="entries" aria-label="Browse entries">▤</button>
+        <button class="icon-button" type="button" data-page="photos" aria-label="Browse photos">▧</button>
+      </div>
+    </header>
+    <div class="dashboard-grid">
+      <main class="page-content">
+        <section id="page-home" data-page-section="home">
+          <article class="hero">
+            <div class="hero-copy">
+              <p class="eyebrow">A living collection</p>
+              <h1 id="home-title">A Little Diary</h1>
+              <p class="hero-tagline" id="home-tagline">Small moments, remembered.</p>
+              <div class="feature-card" id="daily-note" hidden>
+                <div class="feature-meta">Daily note</div>
+                <h2 id="daily-note-title"></h2>
+                <p class="feature-excerpt" id="daily-note-content"></p>
+              </div>
+            </div>
+            <svg class="hero-art" viewBox="0 0 340 300" role="img" aria-label="Illustration of a tiny garden door surrounded by flowers">
+              <path class="stem" d="M54 287c22-38 28-68 30-109m201 110c-28-39-36-72-38-117m-152 120c-9-33-10-60-6-88m146 90c14-35 16-61 11-95"></path>
+              <path class="leaf" d="M76 217c-28-15-41-10-43 5 21 15 36 11 43-5Zm14-31c20-24 34-23 39-9-12 22-25 26-39 9Zm126 30c-22-20-36-17-39-2 17 18 31 17 39 2Zm45-17c24-20 38-16 40 0-19 18-33 16-40 0Z"></path>
+              <path class="door" d="M92 287V151a78 78 0 0 1 156 0v136Z"></path>
+              <path class="wood" d="M108 287V153a62 62 0 0 1 124 0v134Z"></path>
+              <path class="door-detail" d="M145 145a24 24 0 0 1 48 0v33h-48Z"></path>
+              <path class="wood" d="M139 184h62v8h-62zM139 239h62v8h-62z"></path>
+              <circle cx="211" cy="214" r="5" fill="#d58c9b"></circle>
+              <path class="stem" d="M25 285c17-17 27-27 40-43m201 43c22-26 35-39 55-51"></path>
+              <g transform="translate(48 242)">
+                <ellipse class="petal" cx="0" cy="-13" rx="8" ry="12"></ellipse><ellipse class="petal" cx="12" cy="0" rx="8" ry="12" transform="rotate(90 12 0)"></ellipse><ellipse class="petal" cx="0" cy="13" rx="8" ry="12"></ellipse><ellipse class="petal" cx="-12" cy="0" rx="8" ry="12" transform="rotate(90 -12 0)"></ellipse><circle cx="0" cy="0" r="5" fill="#e9c977"></circle>
+              </g>
+              <g transform="translate(275 235) scale(1.15)">
+                <ellipse class="petal" cx="0" cy="-13" rx="8" ry="12"></ellipse><ellipse class="petal" cx="12" cy="0" rx="8" ry="12" transform="rotate(90 12 0)"></ellipse><ellipse class="petal" cx="0" cy="13" rx="8" ry="12"></ellipse><ellipse class="petal" cx="-12" cy="0" rx="8" ry="12" transform="rotate(90 -12 0)"></ellipse><circle cx="0" cy="0" r="5" fill="#e9c977"></circle>
+              </g>
+              <g transform="translate(78 169) scale(.8)">
+                <ellipse class="petal" cx="0" cy="-13" rx="8" ry="12"></ellipse><ellipse class="petal" cx="12" cy="0" rx="8" ry="12" transform="rotate(90 12 0)"></ellipse><ellipse class="petal" cx="0" cy="13" rx="8" ry="12"></ellipse><ellipse class="petal" cx="-12" cy="0" rx="8" ry="12" transform="rotate(90 -12 0)"></ellipse><circle cx="0" cy="0" r="5" fill="#e9c977"></circle>
+              </g>
+              <g transform="translate(265 157) scale(.72)">
+                <ellipse class="petal" cx="0" cy="-13" rx="8" ry="12"></ellipse><ellipse class="petal" cx="12" cy="0" rx="8" ry="12" transform="rotate(90 12 0)"></ellipse><ellipse class="petal" cx="0" cy="13" rx="8" ry="12"></ellipse><ellipse class="petal" cx="-12" cy="0" rx="8" ry="12" transform="rotate(90 -12 0)"></ellipse><circle cx="0" cy="0" r="5" fill="#e9c977"></circle>
+              </g>
+            </svg>
+          </article>
+          <div class="section-heading">
+            <h2>Recent entries</h2>
+            <button type="button" data-page="entries">Browse all entries&nbsp; →</button>
+          </div>
+          <div class="entry-grid" id="recent-entries"></div>
+          <section class="visitor-invitation" id="visitor-invitation" hidden>
+            <div class="section-heading"><h2>Cinema Invitation</h2></div>
+            <button class="entry-card invitation-envelope" id="open-invitation" type="button" aria-haspopup="dialog" aria-controls="invitation-dialog">
+              <span class="entry-envelope-art" aria-hidden="true"><span class="entry-envelope-flap"></span><span class="entry-envelope-seal">✿</span></span>
+              <span class="entry-card-title">Cinema Invitation</span>
+            </button>
+          </section>
+          <div class="section-heading"><h2>About this space</h2></div>
+          <article class="about-card"><p id="about-copy"></p></article>
+        </section>
+
+        <section id="page-entries" data-page-section="entries" hidden>
+          <div class="page-heading">
+            <p class="eyebrow">Words and moments</p>
+            <h1>Entries</h1>
+            <p class="page-description">Notes gathered over time. Take a moment and read whichever one speaks to you.</p>
+          </div>
+          <div class="entry-grid" id="all-entries"></div>
+        </section>
+
+        <section id="page-photos" data-page-section="photos" hidden>
+          <div class="page-heading">
+            <p class="eyebrow">Little things worth keeping</p>
+            <h1>Photos</h1>
+            <p class="page-description">Browse the album and select any photo or video to view it full screen.</p>
+          </div>
+          <div class="photo-grid" id="photo-gallery" role="list" aria-label="Photos and videos from the Sachel folder"></div>
+          <p class="media-status" id="photo-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <p class="load-error" id="site-status" role="status" aria-live="polite" hidden></p>
+      </main>
+      <aside class="right-rail" aria-label="Journal details">
+        <section class="profile-card">
+          <span class="profile-avatar" aria-hidden="true">✿</span>
+          <div>
+            <p class="profile-name" id="rail-site-title">A Little Diary</p>
+            <p class="profile-caption">A collection of moments</p>
+            <div class="rail-social" aria-hidden="true"><span>♡</span><span>✿</span><span>✧</span></div>
+          </div>
+        </section>
+        <section class="rail-section">
+          <h2 class="rail-heading"><span>#COLORS</span></h2>
+          <div class="color-tags" aria-label="Rose, leaf, lilac, and cream color palette">
+            <span class="color-tag"></span><span class="color-tag"></span><span class="color-tag"></span><span class="color-tag"></span>
+          </div>
+        </section>
+        <section class="rail-section">
+          <h2 class="rail-heading"><span>Recent entries</span><button type="button" data-page="entries" aria-label="View all entries">•••</button></h2>
+          <div class="rail-entry-list" id="rail-recent-entries"></div>
+        </section>
+        <section class="rail-section">
+          <h2 class="rail-heading"><span>Photo album</span><button type="button" data-page="photos" aria-label="View photo gallery">•••</button></h2>
+          <div class="rail-photos" id="rail-photos"></div>
+        </section>
+        <section class="rail-section">
+          <h2 class="rail-heading">A little note</h2>
+          <div class="rail-about" id="rail-about">A quiet place for the moments and memories worth keeping.</div>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <dialog class="entry-dialog" id="entry-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-envelope-art" aria-hidden="true"><span class="dialog-envelope-flap"></span></div>
+    <div class="dialog-reveal">
+      <p class="dialog-date" id="dialog-date"></p>
+      <h2 id="dialog-title"></h2>
+      <div class="dialog-content" id="dialog-content"></div>
+    </div>
+    <div class="dialog-actions"><button class="dialog-close" id="dialog-close" type="button">Close</button></div>
+  </dialog>
+  <dialog class="entry-dialog invitation-dialog" id="invitation-dialog" aria-labelledby="invitation-dialog-title">
+    <div class="dialog-envelope-art" aria-hidden="true"><span class="dialog-envelope-flap"></span></div>
+    <div class="dialog-reveal">
+      <p class="dialog-date">Cinema Invitation</p>
+      <h2 id="invitation-dialog-title"></h2>
+      <div class="dialog-content" id="invitation-dialog-message"></div>
+      <img id="invitation-dialog-image" alt="" hidden>
+    </div>
+    <div class="dialog-actions"><button class="dialog-close" id="invitation-dialog-close" type="button">Close invitation</button></div>
+  </dialog>
+  <dialog class="media-viewer" id="media-viewer" aria-label="Photo or video viewer">
+    <button class="media-viewer-close" id="media-viewer-close" type="button" aria-label="Close media viewer">×</button>
+    <div class="media-viewer-content" id="media-viewer-content">
+      <img class="media-viewer-image" id="media-viewer-image" alt="" hidden>
+      <video class="media-viewer-video" id="media-viewer-video" controls playsinline preload="metadata" hidden></video>
+    </div>
+    <p class="media-viewer-caption" id="media-viewer-caption"></p>
+  </dialog>
+  </div>
 
   <script src="activity-log-config.js"></script>
-  <script src="activity-log.js"></script>
   <script>
-    const loginForm = document.getElementById("login-form");
-    const passwordInput = document.getElementById("password");
-    const loginError = document.getElementById("login-error");
-    const loginPanel = document.getElementById("login-panel");
-    const envelopeContent = document.getElementById("envelope-content");
-    const mailbox = document.getElementById("mailbox");
-    const letter = document.getElementById("letter");
-    const toggle = document.getElementById("toggle");
-    const logoutButton = document.getElementById("logout");
-    const logStatus = document.getElementById("log-status");
-    const loginLogStatus = document.getElementById("login-log-status");
-    const latestDiaryTitle = document.getElementById("latest-diary-title");
-    const latestDiaryStatus = document.getElementById("latest-diary-status");
-    const invitationCard = document.getElementById("invitation-card");
-    const invitationToggle = document.getElementById("invitation-toggle");
-    const invitationDetails = document.getElementById("invitation-details");
-    const invitationHeading = document.getElementById("invitation-heading");
-    const invitationCopy = document.getElementById("invitation-copy");
-    const invitationPhoto = document.getElementById("invitation-photo");
-    const invitationStatus = document.getElementById("invitation-status");
     const config = window.ACTIVITY_LOG_CONFIG || {};
-    const supabaseUrl = typeof config.supabaseUrl === "string"
-      ? config.supabaseUrl.replace(/\/+$/, "")
-      : "";
-    const publishableKey = typeof config.publishableKey === "string"
-      ? config.publishableKey.trim()
-      : "";
+    const supabaseUrl = typeof config.supabaseUrl === "string" ? config.supabaseUrl.replace(/\/+$/, "") : "";
+    const publishableKey = typeof config.publishableKey === "string" ? config.publishableKey.trim() : "";
+    const entryDialog = document.getElementById("entry-dialog");
+    const invitationDialog = document.getElementById("invitation-dialog");
+    const siteStatus = document.getElementById("site-status");
+    const loginScreen = document.getElementById("login-screen");
+    const siteApp = document.getElementById("site-app");
+    const loginForm = document.getElementById("login-form");
+    const passwordInput = document.getElementById("site-password");
+    const loginError = document.getElementById("login-error");
+    const photoStatus = document.getElementById("photo-status");
+    const mediaViewer = document.getElementById("media-viewer");
+    const mediaViewerContent = document.getElementById("media-viewer-content");
+    const mediaViewerImage = document.getElementById("media-viewer-image");
+    const mediaViewerVideo = document.getElementById("media-viewer-video");
+    const mediaViewerCaption = document.getElementById("media-viewer-caption");
+    const sitePassword = "0713#Sachel!";
+    const accessSessionKey = "sachel-site-access";
+    const sachelMediaPaths = [
+      "Sachel/0b585a57-1ed7-4b9f-ac06-e37b95bbb084.jpg",
+      "Sachel/0cc35493-25eb-4dec-be5d-2bd612d70c2b.jpg",
+      "Sachel/1st.png",
+      "Sachel/01b36314-d3c6-4bbd-a229-f0067fca2c2c.jpg",
+      "Sachel/4bf1f2c4-c0df-4f15-883c-c6b306841ddd (1).jpg",
+      "Sachel/4bf1f2c4-c0df-4f15-883c-c6b306841ddd.jpg",
+      "Sachel/5a50dc5e-bc77-40bd-8ead-850f434eea1f.jpg",
+      "Sachel/5b2eb875-5369-4bb3-97af-74b693d82229.jpg",
+      "Sachel/5ba0d1cc-07aa-4d6a-86d7-a138b5097361.jpg",
+      "Sachel/5f0e67e3-c231-474a-a8b3-d9bd7fe239e4.jpg",
+      "Sachel/6d9804f1-1eaa-4c81-842e-cb00a3d1491b.jpg",
+      "Sachel/06a86e1c-1b27-4293-aabb-4c2c85e30bbd.jpg",
+      "Sachel/7bd3d971-df6e-4d29-8c98-0214e04d8027.jpg",
+      "Sachel/07af0fc7-be7a-4e2b-9292-7b02746d4e7b.jpg",
+      "Sachel/8c744b92-61b5-4d35-84f1-e04ca7cc1836.jpg",
+      "Sachel/9c47ba59-27ec-43ac-aff3-e107d48179b8.jpg",
+      "Sachel/9da56432-36b3-4bb2-8be7-74e480ecb655 (1).jpg",
+      "Sachel/9da56432-36b3-4bb2-8be7-74e480ecb655.jpg",
+      "Sachel/55ad9cf1-2934-425f-b15f-f423d54949e8.jpg",
+      "Sachel/65f32276-b40d-46d5-a408-63f5e5d515d5 (1).jpg",
+      "Sachel/65f32276-b40d-46d5-a408-63f5e5d515d5.jpg",
+      "Sachel/70fce83c-6ac3-4951-8d8a-f2a594686b01.jpg",
+      "Sachel/75ca8fa8-3db7-4120-a670-cde370be71ab.jpg",
+      "Sachel/85e247af-a56c-4c35-9bd8-ea0013e5b393.jpg",
+      "Sachel/0126f15d-d460-4dc6-80f2-0b4c2a24afed.jpg",
+      "Sachel/193aad5e-2d83-4ddc-8410-8fcfd7245da0.jpg",
+      "Sachel/195c25f4-126e-4579-b382-6c33f87a77ed.jpg",
+      "Sachel/0366b9b1-d328-4292-96f4-3ad9716c3db9 (1).jpg",
+      "Sachel/0366b9b1-d328-4292-96f4-3ad9716c3db9.jpg",
+      "Sachel/509edc70-6709-4762-9778-dbf3cd0263af.jpg",
+      "Sachel/710c12cd-d75f-418f-8f36-4739c896bb32.jpg",
+      "Sachel/967a8377-20f5-461d-9289-ee5c898bb62b.jpg",
+      "Sachel/998b64da-03f4-484b-b0c9-296be280fa8d.jpg",
+      "Sachel/2716b946-8275-431e-a75d-f3071e8902bd.jpg",
+      "Sachel/3143ec07-4fa7-4342-a2e0-203693746a9d.mp4",
+      "Sachel/4962ccc8-f597-4aa3-8319-7cf337352a4a.jpg",
+      "Sachel/6818f090-be79-444e-8d2c-949b1a5f7eee.jpg",
+      "Sachel/7697fcb0-013c-4c9b-baa0-a93d31d44951.jpg",
+      "Sachel/8321f79e-2d6d-47da-a369-d6fbcab5586c.jpg",
+      "Sachel/9386e1d1-22c9-46c8-ac80-8a650f38bd26.jpg",
+      "Sachel/010126.png",
+      "Sachel/42487ddb-7656-43b1-82db-826ee2f9d226.jpg",
+      "Sachel/93994a21-a87d-4f6f-96bb-f16319cdecbb.mp4",
+      "Sachel/959695ff-4797-432e-923c-3a0ac055206e.jpg",
+      "Sachel/6905149c-b88b-4d5b-8a88-8f63ee87a2c8.jpg",
+      "Sachel/28079666-1f0f-43de-a9fe-50c146ffb9ff.jpg",
+      "Sachel/60325739-0754-48b6-96b0-2939b81dfdbd.jpg",
+      "Sachel/96644244-e853-41c3-b19a-8f8bcfa90a99.jpg",
+      "Sachel/611656256_122239608968154706_2423291302282158935_n.jpg",
+      "Sachel/A year filled with gentleness and love with setael!.png",
+      "Sachel/Beige Minimal Collage Couple Love Instagram Story.png",
+      "Sachel/ad734dc1-0809-4a50-9fff-b51f25ad48e4.jpg",
+      "Sachel/b8031adf-c183-48a1-91d9-9c7fb6147b15.mp4",
+      "Sachel/c47db8e0-b13a-405f-ac6c-df9dfbcb8985.jpg",
+      "Sachel/d2f07fc1-0f7e-419b-8065-7b15d1b74df8.mp4",
+      "Sachel/d4e2dd11-58ae-416c-b64f-d95ce2025223.jpg",
+      "Sachel/d483a036-caeb-41d2-b4f8-1e24af96e029.jpg",
+      "Sachel/d484a9fd-c566-4e45-80d1-556659793541.jpg",
+      "Sachel/da0f35d2-0da3-4369-b33a-40333ee65294.jpg",
+      "Sachel/e88d9cb6-634a-4abd-b321-0855eb03725b.jpg",
+      "Sachel/e200a840-9e97-40f9-be67-6a1245dee166.jpg",
+      "Sachel/e838a0e3-aeb7-46dc-887f-26fed7f04445.jpg",
+      "Sachel/e73823ba-cdfd-4bb5-b91f-c5dba5d0f417.jpg",
+      "Sachel/ec1b5e2a-5ca0-46d5-9b81-ab35e65d3694.jpg",
+      "Sachel/ee4d29e3-4200-43ba-a003-30dd5f358488.jpg",
+      "Sachel/f2d2ab13-42c7-4c73-95b9-81a9d1a987f6.jpg",
+      "Sachel/f8eec514-aba3-47de-a9b8-504e8ca33bbb.jpg",
+      "Sachel/fe28a4c1-fccb-4de2-b22e-696b2ca8dbcf.jpg",
+      "Sachel/s1.jpg",
+      "Sachel/s2.jpg",
+      "Sachel/s3.JPG",
+      "Sachel/webcam-toy-photo7.jpg",
+      "Sachel/webcam-toy-photo8.jpg",
+      "Sachel/webcam-toy-photo9.jpg",
+      "Sachel/webcam-toy-photo10.jpg",
+      "Sachel/webcam-toy-photo11.jpg"
+    ];
+    let entries = [];
+    let mediaItems = [];
+    let siteContentLoaded = false;
+    let dailyNoteTimer = null;
+    let dailyNoteExpiresAt = 0;
 
-    async function loadLatestDiaryEntry() {
-      latestDiaryStatus.textContent = "";
-      try {
-        const response = await fetch(
-          supabaseUrl + "/rest/v1/diary_entries?select=title&order=created_at.desc,id.desc&limit=1",
-          { headers: { apikey: publishableKey } }
-        );
-        if (!response.ok) {
-          throw new Error(`The latest diary update could not be loaded (${response.status}).`);
-        }
-        const entries = await response.json();
-        if (!Array.isArray(entries)) {
-          throw new Error("The diary returned an unexpected response.");
-        }
-        if (entries.length === 0) {
-          latestDiaryTitle.textContent = "No diary envelopes yet.";
-          return;
-        }
-
-        const latestEntry = entries[0];
-        latestDiaryTitle.textContent = latestEntry.title;
-      } catch (error) {
-        console.error("Could not load the latest diary update.", error);
-        latestDiaryTitle.textContent = "The latest diary update is unavailable.";
-        latestDiaryStatus.textContent = error.message || "Check the diary database setup and try again.";
-      }
+    function showPage(page) {
+      document.querySelectorAll("[data-page-section]").forEach((section) => {
+        section.hidden = section.dataset.pageSection !== page;
+      });
+      document.querySelectorAll("[data-page]").forEach((link) => {
+        if (link.dataset.page === page) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+      });
+      closeMenu();
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
-    async function loadInvitation() {
-      try {
-        const response = await fetch(
-          supabaseUrl + "/rest/v1/site_invitation?id=eq.1&select=title,message,image_path",
-          { headers: { apikey: publishableKey } }
-        );
-        if (!response.ok) {
-          throw new Error(`The invitation could not be loaded (${response.status}).`);
-        }
-        const invitations = await response.json();
-        if (!Array.isArray(invitations)) {
-          throw new Error("The invitation returned an unexpected response.");
-        }
-        if (invitations.length === 0) {
-          invitationCard.hidden = true;
-          return;
-        }
-
-        const invitation = invitations[0];
-        invitationHeading.textContent = invitation.title;
-        invitationCopy.textContent = invitation.message;
-        if (invitation.image_path) {
-          invitationPhoto.src = `${supabaseUrl}/storage/v1/object/public/invitation-photos/${encodeURIComponent(invitation.image_path)}`;
-          invitationPhoto.hidden = false;
-        } else {
-          invitationPhoto.hidden = true;
-          invitationPhoto.removeAttribute("src");
-        }
-        invitationCard.hidden = false;
-      } catch (error) {
-        console.error("Could not load the shared invitation.", error);
-        invitationHeading.textContent = "Invitation unavailable";
-        invitationCopy.textContent = "The invitation could not be loaded right now. Please try again later.";
-        invitationPhoto.hidden = true;
-        invitationPhoto.removeAttribute("src");
-        invitationCard.hidden = false;
-      }
+    function closeMenu() {
+      document.body.classList.remove("menu-open");
+      document.getElementById("menu-button").setAttribute("aria-expanded", "false");
+      document.getElementById("menu-button").setAttribute("aria-label", "Open menu");
     }
 
-    invitationPhoto.addEventListener("error", () => {
-      invitationPhoto.hidden = true;
-      invitationStatus.textContent = "The invitation photo could not be loaded.";
-    });
+    function unlockSite() {
+      loginScreen.hidden = true;
+      siteApp.hidden = false;
+      loadSiteContent();
+    }
 
-    invitationToggle.addEventListener("click", () => {
-      const isOpen = invitationToggle.getAttribute("aria-expanded") !== "true";
-      invitationToggle.setAttribute("aria-expanded", String(isOpen));
-      invitationDetails.hidden = !isOpen;
-      if (isOpen) {
-        window.logActivity("Opened invitation", invitationHeading.textContent);
+    function loadSiteContent() {
+      if (siteContentLoaded) return;
+      siteContentLoaded = true;
+      const tasks = [loadPhotos(), loadEntries()];
+      if (!supabaseUrl || !publishableKey) {
+        siteStatus.hidden = false;
+        siteStatus.textContent = "The site content service is not configured.";
+      } else {
+        tasks.push(loadSettings(), loadInvitation());
       }
-    });
-
-    window.addEventListener("activitylogerror", (event) => {
-      const visibleStatus = envelopeContent.hidden ? loginLogStatus : logStatus;
-      visibleStatus.textContent = event.detail;
-    });
-
-    if (localStorage.getItem("note-access-granted") === "true") {
-      loginPanel.hidden = true;
-      envelopeContent.hidden = false;
-      loadLatestDiaryEntry();
-      loadInvitation();
+      Promise.allSettled(tasks).then((results) => {
+        const errors = results.filter((result) => result.status === "rejected");
+        if (errors.length) {
+          console.error("Some visitor content could not be loaded.", errors.map((result) => result.reason));
+          siteStatus.hidden = false;
+          siteStatus.textContent = `Some content could not be loaded. ${errors.map((result) => result.reason.message).join(" ")}`;
+        }
+      });
     }
 
     loginForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (passwordInput.value !== "0713#Sachel!") {
-        window.logActivity("Login failed", "Main note");
+      if (passwordInput.value !== sitePassword) {
         loginError.textContent = "That password doesn't match. Please try again.";
         passwordInput.select();
         return;
       }
-
-      loginError.textContent = "";
-      window.logActivity("Login succeeded", "Main note");
-      localStorage.setItem("note-access-granted", "true");
-      loginPanel.hidden = true;
-      envelopeContent.hidden = false;
-      loadLatestDiaryEntry();
-      loadInvitation();
-      toggle.focus();
-    });
-
-    toggle.addEventListener("click", () => {
-      const isOpen = mailbox.classList.toggle("open");
-      if (isOpen) {
-        window.logActivity("Opened envelope");
-        logStatus.textContent = "";
-      }
-      toggle.setAttribute("aria-expanded", String(isOpen));
-      toggle.textContent = isOpen ? "Close the envelope" : "Open the envelope";
-      letter.setAttribute("aria-hidden", String(!isOpen));
-    });
-
-    logoutButton.addEventListener("click", () => {
-      window.logActivity("Logged out", "Main note");
-      localStorage.removeItem("note-access-granted");
-      mailbox.classList.remove("open");
-      toggle.setAttribute("aria-expanded", "false");
-      toggle.textContent = "Open the envelope";
-      letter.setAttribute("aria-hidden", "true");
-      envelopeContent.hidden = true;
-      loginPanel.hidden = false;
+      sessionStorage.setItem(accessSessionKey, "true");
       passwordInput.value = "";
       loginError.textContent = "";
-      passwordInput.focus();
+      unlockSite();
     });
 
+    function formatDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "long", day: "numeric" }).format(date);
+    }
+
+    function renderDailyNote(settings) {
+      const card = document.getElementById("daily-note");
+      const title = typeof settings.daily_note_title === "string" ? settings.daily_note_title.trim() : "";
+      const content = typeof settings.daily_note_content === "string" ? settings.daily_note_content.trim() : "";
+      const savedAt = Date.parse(settings.daily_note_updated_at || "");
+      const now = Date.now();
+      const expiresAt = savedAt + 24 * 60 * 60 * 1000;
+      if (dailyNoteTimer) window.clearTimeout(dailyNoteTimer);
+      dailyNoteExpiresAt = 0;
+      if (!title || !content || !Number.isFinite(savedAt) || savedAt > now || expiresAt <= now) {
+        card.hidden = true;
+        return;
+      }
+
+      document.getElementById("daily-note-title").textContent = title;
+      document.getElementById("daily-note-content").textContent = content;
+      card.hidden = false;
+      dailyNoteExpiresAt = expiresAt;
+      scheduleDailyNoteExpiry();
+    }
+
+    function scheduleDailyNoteExpiry() {
+      if (!dailyNoteExpiresAt) return;
+      if (dailyNoteTimer) window.clearTimeout(dailyNoteTimer);
+      const remaining = dailyNoteExpiresAt - Date.now();
+      if (remaining <= 0) {
+        document.getElementById("daily-note").hidden = true;
+        dailyNoteExpiresAt = 0;
+        dailyNoteTimer = null;
+        return;
+      }
+      dailyNoteTimer = window.setTimeout(scheduleDailyNoteExpiry, remaining);
+    }
+
+    function openEntry(entry) {
+      document.getElementById("dialog-title").textContent = entry.title;
+      document.getElementById("dialog-date").textContent = entry.isSample
+        ? "Sample entry · Preview only"
+        : formatDate(entry.created_at);
+      document.getElementById("dialog-content").textContent = entry.content;
+      entryDialog.showModal();
+    }
+
+    function makeEntryCard(entry) {
+      const card = document.createElement("button");
+      card.className = "entry-card";
+      card.type = "button";
+      card.setAttribute("aria-label", `Open entry: ${entry.title}`);
+      const envelope = document.createElement("span");
+      envelope.className = "entry-envelope-art";
+      envelope.setAttribute("aria-hidden", "true");
+      const flap = document.createElement("span");
+      flap.className = "entry-envelope-flap";
+      const seal = document.createElement("span");
+      seal.className = "entry-envelope-seal";
+      seal.textContent = "✿";
+      envelope.append(flap, seal);
+      const title = document.createElement("span");
+      title.className = "entry-card-title";
+      title.textContent = entry.title;
+      card.append(envelope, title);
+      card.addEventListener("click", () => openEntry(entry));
+      return card;
+    }
+
+    function showEmpty(container, message) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = message;
+      container.replaceChildren(empty);
+    }
+
+    async function loadEntries() {
+      let result = [];
+      let loadError = null;
+      if (supabaseUrl && publishableKey) {
+        try {
+          const response = await fetch(
+            `${supabaseUrl}/rest/v1/diary_entries?select=id,created_at,title,content&is_published=eq.true&order=created_at.desc,id.desc`,
+            { headers: { apikey: publishableKey } }
+          );
+          if (!response.ok) throw new Error(`Entries could not be loaded (${response.status}).`);
+          result = await response.json();
+          if (!Array.isArray(result)) throw new Error("Entries returned an unexpected response.");
+        } catch (error) {
+          loadError = error;
+        }
+      }
+      entries = result;
+      if (!entries.length) {
+        entries = [{
+          isSample: true,
+          created_at: new Date().toISOString(),
+          title: "A Day Worth Keeping",
+          content: "Some days are made of little things: a familiar song, a quiet moment, and someone who makes ordinary time feel special. I want to remember this one for the warmth it left behind."
+        }];
+      }
+      const recentContainer = document.getElementById("recent-entries");
+      const allContainer = document.getElementById("all-entries");
+      const railRecent = document.getElementById("rail-recent-entries");
+      recentContainer.replaceChildren();
+      entries.slice(0, 4).forEach((entry) => recentContainer.append(makeEntryCard(entry)));
+      renderEntryList(entries);
+      railRecent.replaceChildren();
+      entries.slice(0, 4).forEach((entry) => {
+        const button = document.createElement("button");
+        button.className = "rail-entry";
+        button.type = "button";
+        const icon = document.createElement("span");
+        icon.className = "rail-entry-icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = "✿";
+        const copy = document.createElement("span");
+        const title = document.createElement("span");
+        title.className = "rail-entry-title";
+        title.textContent = entry.title;
+        copy.append(title);
+        button.append(icon, copy);
+        button.addEventListener("click", () => openEntry(entry));
+        railRecent.append(button);
+      });
+      if (loadError) throw loadError;
+    }
+
+    function renderEntryList(items) {
+      const allContainer = document.getElementById("all-entries");
+      allContainer.replaceChildren();
+      if (!items.length) {
+        showEmpty(allContainer, entries.length ? "No entries match your search." : "No entries have been published yet.");
+        return;
+      }
+      items.forEach((entry) => allContainer.append(makeEntryCard(entry)));
+    }
+
+    function openMediaViewer(index) {
+      const item = mediaItems[index];
+      if (!item) return;
+
+      mediaViewerVideo.pause();
+      mediaViewerVideo.removeAttribute("src");
+      mediaViewerVideo.load();
+      mediaViewerImage.removeAttribute("src");
+      mediaViewerImage.hidden = item.type === "video";
+      mediaViewerVideo.hidden = item.type !== "video";
+
+      if (item.type === "video") {
+        mediaViewerVideo.src = item.src;
+        mediaViewerVideo.load();
+      } else {
+        mediaViewerImage.alt = item.alt || `Photo ${index + 1}`;
+        mediaViewerImage.src = item.src;
+      }
+
+      mediaViewerCaption.textContent = item.alt || `${item.type === "video" ? "Video" : "Photo"} ${index + 1} of ${mediaItems.length}`;
+      mediaViewer.showModal();
+    }
+
+    function renderMediaGallery() {
+      const gallery = document.getElementById("photo-gallery");
+      gallery.replaceChildren();
+      photoStatus.textContent = "";
+
+      if (!mediaItems.length) {
+        const empty = document.createElement("p");
+        empty.className = "empty-state";
+        empty.textContent = "No photos or videos are available.";
+        gallery.append(empty);
+        return;
+      }
+
+      mediaItems.forEach((item, index) => {
+        const figure = document.createElement("figure");
+        figure.className = "photo-item";
+        figure.setAttribute("role", "listitem");
+
+        const button = document.createElement("button");
+        button.className = "photo-open";
+        button.type = "button";
+        button.setAttribute("aria-label", `Open ${item.type === "video" ? "video" : "photo"} ${index + 1} full screen`);
+
+        if (item.type === "video") {
+          const preview = document.createElement("video");
+          preview.src = item.src;
+          preview.muted = true;
+          preview.playsInline = true;
+          preview.preload = "metadata";
+          preview.tabIndex = -1;
+          preview.setAttribute("aria-hidden", "true");
+
+          const badge = document.createElement("span");
+          badge.className = "photo-video-badge";
+          badge.textContent = "▶ Video";
+          badge.setAttribute("aria-hidden", "true");
+          button.append(preview, badge);
+        } else {
+          const image = document.createElement("img");
+          image.src = item.src;
+          image.alt = item.alt || `Photo ${index + 1}`;
+          image.loading = "lazy";
+          image.decoding = "async";
+          button.append(image);
+        }
+
+        button.addEventListener("click", () => openMediaViewer(index));
+        const caption = document.createElement("figcaption");
+        caption.textContent = item.alt || `${item.type === "video" ? "Video" : "Photo"} ${index + 1}`;
+        figure.append(button, caption);
+        gallery.append(figure);
+      });
+    }
+
+    function renderRailPhotos() {
+      const railPhotos = document.getElementById("rail-photos");
+      const previews = mediaItems
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item.type === "image")
+        .slice(0, 4);
+      railPhotos.replaceChildren();
+      if (!previews.length) {
+        const empty = document.createElement("div");
+        empty.className = "rail-photo-empty";
+        empty.textContent = "No shared photos yet";
+        railPhotos.append(empty);
+        return;
+      }
+      previews.forEach(({ item, index }) => {
+        const previewButton = document.createElement("button");
+        previewButton.className = "rail-photo";
+        previewButton.type = "button";
+        previewButton.setAttribute("aria-label", `View photo ${index + 1} in the gallery`);
+        const previewImage = document.createElement("img");
+        previewImage.src = item.src;
+        previewImage.alt = "";
+        previewImage.loading = "lazy";
+        previewButton.append(previewImage);
+        previewButton.addEventListener("click", () => {
+          showPage("photos");
+          openMediaViewer(index);
+        });
+        railPhotos.append(previewButton);
+      });
+    }
+
+    async function loadPhotos() {
+      mediaItems = sachelMediaPaths.map((src) => ({
+        src,
+        type: /\.mp4$/i.test(src) ? "video" : "image",
+        alt: ""
+      }));
+      renderMediaGallery();
+      renderRailPhotos();
+
+      if (!supabaseUrl || !publishableKey) return;
+      try {
+        const response = await fetch(
+          `${supabaseUrl}/rest/v1/site_photos?select=photo_path,alt_text,position&order=position.asc,id.asc`,
+          { headers: { apikey: publishableKey } }
+        );
+        if (!response.ok) throw new Error(`Additional gallery photos could not be loaded (${response.status}).`);
+        const photos = await response.json();
+        if (!Array.isArray(photos)) throw new Error("Additional gallery photos returned an unexpected response.");
+        photos.forEach((photo) => {
+          mediaItems.push({
+            src: `${supabaseUrl}/storage/v1/object/public/invitation-photos/${encodeURIComponent(photo.photo_path)}`,
+            type: "image",
+            alt: photo.alt_text || ""
+          });
+        });
+        renderMediaGallery();
+        renderRailPhotos();
+      } catch (error) {
+        console.error("Could not load additional gallery photos.", error);
+        photoStatus.textContent = "The Sachel folder is available; online gallery photos could not be loaded.";
+      }
+    }
+
+    async function loadSettings() {
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/site_settings?id=eq.1&select=site_title,tagline,about,daily_note_title,daily_note_content,daily_note_updated_at`,
+        { headers: { apikey: publishableKey } }
+      );
+      if (!response.ok) throw new Error(`Site settings could not be loaded (${response.status}).`);
+      const settings = await response.json();
+      if (!Array.isArray(settings)) throw new Error("Site settings returned an unexpected response.");
+      if (!settings.length) return;
+      const current = settings[0];
+      document.title = current.site_title;
+      document.getElementById("home-title").textContent = current.site_title;
+      document.getElementById("rail-site-title").textContent = current.site_title;
+      document.getElementById("mobile-title").textContent = current.site_title;
+      document.getElementById("home-tagline").textContent = current.tagline;
+      document.getElementById("about-copy").textContent = current.about;
+      document.getElementById("rail-about").textContent = current.about;
+      document.querySelector('meta[name="description"]').content = current.tagline;
+      renderDailyNote(current);
+    }
+
+    async function loadInvitation() {
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/site_invitation?id=eq.1&select=title,message,image_path`,
+        { headers: { apikey: publishableKey } }
+      );
+      if (!response.ok) throw new Error(`Invitation could not be loaded (${response.status}).`);
+      const invitations = await response.json();
+      if (!Array.isArray(invitations)) throw new Error("Invitation returned an unexpected response.");
+      const section = document.getElementById("visitor-invitation");
+      const invitation = invitations[0];
+      if (!invitation) {
+        section.hidden = true;
+        return;
+      }
+
+      document.getElementById("invitation-dialog-title").textContent = invitation.title;
+      document.getElementById("invitation-dialog-message").textContent = invitation.message;
+      const image = document.getElementById("invitation-dialog-image");
+      if (invitation.image_path) {
+        image.src = `${supabaseUrl}/storage/v1/object/public/invitation-photos/${encodeURIComponent(invitation.image_path)}`;
+        image.alt = invitation.title || "Invitation photo";
+        image.hidden = false;
+      } else {
+        image.removeAttribute("src");
+        image.alt = "";
+        image.hidden = true;
+      }
+      section.hidden = false;
+    }
+
+    document.querySelectorAll("[data-page]").forEach((button) => {
+      button.addEventListener("click", () => showPage(button.dataset.page));
+    });
+    document.getElementById("menu-button").addEventListener("click", () => {
+      const open = !document.body.classList.contains("menu-open");
+      document.body.classList.toggle("menu-open", open);
+      document.getElementById("menu-button").setAttribute("aria-expanded", String(open));
+      document.getElementById("menu-button").setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    });
+    document.getElementById("drawer-scrim").addEventListener("click", closeMenu);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        if (mediaViewer.open) {
+          event.preventDefault();
+          mediaViewer.close();
+        }
+        if (entryDialog.open) entryDialog.close();
+        if (invitationDialog.open) invitationDialog.close();
+        closeMenu();
+      }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) scheduleDailyNoteExpiry();
+    });
+    document.getElementById("dialog-close").addEventListener("click", () => entryDialog.close());
+    entryDialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      entryDialog.close();
+    });
+    entryDialog.addEventListener("click", (event) => {
+      if (event.target === entryDialog) entryDialog.close();
+    });
+    document.getElementById("open-invitation").addEventListener("click", () => invitationDialog.showModal());
+    document.getElementById("invitation-dialog-close").addEventListener("click", () => invitationDialog.close());
+    invitationDialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      invitationDialog.close();
+    });
+    invitationDialog.addEventListener("click", (event) => {
+      if (event.target === invitationDialog) invitationDialog.close();
+    });
+    document.getElementById("entry-search").addEventListener("input", (event) => {
+      const query = event.target.value.trim().toLocaleLowerCase();
+      const entriesPage = document.getElementById("page-entries");
+      if (query && entriesPage.hidden) showPage("entries");
+      if (query || !entriesPage.hidden) {
+        const filtered = entries.filter((entry) =>
+          `${entry.title} ${entry.content}`.toLocaleLowerCase().includes(query)
+        );
+        renderEntryList(filtered);
+      }
+    });
+
+    document.getElementById("media-viewer-close").addEventListener("click", () => mediaViewer.close());
+    mediaViewer.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      mediaViewer.close();
+    });
+    mediaViewer.addEventListener("click", (event) => {
+      if (event.target === mediaViewer || event.target === mediaViewerContent) mediaViewer.close();
+    });
+    mediaViewer.addEventListener("close", () => {
+      mediaViewerVideo.pause();
+      mediaViewerVideo.removeAttribute("src");
+      mediaViewerVideo.load();
+      mediaViewerImage.removeAttribute("src");
+      mediaViewerCaption.textContent = "";
+    });
+
+    if (sessionStorage.getItem(accessSessionKey) === "true") unlockSite();
   </script>
 </body>
 </html>
