@@ -1,0 +1,884 @@
+(() => {
+  const config = window.ACTIVITY_LOG_CONFIG || {};
+  const supabaseUrl = typeof config.supabaseUrl === "string" ? config.supabaseUrl.replace(/\/+$/, "") : "";
+  const publishableKey = typeof config.publishableKey === "string" ? config.publishableKey.trim() : "";
+  const zone = "Asia/Manila";
+  const guideKey = "sachel-schedule-guide-dismissed";
+  const personalScheduleKey = "sachel-personal-schedule";
+  const scheduleModesKey = "sachel-schedule-modes";
+  const threadTokenKey = "sachel-visitor-chat-token";
+  const threadNameKey = "sachel-visitor-chat-name";
+  const days = [
+    { value: 1, label: "Monday" },
+    { value: 2, label: "Tuesday" },
+    { value: 3, label: "Wednesday" },
+    { value: 4, label: "Thursday" },
+    { value: 5, label: "Friday" },
+    { value: 6, label: "Saturday" },
+    { value: 7, label: "Sunday" }
+  ];
+  const scheduleState = {
+    events: [],
+    selectedDate: "",
+    weekStart: "",
+    modes: {},
+    personalEvents: [],
+    editingPersonalId: null,
+    timer: null
+  };
+  const threadState = {
+    token: "",
+    posts: [],
+    comments: {},
+    timer: null,
+    saving: false,
+    editingId: null,
+    imagePath: null
+  };
+
+  function getElement(id) {
+    return document.getElementById(id);
+  }
+
+  function getPhtParts(date) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(date);
+    return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  }
+
+  function phtDateKey(date) {
+    const parts = getPhtParts(date);
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+
+  function weekdayForDate(dateKey) {
+    return new Date(`${dateKey}T12:00:00Z`).getUTCDay() || 7;
+  }
+
+  function addDays(dateKey, amount) {
+    const date = new Date(`${dateKey}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + amount);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function mondayOf(dateKey) {
+    return addDays(dateKey, 1 - weekdayForDate(dateKey));
+  }
+
+  function dateLabel(dateKey, options) {
+    return new Intl.DateTimeFormat("en-PH", { timeZone: zone, ...options })
+      .format(new Date(`${dateKey}T12:00:00Z`));
+  }
+
+  function timeLabel(value) {
+    const [hourText, minute] = value.slice(0, 5).split(":");
+    const hour = Number(hourText);
+    return `${hour % 12 || 12}:${minute} ${hour < 12 ? "AM" : "PM"}`;
+  }
+
+  function minutesOf(value) {
+    const [hour, minute] = value.slice(0, 5).split(":").map(Number);
+    return hour * 60 + minute;
+  }
+
+  function statusFor(item, selectedDate, currentDate, currentMinutes) {
+    const itemDate = item.event_date || selectedDate;
+    if (itemDate < currentDate) return "done";
+    if (itemDate > currentDate) return "upcoming";
+    const end = minutesOf(item.end_time);
+    const start = minutesOf(item.start_time);
+    if (currentMinutes >= end) return "done";
+    if (currentMinutes >= start) return "in-progress";
+    return "upcoming";
+  }
+
+  function setStatus(element, message, isError) {
+    element.textContent = message;
+    element.dataset.error = isError ? "true" : "false";
+  }
+
+  function readPersonalEvents() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(personalScheduleKey) || "[]");
+      if (!Array.isArray(saved)) throw new Error("Personal schedule data has an unexpected format.");
+      scheduleState.personalEvents = saved.filter((item) =>
+        item && typeof item.id === "string" && typeof item.title === "string"
+        && typeof item.event_date === "string" && typeof item.start_time === "string"
+        && typeof item.end_time === "string"
+      );
+    } catch (error) {
+      console.error("Could not read personal schedule reminders.", error);
+      setStatus(getElement("schedule-status"), "Your saved reminders could not be read. Clear this site’s stored schedule data or use another browser.", true);
+      scheduleState.personalEvents = [];
+    }
+  }
+
+  function savePersonalEvents() {
+    try {
+      localStorage.setItem(personalScheduleKey, JSON.stringify(scheduleState.personalEvents));
+    } catch (error) {
+      console.error("Could not save personal schedule reminders.", error);
+      setStatus(getElement("schedule-status"), "Your reminder could not be saved in this browser. Check device storage and try again.", true);
+      return false;
+    }
+    return true;
+  }
+
+  function weeklyDate(event, dateKey) {
+    return event.weekday === weekdayForDate(dateKey);
+  }
+
+  function eventsForDate(dateKey) {
+    return [
+      ...scheduleState.events.filter((event) => event.is_active !== false
+        && (event.event_date === dateKey
+          || (event.weekday !== null && event.weekday !== undefined && weeklyDate(event, dateKey))))
+        .map((event) => ({ ...event, origin: "shared" })),
+      ...scheduleState.personalEvents
+        .filter((event) => event.event_date === dateKey)
+        .map((event) => ({ ...event, origin: "personal" }))
+    ].sort((a, b) => a.start_time.localeCompare(b.start_time) || a.title.localeCompare(b.title));
+  }
+
+  function eventsForSelectedDate() {
+    return eventsForDate(scheduleState.selectedDate);
+  }
+
+  function readScheduleModes() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(scheduleModesKey) || "{}");
+      if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+        throw new Error("Saved class-format preferences have an unexpected format.");
+      }
+      scheduleState.modes = Object.fromEntries(Object.entries(saved).filter(([, mode]) =>
+        mode === "face_to_face" || mode === "online"));
+    } catch (error) {
+      console.error("Could not read class-format preferences.", error);
+      setStatus(getElement("schedule-status"), "Your saved class-format choices could not be read. Clear this site’s stored schedule data or use another browser.", true);
+      scheduleState.modes = {};
+    }
+  }
+
+  function saveScheduleModes() {
+    try {
+      localStorage.setItem(scheduleModesKey, JSON.stringify(scheduleState.modes));
+      setStatus(getElement("schedule-status"), "Your class format was saved on this browser and device.", false);
+    } catch (error) {
+      console.error("Could not save the class-format preference.", error);
+      setStatus(getElement("schedule-status"), "Your class format could not be saved in this browser. Check device storage and try again.", true);
+    }
+  }
+
+  function createModeSelect(event) {
+    const select = document.createElement("select");
+    const eventId = String(event.id);
+    select.className = "schedule-format-select";
+    select.setAttribute("aria-label", `Choose the format for ${event.title}`);
+    [
+      ["", "Choose format"],
+      ["face_to_face", "Face to face"],
+      ["online", "Online"]
+    ].forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.append(option);
+    });
+    select.value = scheduleState.modes[eventId] || "";
+    select.addEventListener("change", () => {
+      if (!select.value) return;
+      scheduleState.modes[eventId] = select.value;
+      saveScheduleModes();
+      if (!getElement("page-schedule").hidden) renderSchedule();
+      else renderHomeSchedule();
+    });
+    return select;
+  }
+
+  function formatLabel(mode) {
+    if (mode === "online") return "Online";
+    if (mode === "face_to_face") return "Face to face";
+    return "Format not chosen";
+  }
+
+  function allocateLanes(events) {
+    const laneEnds = [];
+    return events.map((event) => {
+      const start = minutesOf(event.start_time);
+      const end = minutesOf(event.end_time);
+      let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
+      if (lane < 0) lane = laneEnds.length;
+      laneEnds[lane] = end;
+      return { event, lane, laneCount: 0 };
+    }).map((positioned) => {
+      positioned.laneCount = Math.max(1, laneEnds.length);
+      return positioned;
+    });
+  }
+
+  function renderSchedule() {
+    const timeline = getElement("schedule-timeline");
+    if (!timeline) return;
+    const now = new Date();
+    const currentParts = getPhtParts(now);
+    const todayKey = `${currentParts.year}-${currentParts.month}-${currentParts.day}`;
+    const currentMinutes = Number(currentParts.hour) * 60 + Number(currentParts.minute);
+    const selectedDay = weekdayForDate(scheduleState.selectedDate);
+
+    getElement("schedule-week-label").textContent =
+      `${dateLabel(scheduleState.weekStart, { month: "short", day: "numeric" })} – ${dateLabel(addDays(scheduleState.weekStart, 6), { month: "short", day: "numeric", year: "numeric" })}`;
+    getElement("schedule-selected-date").textContent = dateLabel(scheduleState.selectedDate, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric"
+    });
+    getElement("schedule-current-time").textContent = `Current time in the Philippines: ${timeLabel(`${currentParts.hour}:${currentParts.minute}`)}`;
+
+    const tabs = getElement("schedule-day-tabs");
+    tabs.replaceChildren();
+    days.forEach((day) => {
+      const dateKey = addDays(scheduleState.weekStart, day.value - 1);
+      const tab = document.createElement("button");
+      tab.className = "schedule-day-tab";
+      tab.type = "button";
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", String(dateKey === scheduleState.selectedDate));
+      tab.setAttribute("aria-label", `${day.label}, ${dateLabel(dateKey, { month: "long", day: "numeric" })}`);
+      const name = document.createElement("span");
+      name.textContent = day.label.slice(0, 3);
+      const number = document.createElement("strong");
+      number.textContent = dateLabel(dateKey, { day: "numeric" });
+      tab.append(name, number);
+      tab.addEventListener("click", () => {
+        scheduleState.selectedDate = dateKey;
+        renderSchedule();
+      });
+      tabs.append(tab);
+    });
+
+    timeline.replaceChildren();
+    const track = document.createElement("div");
+    track.className = "schedule-track";
+    const labels = document.createElement("div");
+    labels.className = "schedule-hour-labels";
+    for (let hour = 7; hour <= 19; hour += 1) {
+      const label = document.createElement("span");
+      label.textContent = `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
+      labels.append(label);
+    }
+    const eventArea = document.createElement("div");
+    eventArea.className = "schedule-event-area";
+
+    const items = eventsForSelectedDate();
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "schedule-empty";
+      empty.textContent = "Nothing scheduled. Add a personal reminder below if you like.";
+      eventArea.append(empty);
+    }
+
+    allocateLanes(items).forEach(({ event, lane, laneCount }) => {
+      const start = minutesOf(event.start_time);
+      const end = minutesOf(event.end_time);
+      const block = document.createElement("article");
+      const itemStatus = statusFor(event, scheduleState.selectedDate, todayKey, currentMinutes);
+      block.className = `schedule-event ${itemStatus}`;
+      block.style.top = `${(start - 420) * 0.75}px`;
+      block.style.height = `${Math.max((end - start) * 0.75, 38)}px`;
+      block.style.left = `calc(${lane * 100 / laneCount}% + 4px)`;
+      block.style.width = `calc(${100 / laneCount}% - 8px)`;
+
+      const title = document.createElement("strong");
+      title.textContent = event.course_code ? `${event.course_code} · ${event.title}` : event.title;
+      const time = document.createElement("span");
+      time.textContent = `${timeLabel(event.start_time)}–${timeLabel(event.end_time)}`;
+      const details = document.createElement("span");
+      details.textContent = `${event.origin === "shared" ? "" : formatLabel(event.delivery_mode)}${event.location ? `${event.origin === "shared" ? "" : " · "}${event.location}` : ""}`;
+      const state = document.createElement("span");
+      state.className = "schedule-event-state";
+      state.textContent = itemStatus === "done" ? "Done" : itemStatus === "in-progress" ? "In progress" : "Upcoming";
+      block.append(title, time);
+      if (event.origin === "shared") block.append(createModeSelect(event));
+      if (details.textContent) block.append(details);
+      block.append(state);
+
+      if (event.origin === "personal") {
+        const actions = document.createElement("span");
+        actions.className = "schedule-personal-actions";
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.textContent = "Edit";
+        edit.addEventListener("click", (clickEvent) => {
+          clickEvent.stopPropagation();
+          editPersonalEvent(event.id);
+        });
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", (clickEvent) => {
+          clickEvent.stopPropagation();
+          removePersonalEvent(event.id);
+        });
+        actions.append(edit, remove);
+        block.append(actions);
+      }
+      eventArea.append(block);
+    });
+
+    if (scheduleState.selectedDate === todayKey && currentMinutes >= 420 && currentMinutes <= 1140) {
+      const marker = document.createElement("span");
+      marker.className = "schedule-now-marker";
+      marker.setAttribute("aria-label", "Current time");
+      marker.style.top = `${(currentMinutes - 420) * 0.75}px`;
+      eventArea.append(marker);
+    }
+    track.append(labels, eventArea);
+    timeline.append(track);
+    getElement("schedule-day-tabs").setAttribute("aria-label", `Days of the week; ${days[selectedDay - 1].label} selected`);
+    renderHomeSchedule();
+  }
+
+  function renderHomeSchedule() {
+    const container = getElement("home-schedule-list");
+    if (!container) return;
+    const now = new Date();
+    const parts = getPhtParts(now);
+    const todayKey = `${parts.year}-${parts.month}-${parts.day}`;
+    const currentMinutes = Number(parts.hour) * 60 + Number(parts.minute);
+    getElement("home-schedule-date").textContent = dateLabel(todayKey, {
+      weekday: "long",
+      month: "long",
+      day: "numeric"
+    });
+    container.replaceChildren();
+    const items = eventsForDate(todayKey);
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "home-schedule-empty";
+      empty.textContent = "Nothing scheduled for today. Add a personal reminder in the schedule.";
+      container.append(empty);
+      return;
+    }
+    items.forEach((event) => {
+      const status = statusFor(event, todayKey, todayKey, currentMinutes);
+      const item = document.createElement("article");
+      item.className = `home-schedule-item ${status}`;
+      const time = document.createElement("span");
+      time.className = "home-schedule-time";
+      time.textContent = `${timeLabel(event.start_time)}–${timeLabel(event.end_time)}`;
+      const description = document.createElement("div");
+      const title = document.createElement("div");
+      title.className = "home-schedule-title";
+      title.textContent = event.course_code ? `${event.course_code} · ${event.title}` : event.title;
+      const detail = document.createElement("div");
+      detail.className = "home-schedule-detail";
+      detail.textContent = `${event.origin === "shared" ? "" : formatLabel(event.delivery_mode)}${event.location ? `${event.origin === "shared" ? "" : " · "}${event.location}` : ""} · ${status === "done" ? "Done" : status === "in-progress" ? "In progress" : "Upcoming"}`;
+      description.append(title, detail);
+      item.append(time, description);
+      if (event.origin === "shared") item.append(createModeSelect(event));
+      container.append(item);
+    });
+  }
+
+  async function loadSchedule() {
+    const status = getElement("schedule-status");
+    if (!supabaseUrl || !publishableKey) {
+      setStatus(status, "Schedule is unavailable because the content service is not configured.", true);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/site_schedule_events?select=id,title,course_code,weekday,event_date,start_time,end_time,location,is_active&is_active=eq.true&order=weekday.asc,event_date.asc,start_time.asc`,
+        { headers: { apikey: publishableKey } }
+      );
+      if (!response.ok) throw new Error(`Schedule could not be loaded (${response.status}). Apply the latest Supabase SQL setup and try again.`);
+      const events = await response.json();
+      if (!Array.isArray(events)) throw new Error("The schedule returned an unexpected response.");
+      scheduleState.events = events;
+      setStatus(status, "", false);
+    } catch (error) {
+      console.error("Could not load the shared class schedule.", error);
+      setStatus(status, error.message || "The shared class schedule could not be loaded.", true);
+    }
+    renderSchedule();
+  }
+
+  function resetPersonalForm() {
+    scheduleState.editingPersonalId = null;
+    getElement("personal-schedule-form").reset();
+    getElement("personal-schedule-date").value = scheduleState.selectedDate;
+    getElement("save-personal-schedule").textContent = "Add reminder";
+    getElement("cancel-personal-schedule-edit").hidden = true;
+  }
+
+  function editPersonalEvent(id) {
+    const event = scheduleState.personalEvents.find((item) => item.id === id);
+    if (!event) return;
+    scheduleState.editingPersonalId = id;
+    getElement("personal-schedule-title").value = event.title;
+    getElement("personal-schedule-date").value = event.event_date;
+    getElement("personal-schedule-start").value = event.start_time.slice(0, 5);
+    getElement("personal-schedule-end").value = event.end_time.slice(0, 5);
+    getElement("personal-schedule-mode").value = event.delivery_mode || "face_to_face";
+    getElement("personal-schedule-location").value = event.location || "";
+    getElement("save-personal-schedule").textContent = "Save changes";
+    getElement("cancel-personal-schedule-edit").hidden = false;
+    getElement("personal-schedule-form").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function removePersonalEvent(id) {
+    scheduleState.personalEvents = scheduleState.personalEvents.filter((event) => event.id !== id);
+    if (savePersonalEvents()) {
+      renderSchedule();
+      setStatus(getElement("schedule-status"), "Personal reminder removed.", false);
+    }
+  }
+
+  function handlePersonalScheduleSubmit(event) {
+    event.preventDefault();
+    const start = getElement("personal-schedule-start").value;
+    const end = getElement("personal-schedule-end").value;
+    const startMinutes = minutesOf(start);
+    const endMinutes = minutesOf(end);
+    if (startMinutes < 420 || endMinutes > 1140 || startMinutes >= endMinutes) {
+      setStatus(getElement("schedule-status"), "Choose a start and end between 7:00 AM and 7:00 PM; the end must be later.", true);
+      return;
+    }
+    const updatedEvent = {
+      id: scheduleState.editingPersonalId || crypto.randomUUID(),
+      title: getElement("personal-schedule-title").value.trim(),
+      event_date: getElement("personal-schedule-date").value,
+      start_time: start,
+      end_time: end,
+      delivery_mode: getElement("personal-schedule-mode").value,
+      location: getElement("personal-schedule-location").value.trim()
+    };
+    if (!updatedEvent.title || !updatedEvent.event_date) {
+      setStatus(getElement("schedule-status"), "Enter an activity and date.", true);
+      return;
+    }
+    if (scheduleState.editingPersonalId) {
+      scheduleState.personalEvents = scheduleState.personalEvents.map((item) =>
+        item.id === scheduleState.editingPersonalId ? updatedEvent : item);
+    } else {
+      scheduleState.personalEvents.push(updatedEvent);
+    }
+    if (!savePersonalEvents()) return;
+    scheduleState.selectedDate = updatedEvent.event_date;
+    scheduleState.weekStart = mondayOf(updatedEvent.event_date);
+    resetPersonalForm();
+    renderSchedule();
+    setStatus(getElement("schedule-status"), "Personal reminder saved on this browser and device.", false);
+  }
+
+  function initSchedule() {
+    const todayKey = phtDateKey(new Date());
+    scheduleState.selectedDate = todayKey;
+    scheduleState.weekStart = mondayOf(todayKey);
+    readPersonalEvents();
+    readScheduleModes();
+    try {
+      if (localStorage.getItem(guideKey) !== "true") getElement("schedule-guide").hidden = false;
+    } catch (error) {
+      console.error("Could not read the schedule guide preference.", error);
+    }
+    getElement("personal-schedule-date").value = todayKey;
+
+    getElement("dismiss-schedule-guide").addEventListener("click", () => {
+      try {
+        localStorage.setItem(guideKey, "true");
+      } catch (error) {
+        console.error("Could not save the schedule guide preference.", error);
+      }
+      getElement("schedule-guide").hidden = true;
+    });
+    getElement("schedule-previous-week").addEventListener("click", () => {
+      scheduleState.weekStart = addDays(scheduleState.weekStart, -7);
+      scheduleState.selectedDate = scheduleState.weekStart;
+      renderSchedule();
+    });
+    getElement("schedule-next-week").addEventListener("click", () => {
+      scheduleState.weekStart = addDays(scheduleState.weekStart, 7);
+      scheduleState.selectedDate = scheduleState.weekStart;
+      renderSchedule();
+    });
+    getElement("schedule-today").addEventListener("click", () => {
+      scheduleState.selectedDate = phtDateKey(new Date());
+      scheduleState.weekStart = mondayOf(scheduleState.selectedDate);
+      renderSchedule();
+    });
+    getElement("personal-schedule-form").addEventListener("submit", handlePersonalScheduleSubmit);
+    getElement("cancel-personal-schedule-edit").addEventListener("click", resetPersonalForm);
+    renderSchedule();
+    loadSchedule();
+    scheduleState.timer = window.setInterval(renderSchedule, 30000);
+  }
+
+  function visitorToken() {
+    if (threadState.token) return threadState.token;
+    let token = localStorage.getItem(threadTokenKey);
+    if (!token) {
+      if (!window.crypto || typeof window.crypto.randomUUID !== "function") {
+        throw new Error("This browser cannot create a secure private-thread session. Please update your browser.");
+      }
+      token = window.crypto.randomUUID();
+      localStorage.setItem(threadTokenKey, token);
+    }
+    threadState.token = token;
+    return token;
+  }
+
+  async function callVisitorRpc(name, payload) {
+    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: { apikey: publishableKey, "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const text = await response.text();
+    let result;
+    try {
+      result = text ? JSON.parse(text) : null;
+    } catch (error) {
+      throw new Error("The private-thread service returned an unexpected response.");
+    }
+    if (!response.ok) {
+      throw new Error((result && (result.message || result.msg)) || `The request failed (${response.status}).`);
+    }
+    return result;
+  }
+
+  function threadImageUrl(path) {
+    const safePath = path.split("/").map(encodeURIComponent).join("/");
+    return `${supabaseUrl}/storage/v1/object/public/visitor-thread-images/${safePath}`;
+  }
+
+  function threadDateLabel(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return new Intl.DateTimeFormat("en-PH", {
+      timeZone: zone,
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    }).format(date);
+  }
+
+  function renderThreads() {
+    const feed = getElement("visitor-thread-feed");
+    feed.replaceChildren();
+    if (!threadState.posts.length) {
+      const empty = document.createElement("p");
+      empty.className = "thread-empty";
+      empty.textContent = "No threads yet. Whenever you’re ready, start one above.";
+      feed.append(empty);
+      return;
+    }
+
+    threadState.posts.forEach((post) => {
+      const card = document.createElement("article");
+      card.className = "visitor-thread-card";
+      const header = document.createElement("div");
+      header.className = "visitor-thread-head";
+      const author = document.createElement("div");
+      const name = document.createElement("p");
+      name.className = "visitor-thread-author";
+      name.textContent = post.display_name || "You";
+      const date = document.createElement("p");
+      date.className = "visitor-thread-date";
+      date.textContent = threadDateLabel(post.created_at);
+      author.append(name, date);
+      const actions = document.createElement("div");
+      actions.className = "visitor-thread-actions";
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.dataset.action = "edit";
+      edit.dataset.threadId = String(post.id);
+      edit.textContent = "Edit";
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.dataset.action = "delete";
+      remove.dataset.threadId = String(post.id);
+      remove.textContent = "Delete";
+      actions.append(edit, remove);
+      header.append(author, actions);
+      card.append(header);
+
+      if (post.content) {
+        const content = document.createElement("p");
+        content.className = "visitor-thread-content";
+        content.textContent = post.content;
+        card.append(content);
+      }
+      if (post.image_path) {
+        const image = document.createElement("img");
+        image.className = "visitor-thread-image";
+        image.src = threadImageUrl(post.image_path);
+        image.alt = "Photo attached to this thread";
+        image.loading = "lazy";
+        card.append(image);
+      }
+
+      const comments = document.createElement("div");
+      comments.className = "visitor-thread-comments";
+      (threadState.comments[String(post.id)] || []).forEach((comment) => {
+        const item = document.createElement("article");
+        item.className = `visitor-thread-comment ${comment.sender === "owner" ? "owner" : ""}`;
+        const commentHeader = document.createElement("div");
+        commentHeader.className = "visitor-thread-comment-head";
+        const commentAuthor = document.createElement("strong");
+        commentAuthor.textContent = comment.sender_label || (comment.sender === "owner" ? "Owner" : "Visitor");
+        const commentDate = document.createElement("time");
+        commentDate.textContent = threadDateLabel(comment.created_at);
+        commentHeader.append(commentAuthor, commentDate);
+        const body = document.createElement("p");
+        body.textContent = comment.content;
+        item.append(commentHeader, body);
+        comments.append(item);
+      });
+      const commentForm = document.createElement("form");
+      commentForm.className = "visitor-thread-comment-form";
+      commentForm.dataset.threadId = String(post.id);
+      const commentInput = document.createElement("input");
+      commentInput.type = "text";
+      commentInput.maxLength = 1000;
+      commentInput.required = true;
+      commentInput.placeholder = "Write a comment…";
+      commentInput.setAttribute("aria-label", `Comment on ${post.display_name || "your"} thread`);
+      const commentButton = document.createElement("button");
+      commentButton.type = "submit";
+      commentButton.textContent = "Comment";
+      commentForm.append(commentInput, commentButton);
+      comments.append(commentForm);
+      card.append(comments);
+      feed.append(card);
+    });
+  }
+
+  async function loadThreads() {
+    if (!supabaseUrl || !publishableKey) {
+      throw new Error("Threads are unavailable because the content service is not configured.");
+    }
+    setStatus(getElement("visitor-thread-status"), "Loading threads…", false);
+    const token = visitorToken();
+    const posts = await callVisitorRpc("get_visitor_threads", { p_visitor_token: token });
+    if (!Array.isArray(posts)) throw new Error("Threads returned an unexpected response.");
+    threadState.posts = posts;
+    const commentResults = await Promise.all(posts.map(async (post) => {
+      const comments = await callVisitorRpc("get_visitor_thread_comments", {
+        p_visitor_token: token,
+        p_thread_id: post.id
+      });
+      if (!Array.isArray(comments)) throw new Error("Thread comments returned an unexpected response.");
+      return [String(post.id), comments];
+    }));
+    threadState.comments = Object.fromEntries(commentResults);
+    renderThreads();
+    setStatus(getElement("visitor-thread-status"), "", false);
+  }
+
+  function resetThreadForm() {
+    threadState.editingId = null;
+    threadState.imagePath = null;
+    getElement("visitor-thread-form").reset();
+    getElement("visitor-thread-name").value = localStorage.getItem(threadNameKey) || "";
+    getElement("visitor-thread-remove-image-field").hidden = true;
+    getElement("save-visitor-thread").textContent = "Post thread";
+    getElement("cancel-visitor-thread-edit").hidden = true;
+  }
+
+  function editThread(id) {
+    const post = threadState.posts.find((item) => String(item.id) === id);
+    if (!post) return;
+    threadState.editingId = post.id;
+    threadState.imagePath = post.image_path || null;
+    getElement("visitor-thread-name").value = post.display_name || "";
+    getElement("visitor-thread-content").value = post.content || "";
+    getElement("visitor-thread-image").value = "";
+    getElement("visitor-thread-remove-image").checked = false;
+    getElement("visitor-thread-remove-image-field").hidden = !post.image_path;
+    getElement("save-visitor-thread").textContent = "Save changes";
+    getElement("cancel-visitor-thread-edit").hidden = false;
+    getElement("visitor-thread-form").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  async function uploadThreadImage(file, token) {
+    const extensions = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/gif": "gif",
+      "image/webp": "webp",
+      "image/avif": "avif"
+    };
+    if (!extensions[file.type]) throw new Error("Choose a JPEG, PNG, GIF, WebP, or AVIF image.");
+    if (file.size > 5 * 1024 * 1024) throw new Error("Thread photos must be 5 MB or smaller.");
+    const path = `${token}/${window.crypto.randomUUID()}.${extensions[file.type]}`;
+    const safePath = path.split("/").map(encodeURIComponent).join("/");
+    const response = await fetch(`${supabaseUrl}/storage/v1/object/visitor-thread-images/${safePath}`, {
+      method: "POST",
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${publishableKey}`,
+        "Content-Type": file.type,
+        "x-upsert": "false"
+      },
+      body: file
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result.message || result.error || `Photo upload failed (${response.status}).`);
+    }
+    return path;
+  }
+
+  async function saveThread(event) {
+    event.preventDefault();
+    if (threadState.saving) return;
+    const content = getElement("visitor-thread-content").value.trim();
+    const name = getElement("visitor-thread-name").value.trim() || "Visitor";
+    const file = getElement("visitor-thread-image").files[0] || null;
+    const removeImage = getElement("visitor-thread-remove-image").checked;
+    const wasEditing = Boolean(threadState.editingId);
+    if (!content && !file && !(threadState.imagePath && !removeImage)) {
+      setStatus(getElement("visitor-thread-status"), "Write something or add a photo before posting.", true);
+      return;
+    }
+    threadState.saving = true;
+    const saveButton = getElement("save-visitor-thread");
+    saveButton.disabled = true;
+    setStatus(getElement("visitor-thread-status"), threadState.editingId ? "Saving your changes…" : "Posting your thread…", false);
+    try {
+      const token = visitorToken();
+      const imagePath = file
+        ? await uploadThreadImage(file, token)
+        : (removeImage ? null : threadState.imagePath);
+      const payload = {
+        p_visitor_token: token,
+        p_thread_id: threadState.editingId,
+        p_display_name: name,
+        p_content: content,
+        p_image_path: imagePath
+      };
+      await callVisitorRpc(
+        threadState.editingId ? "update_visitor_thread" : "create_visitor_thread",
+        threadState.editingId ? payload : {
+          p_visitor_token: token,
+          p_display_name: name,
+          p_content: content,
+          p_image_path: imagePath
+        }
+      );
+      localStorage.setItem(threadNameKey, name);
+      resetThreadForm();
+      await loadThreads();
+      setStatus(getElement("visitor-thread-status"), wasEditing ? "Thread updated." : "Thread posted.", false);
+    } catch (error) {
+      console.error("Could not save the visitor thread.", error);
+      setStatus(getElement("visitor-thread-status"), error.message || "Your thread could not be saved.", true);
+    } finally {
+      threadState.saving = false;
+      saveButton.disabled = false;
+    }
+  }
+
+  async function deleteThread(id) {
+    const post = threadState.posts.find((item) => String(item.id) === id);
+    if (!post || !window.confirm("Delete this thread and its comments? This cannot be undone.")) return;
+    setStatus(getElement("visitor-thread-status"), "Deleting thread…", false);
+    try {
+      await callVisitorRpc("delete_visitor_thread", {
+        p_visitor_token: visitorToken(),
+        p_thread_id: post.id
+      });
+      await loadThreads();
+      setStatus(getElement("visitor-thread-status"), "Thread deleted.", false);
+    } catch (error) {
+      console.error("Could not delete the visitor thread.", error);
+      setStatus(getElement("visitor-thread-status"), error.message || "The thread could not be deleted.", true);
+    }
+  }
+
+  async function sendThreadComment(event) {
+    event.preventDefault();
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.matches(".visitor-thread-comment-form")) return;
+    const input = form.querySelector("input");
+    const button = form.querySelector("button");
+    const content = input.value.trim();
+    if (!content) return;
+    button.disabled = true;
+    try {
+      await callVisitorRpc("add_visitor_thread_comment", {
+        p_visitor_token: visitorToken(),
+        p_thread_id: form.dataset.threadId,
+        p_display_name: getElement("visitor-thread-name").value.trim() || localStorage.getItem(threadNameKey) || "Visitor",
+        p_content: content
+      });
+      await loadThreads();
+      setStatus(getElement("visitor-thread-status"), "Comment added.", false);
+    } catch (error) {
+      console.error("Could not add the visitor thread comment.", error);
+      setStatus(getElement("visitor-thread-status"), error.message || "Your comment could not be added.", true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function refreshThreads() {
+    loadThreads().catch((error) => {
+      console.error("Could not load visitor threads.", error);
+      setStatus(getElement("visitor-thread-status"), error.message || "Threads could not be loaded.", true);
+    });
+  }
+
+  function startThreadPolling() {
+    if (threadState.timer) window.clearInterval(threadState.timer);
+    threadState.timer = window.setInterval(() => {
+      if (getElement("page-threads").hidden || document.hidden) return;
+      refreshThreads();
+    }, 15000);
+  }
+
+  function initThreads() {
+    try {
+      const token = localStorage.getItem(threadTokenKey);
+      if (token) threadState.token = token;
+      getElement("visitor-thread-name").value = localStorage.getItem(threadNameKey) || "";
+      getElement("visitor-thread-form").addEventListener("submit", saveThread);
+      getElement("cancel-visitor-thread-edit").addEventListener("click", resetThreadForm);
+      getElement("visitor-thread-feed").addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-action]");
+        if (!button) return;
+        if (button.dataset.action === "edit") editThread(button.dataset.threadId);
+        if (button.dataset.action === "delete") deleteThread(button.dataset.threadId);
+      });
+      getElement("visitor-thread-feed").addEventListener("submit", sendThreadComment);
+      startThreadPolling();
+    } catch (error) {
+      console.error("Could not initialize visitor threads.", error);
+      setStatus(getElement("visitor-thread-status"), error.message || "Threads could not be initialized.", true);
+    }
+  }
+
+  if (getElement("page-schedule") && getElement("page-threads")) {
+    initSchedule();
+    initThreads();
+    window.VisitorTools = { loadSchedule, refreshSchedule: loadSchedule, refreshThreads };
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        renderSchedule();
+        if (!getElement("page-threads").hidden) refreshThreads();
+      }
+    });
+  }
+})();

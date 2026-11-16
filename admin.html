@@ -35,7 +35,7 @@
     .hint, .subtle { color: #817a72; line-height: 1.6; }
     .field { display: grid; gap: 7px; margin: 18px 0; }
     .field label { color: #39342e; font-size: .9rem; font-weight: 650; }
-    .field input, .field textarea {
+    .field input, .field textarea, .field select {
       width: 100%;
       min-height: 46px;
       padding: 11px 13px;
@@ -45,7 +45,7 @@
       color: #24211f;
     }
     .field textarea { min-height: 150px; resize: vertical; line-height: 1.6; }
-    input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+    input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
       outline: 3px solid #ab8f73;
       outline-offset: 3px;
     }
@@ -99,6 +99,23 @@
     .entry-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 15px; border: 1px solid #eee9e2; border-radius: 12px; }
     .entry-row h3 { margin: 0 0 4px; font-size: 1rem; }
     .entry-row p { margin: 0; color: #817a72; font-size: .86rem; }
+    .schedule-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+    .admin-thread-feed { display: grid; gap: 14px; }
+    .admin-thread-card { padding: clamp(14px, 3vw, 21px); border: 1px solid #eee9e2; border-radius: 14px; background: #fff; }
+    .admin-thread-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+    .admin-thread-head strong { font-size: .94rem; }
+    .admin-thread-head time, .admin-thread-empty { color: #8d8991; font-size: .82rem; }
+    .admin-thread-content { margin: 13px 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .admin-thread-image { display: block; max-width: 100%; max-height: 480px; margin: 12px auto; border-radius: 12px; object-fit: contain; }
+    .admin-thread-comments { display: grid; gap: 8px; margin: 13px 0; }
+    .admin-thread-comment { padding: 9px 11px; border-radius: 10px; background: #faf7f8; }
+    .admin-thread-comment.owner { background: #fff0f5; }
+    .admin-thread-comment strong { font-size: .8rem; }
+    .admin-thread-comment time { margin-left: 8px; color: #8d8991; font-size: .72rem; }
+    .admin-thread-comment p { margin: 5px 0 0; font-size: .86rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .admin-thread-reply { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
+    .admin-thread-reply textarea { min-height: 43px; resize: vertical; }
+    .admin-thread-reply button { align-self: end; }
     .row-actions { display: flex; flex: 0 0 auto; gap: 8px; }
     .row-actions .button { min-height: 37px; padding: 7px 11px; font-size: .86rem; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
@@ -111,6 +128,15 @@
     .photo-card { overflow: hidden; border: 1px solid #eee9e2; border-radius: 12px; background: #fff; }
     .photo-card img { display: block; width: 100%; aspect-ratio: 1.25; object-fit: cover; background: #f0ece6; }
     .photo-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px; }
+    .daily-media-preview { margin: 14px 0; }
+    .daily-media-preview img, .daily-media-preview video { display: block; width: min(100%, 520px); max-height: 420px; border-radius: 12px; background: #f4f1ed; object-fit: contain; }
+    .daily-media-list { display: grid; gap: 12px; margin-top: 18px; }
+    .daily-media-row { display: grid; grid-template-columns: minmax(120px, 210px) minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px; border: 1px solid #eee9e2; border-radius: 13px; background: #fff; }
+    .daily-media-row img, .daily-media-row video { display: block; width: 100%; max-height: 150px; border-radius: 9px; background: #f4f1ed; object-fit: contain; }
+    .daily-media-row h3 { margin: 0 0 5px; font-size: .96rem; }
+    .daily-media-row p { margin: 0; color: #817a72; font-size: .82rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .daily-media-row time { display: block; margin-top: 6px; color: #9a9288; font-size: .74rem; }
+    .daily-media-row .row-actions { flex-direction: column; }
     .photo-card-bottom span { overflow: hidden; color: #777067; font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
     .photo-card-bottom button { min-height: 32px; padding: 5px 8px; font-size: .78rem; }
     .status { min-height: 1.5em; margin: 12px 0 0; color: #71695f; font-size: .9rem; }
@@ -174,12 +200,12 @@
     .eyebrow { color: #de8ca6; }
     h1, h2 { color: #56555d; }
     .hint, .subtle { color: #8d8991; }
-    .field input, .field textarea {
+    .field input, .field textarea, .field select {
       border-color: #eee5eb;
       border-radius: 12px;
       color: #56555d;
     }
-    .field input:focus, .field textarea:focus {
+    .field input:focus, .field textarea:focus, .field select:focus {
       border-color: #edb4c5;
       box-shadow: 0 0 0 3px #f8e7ed;
     }
@@ -359,6 +385,10 @@
       .row-actions .button { flex: 1; }
       .form-grid { grid-template-columns: 1fr; }
       .field.full { grid-column: auto; }
+      .schedule-form-grid, .admin-thread-reply { grid-template-columns: 1fr; }
+      .daily-media-row { grid-template-columns: 1fr; }
+      .daily-media-row img, .daily-media-row video { max-width: 100%; }
+      .daily-media-row .row-actions { flex-direction: row; }
       .form-actions { align-items: start; flex-direction: column; }
       .admin-bottom-nav {
         position: fixed;
@@ -367,14 +397,14 @@
         bottom: 0;
         left: 0;
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 4px;
         padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
         border-top: 1px solid #f0e9ed;
         background: #fffefaeF;
         backdrop-filter: blur(14px);
       }
-      .admin-bottom-nav .admin-nav-link { min-height: 54px; flex-direction: column; justify-content: center; gap: 3px; padding: 5px 3px; font-size: .68rem; text-align: center; }
+      .admin-bottom-nav .admin-nav-link { min-height: 54px; flex-direction: column; justify-content: center; gap: 3px; padding: 5px 2px; font-size: .62rem; text-align: center; }
       .admin-bottom-nav .admin-nav-link span { font-size: 1.08rem; }
       body.admin-menu-open .admin-bottom-nav { pointer-events: none; }
       .dashboard-footer { padding-bottom: 16px; }
@@ -414,14 +444,17 @@
       <p class="sidebar-label">Manage your site</p>
       <nav class="admin-nav" aria-label="Dashboard sections">
         <a class="admin-nav-link" href="#entries" aria-current="page"><span aria-hidden="true">✎</span>Entries</a>
+        <a class="admin-nav-link" href="#schedule"><span aria-hidden="true">▦</span>Class schedule</a>
+        <a class="admin-nav-link" href="#threads"><span aria-hidden="true">♡</span>Visitor threads</a>
         <a class="admin-nav-link" href="#photos"><span aria-hidden="true">▧</span>Photos</a>
         <a class="admin-nav-link" href="#settings"><span aria-hidden="true">⚙</span>Site settings</a>
         <a class="admin-nav-link" href="#daily-note"><span aria-hidden="true">✉</span>Daily note</a>
+        <a class="admin-nav-link" href="#daily-media"><span aria-hidden="true">✧</span>Daily media</a>
         <a class="admin-nav-link" href="#invitation"><span aria-hidden="true">♡</span>Invitation</a>
       </nav>
       <div class="sidebar-bottom">
         <a class="admin-nav-link" href="logs.html"><span aria-hidden="true">◷</span>Activity logs</a>
-        <p class="sidebar-note">Visitors can only see content you publish.</p>
+        <p class="sidebar-note">Visitors cannot edit the published site content.</p>
       </div>
     </aside>
     <button class="drawer-scrim" id="sidebar-scrim" type="button" aria-label="Close admin menu" tabindex="-1"></button>
@@ -442,7 +475,7 @@
         <div>
           <p class="eyebrow">Your publishing space</p>
           <h1>Good to see you.</h1>
-          <p>Manage visitor-facing entries, the 24-hour daily note, photos, site details, and the invitation here.</p>
+          <p>Manage visitor-facing entries, the weekly class schedule, private visitor threads, the 24-hour daily note, photos, site details, and the invitation here.</p>
         </div>
       </div>
 
@@ -480,6 +513,79 @@
         </form>
         <p class="status" id="entry-status" role="status" aria-live="polite"></p>
         <div class="entry-list" id="entry-list" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" id="schedule" aria-labelledby="schedule-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="schedule-heading">Class schedule</h2>
+            <p class="subtle">The timetable from the photo is prefilled as a weekly schedule. Visitors can see your changes and choose their own class format; times use Philippine time.</p>
+          </div>
+        </div>
+        <form id="schedule-form">
+          <div class="schedule-form-grid">
+            <div class="field">
+              <label for="schedule-title">Class or event</label>
+              <input id="schedule-title" maxlength="120" required>
+            </div>
+            <div class="field">
+              <label for="schedule-course-code">Course code (optional)</label>
+              <input id="schedule-course-code" maxlength="40">
+            </div>
+            <div class="field">
+              <label for="schedule-frequency">Repeats</label>
+              <select id="schedule-frequency">
+                <option value="weekly">Every week</option>
+                <option value="once">One time</option>
+              </select>
+            </div>
+            <div class="field" id="schedule-weekday-field">
+              <label for="schedule-weekday">Day</label>
+              <select id="schedule-weekday">
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </div>
+            <div class="field" id="schedule-date-field" hidden>
+              <label for="schedule-date">Date</label>
+              <input id="schedule-date" type="date">
+            </div>
+            <div class="field">
+              <label for="schedule-start">Starts</label>
+              <input id="schedule-start" type="time" min="07:00" max="19:00" step="1800" required>
+            </div>
+            <div class="field">
+              <label for="schedule-end">Ends</label>
+              <input id="schedule-end" type="time" min="07:00" max="19:00" step="1800" required>
+            </div>
+            <div class="field">
+              <label for="schedule-location">Room or online link label</label>
+              <input id="schedule-location" maxlength="120" value="AD 401">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="button" id="save-schedule-event" type="submit">Add schedule item</button>
+            <button class="button secondary" id="cancel-schedule-edit" type="button" hidden>Cancel edit</button>
+          </div>
+        </form>
+        <p class="status" id="schedule-status" role="status" aria-live="polite"></p>
+        <div class="entry-list" id="schedule-list" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" id="threads" aria-labelledby="threads-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="threads-heading">Visitor threads</h2>
+            <p class="subtle">Visitors’ private text and photo posts appear here. You can comment on their threads; visitors can edit or delete only their own posts.</p>
+          </div>
+          <button class="button secondary" id="refresh-threads" type="button">Refresh threads</button>
+        </div>
+        <div class="entry-list admin-thread-feed" id="admin-thread-feed" aria-live="polite"></div>
+        <p class="status" id="threads-status" role="status" aria-live="polite"></p>
       </section>
 
       <section class="panel" id="photos" aria-labelledby="photos-heading">
@@ -545,6 +651,33 @@
         <p class="status" id="daily-note-status" role="status" aria-live="polite"></p>
       </section>
 
+      <section class="panel" id="daily-media" aria-labelledby="daily-media-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="daily-media-heading">Daily photo or video</h2>
+            <p class="subtle">The newest item appears on Home for 24 hours. Every item stays in the visitor archive until you remove it. Editing an item renews its 24-hour Home feature.</p>
+          </div>
+        </div>
+        <form id="daily-media-form">
+          <div class="field">
+            <label for="daily-media-caption">Caption (optional)</label>
+            <textarea id="daily-media-caption" maxlength="1000"></textarea>
+          </div>
+          <div class="field">
+            <label for="daily-media-file">Photo or video</label>
+            <input id="daily-media-file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime" required>
+            <p class="subtle">JPEG, PNG, GIF, WebP, AVIF, MP4, WebM, or MOV. Files must be 100 MB or smaller. When editing, leave the file empty to keep the current media.</p>
+          </div>
+          <div class="daily-media-preview" id="daily-media-preview" hidden></div>
+          <div class="form-actions">
+            <button class="button" id="save-daily-media" type="submit">Publish for 24 hours</button>
+            <button class="button secondary" id="cancel-daily-media-edit" type="button" hidden>Cancel edit</button>
+          </div>
+        </form>
+        <p class="status" id="daily-media-status" role="status" aria-live="polite"></p>
+        <div class="daily-media-list" id="daily-media-list" aria-live="polite"></div>
+      </section>
+
       <section class="panel" id="invitation" aria-labelledby="invitation-heading">
         <div class="panel-head">
           <div>
@@ -574,9 +707,12 @@
         <p class="status" id="invitation-status" role="status" aria-live="polite">Loading saved invitation...</p>
       </section>
       </main>
-      <p class="dashboard-footer">Only the site owner can make changes. Visitors can only read published content.</p>
+      <p class="dashboard-footer">Only the owner can manage published site content. Visitors can choose class formats, save device-local reminders, and post private threads.</p>
       <nav class="admin-bottom-nav" aria-label="Quick dashboard navigation">
         <a class="admin-nav-link" href="#entries"><span aria-hidden="true">✎</span>Entries</a>
+        <a class="admin-nav-link" href="#schedule"><span aria-hidden="true">▦</span>Schedule</a>
+        <a class="admin-nav-link" href="#threads"><span aria-hidden="true">♡</span>Threads</a>
+        <a class="admin-nav-link" href="#daily-media"><span aria-hidden="true">✧</span>Media</a>
         <a class="admin-nav-link" href="#photos"><span aria-hidden="true">▧</span>Photos</a>
         <a class="admin-nav-link" href="#settings"><span aria-hidden="true">⚙</span>Settings</a>
       </nav>
@@ -588,6 +724,7 @@
     const config = window.ACTIVITY_LOG_CONFIG || {};
     const supabaseUrl = typeof config.supabaseUrl === "string" ? config.supabaseUrl.replace(/\/+$/, "") : "";
     const publishableKey = typeof config.publishableKey === "string" ? config.publishableKey.trim() : "";
+    const ownerSessionStorageKey = "sachel-owner-auth-session";
     const loginPanel = document.getElementById("login-panel");
     const dashboard = document.getElementById("dashboard");
     const sidebarToggle = document.getElementById("sidebar-toggle");
@@ -606,6 +743,23 @@
     const entryStatus = document.getElementById("entry-status");
     const saveEntryButton = document.getElementById("save-entry");
     const cancelEditButton = document.getElementById("cancel-edit");
+    const scheduleForm = document.getElementById("schedule-form");
+    const scheduleTitle = document.getElementById("schedule-title");
+    const scheduleCourseCode = document.getElementById("schedule-course-code");
+    const scheduleFrequency = document.getElementById("schedule-frequency");
+    const scheduleWeekday = document.getElementById("schedule-weekday");
+    const scheduleWeekdayField = document.getElementById("schedule-weekday-field");
+    const scheduleDate = document.getElementById("schedule-date");
+    const scheduleDateField = document.getElementById("schedule-date-field");
+    const scheduleStart = document.getElementById("schedule-start");
+    const scheduleEnd = document.getElementById("schedule-end");
+    const scheduleLocation = document.getElementById("schedule-location");
+    const scheduleList = document.getElementById("schedule-list");
+    const scheduleStatus = document.getElementById("schedule-status");
+    const saveScheduleButton = document.getElementById("save-schedule-event");
+    const cancelScheduleEditButton = document.getElementById("cancel-schedule-edit");
+    const adminThreadFeed = document.getElementById("admin-thread-feed");
+    const threadsStatus = document.getElementById("threads-status");
     const photoForm = document.getElementById("photo-form");
     const photoFiles = document.getElementById("photo-files");
     const photoGrid = document.getElementById("photo-grid");
@@ -617,6 +771,14 @@
     const dailyNoteContent = document.getElementById("daily-note-content");
     const dailyNoteStatus = document.getElementById("daily-note-status");
     const saveDailyNoteButton = document.getElementById("save-daily-note");
+    const dailyMediaForm = document.getElementById("daily-media-form");
+    const dailyMediaCaption = document.getElementById("daily-media-caption");
+    const dailyMediaFile = document.getElementById("daily-media-file");
+    const dailyMediaPreview = document.getElementById("daily-media-preview");
+    const dailyMediaList = document.getElementById("daily-media-list");
+    const dailyMediaStatus = document.getElementById("daily-media-status");
+    const saveDailyMediaButton = document.getElementById("save-daily-media");
+    const cancelDailyMediaEditButton = document.getElementById("cancel-daily-media-edit");
     const invitationForm = document.getElementById("invitation-form");
     const invitationTitle = document.getElementById("invitation-title");
     const invitationMessage = document.getElementById("invitation-message");
@@ -625,11 +787,32 @@
     const removeInvitationImage = document.getElementById("remove-invitation-image");
     const invitationStatus = document.getElementById("invitation-status");
     const saveInvitationButton = document.getElementById("save-invitation");
+    const dailyMediaMimeExtensions = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/gif": "gif",
+      "image/webp": "webp",
+      "image/avif": "avif",
+      "video/mp4": "mp4",
+      "video/webm": "webm",
+      "video/quicktime": "mov"
+    };
     let accessToken = "";
+    let ownerSession = null;
     let editingEntryId = null;
     let editingEntryMusicPath = null;
+    let editingScheduleId = null;
+    let editingDailyMediaId = null;
+    let editingDailyMediaPath = null;
+    let editingDailyMediaType = null;
     let savedInvitationImagePath = null;
     let entries = [];
+    let scheduleEvents = [];
+    let dailyMediaItems = [];
+    let visitorThreads = [];
+    let threadComments = [];
+    let threadPollTimer = null;
+    const weekdayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
     function setStatus(element, message, isError) {
       element.textContent = message;
@@ -684,12 +867,108 @@
       return { apikey: publishableKey, Authorization: `Bearer ${accessToken}` };
     }
 
+    function saveOwnerSession(session) {
+      if (!session || !session.access_token || !session.refresh_token) {
+        throw new Error("Supabase did not return a refreshable owner session.");
+      }
+      const expiresAt = Number(session.expires_at)
+        ? Number(session.expires_at) * 1000
+        : Date.now() + Math.max(Number(session.expires_in) || 3600, 60) * 1000;
+      ownerSession = {
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        expiresAt
+      };
+      accessToken = ownerSession.accessToken;
+      localStorage.setItem(ownerSessionStorageKey, JSON.stringify(ownerSession));
+    }
+
+    function clearOwnerSession() {
+      ownerSession = null;
+      accessToken = "";
+      localStorage.removeItem(ownerSessionStorageKey);
+    }
+
+    function loadOwnerSession() {
+      const stored = localStorage.getItem(ownerSessionStorageKey);
+      if (!stored) return false;
+      let session;
+      try {
+        session = JSON.parse(stored);
+      } catch (error) {
+        clearOwnerSession();
+        return false;
+      }
+      if (!session || typeof session.accessToken !== "string" || typeof session.refreshToken !== "string") {
+        clearOwnerSession();
+        return false;
+      }
+      ownerSession = session;
+      accessToken = session.accessToken;
+      return true;
+    }
+
+    async function ensureFreshOwnerSession() {
+      if (!ownerSession && !loadOwnerSession()) {
+        throw new Error("Sign in to continue.");
+      }
+      if (ownerSession.expiresAt > Date.now() + 30000) return;
+
+      const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { apikey: publishableKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: ownerSession.refreshToken })
+      });
+      if (!response.ok) {
+        const error = await readResponse(response);
+        clearOwnerSession();
+        throw error;
+      }
+      saveOwnerSession(await readResponse(response));
+    }
+
     async function api(path, options) {
+      await ensureFreshOwnerSession();
       const response = await fetch(`${supabaseUrl}${path}`, {
         ...options,
         headers: { ...authHeaders(), ...(options && options.headers ? options.headers : {}) }
       });
       return readResponse(response);
+    }
+
+    async function loadDashboardContent() {
+      await Promise.allSettled([
+        loadEntries().catch((error) => setStatus(entryStatus, error.message, true)),
+        loadPhotos().catch((error) => setStatus(photoStatus, error.message, true)),
+        loadSettings().catch((error) => setStatus(settingsStatus, error.message, true)),
+        loadInvitation().catch((error) => setStatus(invitationStatus, error.message, true)),
+        loadDailyMedia().catch((error) => setStatus(dailyMediaStatus, error.message, true)),
+        loadScheduleEvents().catch((error) => setStatus(scheduleStatus, error.message, true)),
+        loadVisitorThreads().catch((error) => setStatus(threadsStatus, error.message, true))
+      ]);
+      startThreadPolling();
+    }
+
+    async function restoreOwnerSession() {
+      try {
+        if (!loadOwnerSession()) return;
+        await ensureFreshOwnerSession();
+        const isAdmin = await api("/rest/v1/rpc/is_log_admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        });
+        if (isAdmin !== true) {
+          clearOwnerSession();
+          throw new Error("This account is not authorized to manage the site.");
+        }
+        loginPanel.hidden = true;
+        dashboard.hidden = false;
+        await loadDashboardContent();
+      } catch (error) {
+        console.error("Could not restore the saved owner session.", error);
+        loginError.textContent = `Could not restore the saved sign-in. ${error.message || "Please sign in again."}`;
+      }
     }
 
     function photoUrl(path) {
@@ -779,6 +1058,273 @@
       });
     }
 
+    function formatScheduleTime(value) {
+      const parts = value.slice(0, 5).split(":");
+      const hour = Number(parts[0]);
+      const minute = parts[1];
+      return `${hour % 12 || 12}:${minute} ${hour < 12 ? "AM" : "PM"}`;
+    }
+
+    function formatScheduleDate(value) {
+      const date = new Date(`${value}T12:00:00Z`);
+      return new Intl.DateTimeFormat("en-PH", {
+        timeZone: "Asia/Manila",
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      }).format(date);
+    }
+
+    function updateScheduleFrequencyFields() {
+      const isWeekly = scheduleFrequency.value === "weekly";
+      scheduleWeekdayField.hidden = !isWeekly;
+      scheduleWeekday.required = isWeekly;
+      scheduleDateField.hidden = isWeekly;
+      scheduleDate.required = !isWeekly;
+    }
+
+    function resetScheduleForm() {
+      editingScheduleId = null;
+      scheduleForm.reset();
+      scheduleFrequency.value = "weekly";
+      scheduleWeekday.value = "1";
+      scheduleLocation.value = "AD 401";
+      cancelScheduleEditButton.hidden = true;
+      saveScheduleButton.textContent = "Add schedule item";
+      updateScheduleFrequencyFields();
+    }
+
+    function renderScheduleEvents() {
+      scheduleList.replaceChildren();
+      if (!scheduleEvents.length) {
+        const empty = document.createElement("p");
+        empty.className = "subtle";
+        empty.textContent = "No schedule items are saved yet.";
+        scheduleList.append(empty);
+        return;
+      }
+
+      scheduleEvents.forEach((scheduleEvent) => {
+        const row = document.createElement("article");
+        row.className = "entry-row";
+        const details = document.createElement("div");
+        const title = document.createElement("h3");
+        const summary = document.createElement("p");
+        title.textContent = scheduleEvent.course_code
+          ? `${scheduleEvent.course_code} · ${scheduleEvent.title}`
+          : scheduleEvent.title;
+        const day = scheduleEvent.weekday
+          ? `Every ${weekdayNames[scheduleEvent.weekday]}`
+          : formatScheduleDate(scheduleEvent.event_date);
+        summary.textContent = `${day} · ${formatScheduleTime(scheduleEvent.start_time)}–${formatScheduleTime(scheduleEvent.end_time)} · Visitor chooses format${scheduleEvent.location ? ` · ${scheduleEvent.location}` : ""}`;
+        details.append(title, summary);
+
+        const actions = document.createElement("div");
+        actions.className = "row-actions";
+        const edit = document.createElement("button");
+        edit.className = "button secondary";
+        edit.type = "button";
+        edit.textContent = "Edit";
+        edit.addEventListener("click", () => {
+          editingScheduleId = scheduleEvent.id;
+          scheduleTitle.value = scheduleEvent.title;
+          scheduleCourseCode.value = scheduleEvent.course_code || "";
+          scheduleFrequency.value = scheduleEvent.weekday ? "weekly" : "once";
+          updateScheduleFrequencyFields();
+          if (scheduleEvent.weekday) scheduleWeekday.value = String(scheduleEvent.weekday);
+          if (scheduleEvent.event_date) scheduleDate.value = scheduleEvent.event_date;
+          scheduleStart.value = scheduleEvent.start_time.slice(0, 5);
+          scheduleEnd.value = scheduleEvent.end_time.slice(0, 5);
+          scheduleLocation.value = scheduleEvent.location || "";
+          cancelScheduleEditButton.hidden = false;
+          saveScheduleButton.textContent = "Save changes";
+          scheduleForm.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        const remove = document.createElement("button");
+        remove.className = "button danger";
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", () => removeScheduleEvent(scheduleEvent));
+        actions.append(edit, remove);
+        row.append(details, actions);
+        scheduleList.append(row);
+      });
+    }
+
+    async function loadScheduleEvents() {
+      const result = await api("/rest/v1/site_schedule_events?select=id,title,course_code,weekday,event_date,start_time,end_time,location,seed_key,is_active&is_active=eq.true&order=weekday.asc,event_date.asc,start_time.asc,title.asc");
+      if (!Array.isArray(result)) throw new Error("Schedule items returned an unexpected response.");
+      scheduleEvents = result;
+      renderScheduleEvents();
+    }
+
+    async function removeScheduleEvent(scheduleEvent) {
+      if (!window.confirm(`Remove "${scheduleEvent.title}" from the visitor calendar?`)) return;
+      setStatus(scheduleStatus, "Removing schedule item…");
+      try {
+        if (scheduleEvent.seed_key) {
+          await api(`/rest/v1/site_schedule_events?id=eq.${encodeURIComponent(scheduleEvent.id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({ is_active: false })
+          });
+        } else {
+          await api(`/rest/v1/site_schedule_events?id=eq.${encodeURIComponent(scheduleEvent.id)}`, {
+            method: "DELETE",
+            headers: { Prefer: "return=minimal" }
+          });
+        }
+        await loadScheduleEvents();
+        setStatus(scheduleStatus, "Schedule item removed.");
+      } catch (error) {
+        console.error("Could not remove the schedule item.", error);
+        setStatus(scheduleStatus, error.message || "The schedule item could not be removed.", true);
+      }
+    }
+
+    function formatThreadTimestamp(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("en-PH", {
+        timeZone: "Asia/Manila",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      }).format(date);
+    }
+
+    function visitorThreadImageUrl(path) {
+      const safePath = path.split("/").map(encodeURIComponent).join("/");
+      return `${supabaseUrl}/storage/v1/object/public/visitor-thread-images/${safePath}`;
+    }
+
+    function renderVisitorThreads() {
+      adminThreadFeed.replaceChildren();
+      if (!visitorThreads.length) {
+        const empty = document.createElement("p");
+        empty.className = "admin-thread-empty";
+        empty.textContent = "No visitor threads yet.";
+        adminThreadFeed.append(empty);
+        return;
+      }
+
+      visitorThreads.forEach((thread) => {
+        const card = document.createElement("article");
+        card.className = "admin-thread-card";
+        const header = document.createElement("div");
+        header.className = "admin-thread-head";
+        const author = document.createElement("strong");
+        author.textContent = thread.display_name || "Visitor";
+        const date = document.createElement("time");
+        date.textContent = formatThreadTimestamp(thread.created_at);
+        header.append(author, date);
+        card.append(header);
+        if (thread.content) {
+          const content = document.createElement("p");
+          content.className = "admin-thread-content";
+          content.textContent = thread.content;
+          card.append(content);
+        }
+        if (thread.image_path) {
+          const image = document.createElement("img");
+          image.className = "admin-thread-image";
+          image.src = visitorThreadImageUrl(thread.image_path);
+          image.alt = "Photo attached to visitor thread";
+          image.loading = "lazy";
+          card.append(image);
+        }
+
+        const comments = document.createElement("div");
+        comments.className = "admin-thread-comments";
+        threadComments.filter((comment) => String(comment.thread_id) === String(thread.id)).forEach((comment) => {
+          const item = document.createElement("article");
+          item.className = `admin-thread-comment ${comment.sender === "owner" ? "owner" : ""}`;
+          const label = document.createElement("strong");
+          label.textContent = comment.sender_label || (comment.sender === "owner" ? "Owner" : "Visitor");
+          const timestamp = document.createElement("time");
+          timestamp.textContent = formatThreadTimestamp(comment.created_at);
+          const body = document.createElement("p");
+          body.textContent = comment.content;
+          item.append(label, timestamp, body);
+          comments.append(item);
+        });
+        card.append(comments);
+        const form = document.createElement("form");
+        form.className = "admin-thread-reply";
+        form.dataset.threadId = String(thread.id);
+        const field = document.createElement("textarea");
+        field.maxLength = 1000;
+        field.required = true;
+        field.placeholder = "Write a comment…";
+        field.setAttribute("aria-label", `Comment on ${thread.display_name || "visitor"} thread`);
+        const submit = document.createElement("button");
+        submit.className = "button";
+        submit.type = "submit";
+        submit.textContent = "Comment";
+        form.append(field, submit);
+        card.append(form);
+        adminThreadFeed.append(card);
+      });
+    }
+
+    async function loadVisitorThreads() {
+      const [threads, comments] = await Promise.all([
+        api("/rest/v1/visitor_threads?select=id,display_name,content,image_path,created_at&order=created_at.desc"),
+        api("/rest/v1/visitor_thread_comments?select=id,thread_id,sender,sender_label,content,created_at&order=created_at.asc")
+      ]);
+      if (!Array.isArray(threads) || !Array.isArray(comments)) {
+        throw new Error("Visitor threads returned an unexpected response.");
+      }
+      visitorThreads = threads;
+      threadComments = comments;
+      renderVisitorThreads();
+      setStatus(threadsStatus, "", false);
+    }
+
+    function startThreadPolling() {
+      if (threadPollTimer) window.clearInterval(threadPollTimer);
+      threadPollTimer = window.setInterval(() => {
+        if (!dashboard.hidden) {
+          loadVisitorThreads().catch((error) => {
+            console.error("Could not refresh visitor threads.", error);
+            setStatus(threadsStatus, error.message || "Threads could not be refreshed.", true);
+          });
+        }
+      }, 15000);
+    }
+
+    async function submitOwnerThreadComment(event) {
+      event.preventDefault();
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement) || !form.matches(".admin-thread-reply")) return;
+      const field = form.querySelector("textarea");
+      const submit = form.querySelector("button");
+      const content = field.value.trim();
+      if (!content) return;
+      submit.disabled = true;
+      setStatus(threadsStatus, "Sending comment…");
+      try {
+        await api("/rest/v1/visitor_thread_comments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({
+            thread_id: form.dataset.threadId,
+            sender: "owner",
+            sender_label: "Owner",
+            content
+          })
+        });
+        await loadVisitorThreads();
+        setStatus(threadsStatus, "Comment sent.");
+      } catch (error) {
+        console.error("Could not send the owner thread comment.", error);
+        setStatus(threadsStatus, error.message || "The comment could not be sent.", true);
+      } finally {
+        submit.disabled = false;
+      }
+    }
+
     async function removeEntry(entry) {
       if (!window.confirm(`Remove "${entry.title}" from the visitor site? This cannot be undone.`)) return;
       setStatus(entryStatus, "Removing entry…");
@@ -843,6 +1389,245 @@
       }
     }
 
+    function dailyMediaUrl(path) {
+      const safePath = path.split("/").map(encodeURIComponent).join("/");
+      return `${supabaseUrl}/storage/v1/object/public/daily-media/${safePath}`;
+    }
+
+    function formatDailyMediaTimestamp(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("en-PH", {
+        timeZone: "Asia/Manila",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      }).format(date);
+    }
+
+    function createAdminDailyMediaElement(item) {
+      if (item.media_type === "video") {
+        const video = document.createElement("video");
+        video.src = dailyMediaUrl(item.media_path);
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = "metadata";
+        video.setAttribute("aria-label", item.caption || "Daily video");
+        return video;
+      }
+      const image = document.createElement("img");
+      image.src = dailyMediaUrl(item.media_path);
+      image.alt = item.caption || "Daily photo";
+      image.loading = "lazy";
+      return image;
+    }
+
+    function renderDailyMediaPreview(item) {
+      dailyMediaPreview.replaceChildren();
+      dailyMediaPreview.hidden = !item;
+      if (item) dailyMediaPreview.append(createAdminDailyMediaElement(item));
+    }
+
+    function renderDailyMediaList() {
+      dailyMediaList.replaceChildren();
+      if (!dailyMediaItems.length) {
+        const empty = document.createElement("p");
+        empty.className = "subtle";
+        empty.textContent = "No daily photos or videos have been added yet.";
+        dailyMediaList.append(empty);
+        return;
+      }
+
+      dailyMediaItems.forEach((item) => {
+        const row = document.createElement("article");
+        row.className = "daily-media-row";
+        row.append(createAdminDailyMediaElement(item));
+        const details = document.createElement("div");
+        const title = document.createElement("h3");
+        title.textContent = item.caption || (item.media_type === "video" ? "Video" : "Photo");
+        const type = document.createElement("p");
+        type.textContent = item.media_type === "video" ? "Video" : "Photo";
+        const timestamp = new Date(item.created_at).getTime();
+        const onHome = Number.isFinite(timestamp) && timestamp <= Date.now() && Date.now() - timestamp < 24 * 60 * 60 * 1000;
+        const status = document.createElement("p");
+        status.textContent = onHome ? "Currently featured on Home" : "Saved in visitor archive";
+        const date = document.createElement("time");
+        date.dateTime = item.created_at;
+        date.textContent = formatDailyMediaTimestamp(item.created_at);
+        details.append(title, type, status, date);
+
+        const actions = document.createElement("div");
+        actions.className = "row-actions";
+        const edit = document.createElement("button");
+        edit.className = "button secondary";
+        edit.type = "button";
+        edit.textContent = "Edit";
+        edit.addEventListener("click", () => editDailyMedia(item));
+        const remove = document.createElement("button");
+        remove.className = "button danger";
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", () => removeDailyMedia(item));
+        actions.append(edit, remove);
+        row.append(details, actions);
+        dailyMediaList.append(row);
+      });
+    }
+
+    async function loadDailyMedia() {
+      const result = await api("/rest/v1/site_daily_media?select=id,media_path,media_type,caption,created_at&order=created_at.desc,id.desc");
+      if (!Array.isArray(result)) throw new Error("Daily media returned an unexpected response.");
+      dailyMediaItems = result;
+      renderDailyMediaList();
+    }
+
+    function resetDailyMediaForm() {
+      editingDailyMediaId = null;
+      editingDailyMediaPath = null;
+      editingDailyMediaType = null;
+      dailyMediaForm.reset();
+      dailyMediaFile.required = true;
+      saveDailyMediaButton.textContent = "Publish for 24 hours";
+      cancelDailyMediaEditButton.hidden = true;
+      renderDailyMediaPreview(null);
+    }
+
+    function editDailyMedia(item) {
+      editingDailyMediaId = item.id;
+      editingDailyMediaPath = item.media_path;
+      editingDailyMediaType = item.media_type;
+      dailyMediaCaption.value = item.caption || "";
+      dailyMediaFile.value = "";
+      dailyMediaFile.required = false;
+      saveDailyMediaButton.textContent = "Save changes";
+      cancelDailyMediaEditButton.hidden = false;
+      renderDailyMediaPreview(item);
+      dailyMediaForm.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    async function removeDailyMedia(item) {
+      if (!window.confirm("Remove this media from Home and the visitor archive? This cannot be undone.")) return;
+      setStatus(dailyMediaStatus, "Removing media…");
+      try {
+        await api(`/rest/v1/site_daily_media?id=eq.${encodeURIComponent(item.id)}`, {
+          method: "DELETE",
+          headers: { Prefer: "return=minimal" }
+        });
+      } catch (error) {
+        console.error("Could not remove daily media.", error);
+        setStatus(dailyMediaStatus, error.message || "The media could not be removed.", true);
+        return;
+      }
+
+      if (String(editingDailyMediaId) === String(item.id)) resetDailyMediaForm();
+      let cleanupWarning = "";
+      try {
+        await removeStorageFile("daily-media", item.media_path);
+      } catch (error) {
+        console.error("The media record was removed, but its storage file could not be removed.", error);
+        cleanupWarning = `Removed from the site, but the uploaded file could not be deleted: ${error.message}`;
+      }
+      try {
+        await loadDailyMedia();
+        setStatus(dailyMediaStatus, cleanupWarning || "Media removed from Home and the visitor archive.", Boolean(cleanupWarning));
+      } catch (error) {
+        console.error("The media was removed, but the archive could not be refreshed.", error);
+        setStatus(dailyMediaStatus, `Media was removed, but the archive could not be refreshed: ${error.message}`, true);
+      }
+    }
+
+    dailyMediaForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const file = dailyMediaFile.files[0] || null;
+      const isEditing = editingDailyMediaId !== null;
+      if (!file && !isEditing) {
+        setStatus(dailyMediaStatus, "Choose a photo or video to publish.", true);
+        dailyMediaFile.focus();
+        return;
+      }
+      if (file && !Object.prototype.hasOwnProperty.call(dailyMediaMimeExtensions, file.type)) {
+        setStatus(dailyMediaStatus, "Choose a supported photo or video format.", true);
+        dailyMediaFile.focus();
+        return;
+      }
+      if (file && file.size > 100 * 1024 * 1024) {
+        setStatus(dailyMediaStatus, "Photos and videos must be 100 MB or smaller.", true);
+        dailyMediaFile.focus();
+        return;
+      }
+
+      saveDailyMediaButton.disabled = true;
+      setStatus(dailyMediaStatus, isEditing ? "Saving media changes…" : "Uploading and publishing media…");
+      let uploadedPath = null;
+      let mediaSaved = false;
+      const oldPath = editingDailyMediaPath;
+      try {
+        const mediaPath = file
+          ? createFilePath(file, dailyMediaMimeExtensions[file.type])
+          : editingDailyMediaPath;
+        const mediaType = file
+          ? (file.type.startsWith("image/") ? "image" : "video")
+          : editingDailyMediaType;
+        if (file) {
+          uploadedPath = mediaPath;
+          await uploadStorageFile("daily-media", mediaPath, file);
+        }
+
+        const record = {
+          media_path: mediaPath,
+          media_type: mediaType,
+          caption: dailyMediaCaption.value.trim(),
+          created_at: new Date().toISOString()
+        };
+        await api(isEditing
+          ? `/rest/v1/site_daily_media?id=eq.${encodeURIComponent(editingDailyMediaId)}`
+          : "/rest/v1/site_daily_media", {
+          method: isEditing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify(record)
+        });
+        mediaSaved = true;
+
+        let cleanupWarning = "";
+        if (file && oldPath) {
+          try {
+            await removeStorageFile("daily-media", oldPath);
+          } catch (error) {
+            console.error("Media was replaced, but the previous storage file could not be removed.", error);
+            cleanupWarning = `Changes saved, but the previous file could not be deleted: ${error.message}`;
+          }
+        }
+        resetDailyMediaForm();
+        await loadDailyMedia();
+        setStatus(dailyMediaStatus, cleanupWarning || (isEditing
+          ? "Changes saved. The 24-hour Home feature has restarted."
+          : "Published. It will appear on Home for 24 hours and remain in the visitor archive."), Boolean(cleanupWarning));
+      } catch (error) {
+        console.error("Could not save daily media.", error);
+        if (uploadedPath && !mediaSaved) {
+          try {
+            await removeStorageFile("daily-media", uploadedPath);
+          } catch (cleanupError) {
+            console.error("Could not clean up an unsuccessful daily media upload.", cleanupError);
+            setStatus(dailyMediaStatus, `${error.message || "The media could not be saved."} The uploaded file also could not be cleaned up: ${cleanupError.message}`, true);
+            return;
+          }
+        }
+        setStatus(dailyMediaStatus, mediaSaved
+          ? `Media was saved, but the archive could not be refreshed: ${error.message}`
+          : error.message || "The media could not be saved.", true);
+      } finally {
+        saveDailyMediaButton.disabled = false;
+      }
+    });
+
+    cancelDailyMediaEditButton.addEventListener("click", () => {
+      resetDailyMediaForm();
+      setStatus(dailyMediaStatus, "Edit cancelled.");
+    });
+
     async function loadSettings() {
       const result = await api("/rest/v1/site_settings?id=eq.1&select=site_title,tagline,about,daily_note_title,daily_note_content,daily_note_updated_at");
       if (!Array.isArray(result)) throw new Error("Site settings returned an unexpected response.");
@@ -903,26 +1688,76 @@
           body: JSON.stringify({ email: emailInput.value.trim(), password: passwordInput.value })
         });
         const session = await readResponse(response);
-        accessToken = session.access_token;
+        saveOwnerSession(session);
         const isAdmin = await api("/rest/v1/rpc/is_log_admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-        if (isAdmin !== true) throw new Error("This account is not authorized to manage the site.");
+        if (isAdmin !== true) {
+          clearOwnerSession();
+          throw new Error("This account is not authorized to manage the site.");
+        }
         passwordInput.value = "";
         loginPanel.hidden = true;
         dashboard.hidden = false;
-        await Promise.allSettled([
-          loadEntries().catch((error) => setStatus(entryStatus, error.message, true)),
-          loadPhotos().catch((error) => setStatus(photoStatus, error.message, true)),
-          loadSettings().catch((error) => setStatus(settingsStatus, error.message, true)),
-          loadInvitation().catch((error) => setStatus(invitationStatus, error.message, true))
-        ]);
+        await loadDashboardContent();
       } catch (error) {
-        accessToken = "";
+        clearOwnerSession();
         console.error("Owner sign-in failed.", error);
         loginError.textContent = error.message || "Sign-in failed. Check your credentials and database setup.";
       } finally {
         signInButton.disabled = false;
       }
     });
+
+    scheduleFrequency.addEventListener("change", updateScheduleFrequencyFields);
+    cancelScheduleEditButton.addEventListener("click", resetScheduleForm);
+    scheduleForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const startMinutes = Number(scheduleStart.value.slice(0, 2)) * 60 + Number(scheduleStart.value.slice(3, 5));
+      const endMinutes = Number(scheduleEnd.value.slice(0, 2)) * 60 + Number(scheduleEnd.value.slice(3, 5));
+      if (startMinutes < 420 || endMinutes > 1140 || startMinutes >= endMinutes) {
+        setStatus(scheduleStatus, "Choose a start and end between 7:00 AM and 7:00 PM; the end must be later.", true);
+        return;
+      }
+
+      const isWeekly = scheduleFrequency.value === "weekly";
+      const item = {
+        title: scheduleTitle.value.trim(),
+        course_code: scheduleCourseCode.value.trim(),
+        weekday: isWeekly ? Number(scheduleWeekday.value) : null,
+        event_date: isWeekly ? null : scheduleDate.value,
+        start_time: scheduleStart.value,
+        end_time: scheduleEnd.value,
+        location: scheduleLocation.value.trim()
+      };
+      saveScheduleButton.disabled = true;
+      setStatus(scheduleStatus, editingScheduleId ? "Saving schedule changes…" : "Adding schedule item…");
+      try {
+        const wasEditing = Boolean(editingScheduleId);
+        const path = wasEditing
+          ? `/rest/v1/site_schedule_events?id=eq.${encodeURIComponent(editingScheduleId)}`
+          : "/rest/v1/site_schedule_events";
+        await api(path, {
+          method: wasEditing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify(item)
+        });
+        resetScheduleForm();
+        await loadScheduleEvents();
+        setStatus(scheduleStatus, wasEditing ? "Schedule item updated for visitors." : "Schedule item added for visitors.");
+      } catch (error) {
+        console.error("Could not save the schedule item.", error);
+        setStatus(scheduleStatus, error.message || "The schedule item could not be saved.", true);
+      } finally {
+        saveScheduleButton.disabled = false;
+      }
+    });
+
+    document.getElementById("refresh-threads").addEventListener("click", () => {
+      loadVisitorThreads().catch((error) => {
+        console.error("Could not refresh visitor threads.", error);
+        setStatus(threadsStatus, error.message || "Threads could not be refreshed.", true);
+      });
+    });
+    adminThreadFeed.addEventListener("submit", submitOwnerThreadComment);
 
     entryForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -1215,7 +2050,11 @@
       } catch (error) {
         console.error("Could not end the Supabase session cleanly.", error);
       }
-      accessToken = "";
+      clearOwnerSession();
+      if (threadPollTimer) {
+        window.clearInterval(threadPollTimer);
+        threadPollTimer = null;
+      }
       setAdminMenuOpen(false);
       dashboard.hidden = true;
       loginPanel.hidden = false;
@@ -1223,6 +2062,9 @@
       passwordInput.value = "";
       resetEntryForm();
     });
+
+    resetScheduleForm();
+    restoreOwnerSession();
   </script>
 </body>
 </html>

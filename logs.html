@@ -319,6 +319,7 @@
     const refreshButton = document.getElementById("refresh-logs");
     const logoutButton = document.getElementById("logout");
     const config = window.ACTIVITY_LOG_CONFIG || {};
+    const ownerSessionStorageKey = "sachel-owner-auth-session";
     const supabaseUrl = typeof config.supabaseUrl === "string"
       ? config.supabaseUrl.replace(/\/+$/, "")
       : "";
@@ -326,6 +327,7 @@
       ? config.publishableKey.trim()
       : "";
     let accessToken = "";
+    let ownerSession = null;
 
     function responseError(data, fallback) {
       return data && (data.msg || data.message || data.error_description)
@@ -356,6 +358,80 @@
       };
     }
 
+    function saveOwnerSession(session) {
+      if (!session || !session.access_token || !session.refresh_token) {
+        throw new Error("Supabase did not return a refreshable owner session.");
+      }
+      const expiresAt = Number(session.expires_at)
+        ? Number(session.expires_at) * 1000
+        : Date.now() + Math.max(Number(session.expires_in) || 3600, 60) * 1000;
+      ownerSession = {
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        expiresAt
+      };
+      accessToken = ownerSession.accessToken;
+      localStorage.setItem(ownerSessionStorageKey, JSON.stringify(ownerSession));
+    }
+
+    function clearOwnerSession() {
+      ownerSession = null;
+      accessToken = "";
+      localStorage.removeItem(ownerSessionStorageKey);
+    }
+
+    function loadOwnerSession() {
+      const stored = localStorage.getItem(ownerSessionStorageKey);
+      if (!stored) return false;
+      let session;
+      try {
+        session = JSON.parse(stored);
+      } catch (error) {
+        clearOwnerSession();
+        return false;
+      }
+      if (!session || typeof session.accessToken !== "string" || typeof session.refreshToken !== "string") {
+        clearOwnerSession();
+        return false;
+      }
+      ownerSession = session;
+      accessToken = session.accessToken;
+      return true;
+    }
+
+    async function ensureFreshOwnerSession() {
+      if (!ownerSession && !loadOwnerSession()) {
+        throw new Error("Sign in to continue.");
+      }
+      if (ownerSession.expiresAt > Date.now() + 30000) return;
+
+      const response = await fetch(supabaseUrl + "/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        headers: { apikey: publishableKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: ownerSession.refreshToken })
+      });
+      if (!response.ok) {
+        const error = await readResponse(response);
+        clearOwnerSession();
+        throw error;
+      }
+      saveOwnerSession(await readResponse(response));
+    }
+
+    async function verifyOwnerSession() {
+      await ensureFreshOwnerSession();
+      const response = await fetch(supabaseUrl + "/rest/v1/rpc/is_log_admin", {
+        method: "POST",
+        headers: { ...authorizationHeaders(), "Content-Type": "application/json" },
+        body: "{}"
+      });
+      const isAdmin = await readResponse(response);
+      if (isAdmin !== true) {
+        clearOwnerSession();
+        throw new Error("This account is not authorized to view activity logs.");
+      }
+    }
+
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       loginError.textContent = "";
@@ -377,20 +453,32 @@
           })
         });
         const session = await readResponse(response);
-        accessToken = session.access_token;
+        saveOwnerSession(session);
+        await verifyOwnerSession();
         passwordInput.value = "";
         loginPanel.hidden = true;
         logsContent.hidden = false;
         await renderLogs();
       } catch (error) {
+        clearOwnerSession();
         console.error("Could not sign in to shared activity logs.", error);
         loginError.textContent = error.message || "Sign-in failed. Check your email and password.";
         passwordInput.select();
       }
     });
 
-    logoutButton.addEventListener("click", () => {
-      accessToken = "";
+    logoutButton.addEventListener("click", async () => {
+      try {
+        if (accessToken) {
+          await fetch(supabaseUrl + "/auth/v1/logout", {
+            method: "POST",
+            headers: authorizationHeaders()
+          });
+        }
+      } catch (error) {
+        console.error("Could not end the Supabase session cleanly.", error);
+      }
+      clearOwnerSession();
       logsContent.hidden = true;
       loginPanel.hidden = false;
       emailInput.value = "";
@@ -400,6 +488,7 @@
     });
 
     async function getLogs() {
+      await ensureFreshOwnerSession();
       const logs = [];
       const pageSize = 500;
       for (let offset = 0; ; offset += pageSize) {
@@ -491,6 +580,7 @@
       }
 
       try {
+        await ensureFreshOwnerSession();
         const response = await fetch(supabaseUrl + "/rest/v1/activity_logs?id=gt.0", {
           method: "DELETE",
           headers: {
@@ -505,6 +595,21 @@
         status.textContent = error.message || "The shared logs could not be cleared.";
       }
     });
+
+    async function restoreOwnerSession() {
+      try {
+        if (!loadOwnerSession()) return;
+        await verifyOwnerSession();
+        loginPanel.hidden = true;
+        logsContent.hidden = false;
+        await renderLogs();
+      } catch (error) {
+        console.error("Could not restore the saved activity-log session.", error);
+        loginError.textContent = `Could not restore the saved sign-in. ${error.message || "Please sign in again."}`;
+      }
+    }
+
+    restoreOwnerSession();
 
   </script>
 </body>
