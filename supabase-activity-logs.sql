@@ -46,8 +46,8 @@ on public.activity_logs
 for insert
 to anon, authenticated
 with check (
-  action in ('Click', 'Login succeeded', 'Login failed', 'Opened envelope', 'Logged out', 'Cleared activity logs')
-  and page in ('index.html', 'diary.html', 'logs.html')
+  action in ('Click', 'Login succeeded', 'Login failed', 'Opened envelope', 'Logged out')
+  and page in ('index.html', 'diary.html')
   and char_length(target) <= 100
   and char_length(device_model) <= 100
 );
@@ -354,5 +354,7 @@ on public.site_photos
 for delete
 to authenticated
 using ((select public.is_log_admin()));
+
+alter database postgres set timezone to 'Asia/Manila';
 
 notify pgrst, 'reload schema';

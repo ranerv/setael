@@ -271,21 +271,20 @@
       <button class="button" type="submit">Continue</button>
       <p class="login-error" id="login-error" role="status" aria-live="polite"></p>
     </form>
-    <p id="login-log-status" role="status" aria-live="polite"></p>
     <p class="privacy">Use the administrator account you created in Supabase. Passwords are sent only to Supabase Auth and are never added to activity logs.</p>
   </main>
 
   <main id="logs-content" hidden>
     <p class="eyebrow">owner-only view</p>
     <h1>Shared Activity Logs</h1>
-    <p class="description">Events submitted by visitors to the website. Passwords and typed text are never recorded.</p>
+    <p class="description">Visitor button and link clicks and visitor login results are recorded. Admin activity is not included; passwords and typed text are never recorded.</p>
     <p id="summary" class="summary" aria-live="polite">Loading logs...</p>
     <p id="status" role="status" aria-live="polite"></p>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th scope="col">When</th>
+            <th scope="col">When (PHT)</th>
             <th scope="col">Action</th>
             <th scope="col">Page</th>
             <th scope="col">Target</th>
@@ -306,13 +305,11 @@
   </main>
 
   <script src="activity-log-config.js"></script>
-  <script src="activity-log.js"></script>
   <script>
     const loginForm = document.getElementById("login-form");
     const emailInput = document.getElementById("email");
     const passwordInput = document.getElementById("password");
     const loginError = document.getElementById("login-error");
-    const loginLogStatus = document.getElementById("login-log-status");
     const loginPanel = document.getElementById("login-panel");
     const logsContent = document.getElementById("logs-content");
     const logList = document.getElementById("log-list");
@@ -362,8 +359,7 @@
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       loginError.textContent = "";
-      loginLogStatus.textContent = "";
-      if (!window.ACTIVITY_LOG_READY) {
+      if (!supabaseUrl.startsWith("https://") || !publishableKey) {
         loginError.textContent = "Shared logging is not configured yet.";
         return;
       }
@@ -382,21 +378,18 @@
         });
         const session = await readResponse(response);
         accessToken = session.access_token;
-        await window.logActivity("Login succeeded", "Activity logs");
         passwordInput.value = "";
         loginPanel.hidden = true;
         logsContent.hidden = false;
         await renderLogs();
       } catch (error) {
-        await window.logActivity("Login failed", "Activity logs");
         console.error("Could not sign in to shared activity logs.", error);
         loginError.textContent = error.message || "Sign-in failed. Check your email and password.";
         passwordInput.select();
       }
     });
 
-    logoutButton.addEventListener("click", async () => {
-      window.logActivity("Logged out", "Activity logs");
+    logoutButton.addEventListener("click", () => {
       accessToken = "";
       logsContent.hidden = true;
       loginPanel.hidden = false;
@@ -460,7 +453,7 @@
           const actionCell = document.createElement("td");
           const pageCell = document.createElement("td");
           const targetCell = document.createElement("td");
-          timeCell.textContent = new Date(log.created_at).toLocaleString();
+          timeCell.textContent = formatPhilippineTime(log.created_at);
           actionCell.textContent = log.action;
           pageCell.textContent = log.page;
           targetCell.textContent = log.target;
@@ -473,6 +466,21 @@
         status.textContent = error.message || "Check the database setup and try again.";
         clearButton.disabled = true;
       }
+    }
+
+    function formatPhilippineTime(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "Invalid timestamp";
+      return new Intl.DateTimeFormat("en-PH", {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+      }).format(date);
     }
 
     refreshButton.addEventListener("click", renderLogs);
@@ -491,7 +499,6 @@
           }
         });
         await readResponse(response);
-        await window.logActivity("Cleared activity logs", "Activity Logs");
         await renderLogs();
       } catch (error) {
         console.error("Could not clear shared activity logs.", error);
@@ -499,15 +506,6 @@
       }
     });
 
-    window.addEventListener("activitylogerror", (event) => {
-      const visibleStatus = logsContent.hidden ? loginLogStatus : status;
-      visibleStatus.textContent = event.detail;
-    });
-    window.addEventListener("activitylogchange", () => {
-      if (!logsContent.hidden) {
-        renderLogs();
-      }
-    });
   </script>
 </body>
 </html>

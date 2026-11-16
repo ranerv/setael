@@ -12,8 +12,14 @@
     publishableKey &&
     !publishableKey.includes("YOUR_SUPABASE_PUBLISHABLE_KEY");
   let configurationWarningShown = false;
+  let deviceModel = "unknown";
 
   window.ACTIVITY_LOG_READY = isConfigured;
+  if (isConfigured) {
+    getDeviceModel().then((model) => {
+      deviceModel = model;
+    });
+  }
 
   function reportFailure(error) {
     console.error("Could not save the shared activity log.", error);
@@ -39,7 +45,7 @@
     }
   }
 
-  window.logActivity = async function (action, target) {
+  window.logActivity = function (action, target) {
     if (action === "Login succeeded" && typeof window.gtag === "function") {
       window.gtag("event", "login", {
         method: "site_password"
@@ -54,7 +60,6 @@
       return false;
     }
 
-    const deviceModel = await getDeviceModel();
     const record = {
       action: action,
       page: page,
@@ -62,26 +67,25 @@
       device_model: deviceModel
     };
 
-    try {
-      const response = await fetch(supabaseUrl + "/rest/v1/activity_logs", {
-        method: "POST",
-        headers: {
-          apikey: publishableKey,
-          "Content-Type": "application/json",
-          Prefer: "return=minimal"
-        },
-        body: JSON.stringify(record),
-        keepalive: true
-      });
+    return fetch(supabaseUrl + "/rest/v1/activity_logs", {
+      method: "POST",
+      headers: {
+        apikey: publishableKey,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify(record),
+      keepalive: true
+    }).then(async (response) => {
       if (!response.ok) {
         throw new Error(`Activity log request failed (${response.status}): ${await response.text()}`);
       }
       window.dispatchEvent(new CustomEvent("activitylogchange"));
       return true;
-    } catch (error) {
+    }).catch((error) => {
       reportFailure(error);
       return false;
-    }
+    });
   };
 
   document.addEventListener("click", function (event) {

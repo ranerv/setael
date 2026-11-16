@@ -767,7 +767,7 @@
         <button class="login-button" type="submit">Continue</button>
         <p class="login-error" id="login-error" role="status" aria-live="polite"></p>
       </form>
-      <p class="login-note">Your visitor access is read-only. You can browse shared entries, photos, and videos.</p>
+      <p class="login-note">Your visitor access is read-only. Button and link clicks and visitor login results are recorded; passwords and typed text are not.</p>
     </section>
   </main>
   <div id="site-app" hidden>
@@ -881,6 +881,7 @@
         </section>
 
         <p class="load-error" id="site-status" role="status" aria-live="polite" hidden></p>
+        <p class="load-error" id="activity-log-status" role="status" aria-live="polite" hidden></p>
       </main>
       <aside class="right-rail" aria-label="Journal details">
         <section class="profile-card">
@@ -943,6 +944,7 @@
   </div>
 
   <script src="activity-log-config.js"></script>
+  <script src="activity-log.js"></script>
   <script>
     const config = window.ACTIVITY_LOG_CONFIG || {};
     const supabaseUrl = typeof config.supabaseUrl === "string" ? config.supabaseUrl.replace(/\/+$/, "") : "";
@@ -950,6 +952,7 @@
     const entryDialog = document.getElementById("entry-dialog");
     const invitationDialog = document.getElementById("invitation-dialog");
     const siteStatus = document.getElementById("site-status");
+    const activityLogStatus = document.getElementById("activity-log-status");
     const loginScreen = document.getElementById("login-screen");
     const siteApp = document.getElementById("site-app");
     const loginForm = document.getElementById("login-form");
@@ -1046,6 +1049,11 @@
     let siteContentLoaded = false;
     let dailyNoteTimer = null;
     let dailyNoteExpiresAt = 0;
+
+    window.addEventListener("activitylogerror", (event) => {
+      activityLogStatus.textContent = event.detail;
+      activityLogStatus.hidden = false;
+    });
 
     function showPage(page) {
       document.querySelectorAll("[data-page-section]").forEach((section) => {
