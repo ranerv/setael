@@ -354,37 +354,81 @@
     const parts = getPhtParts(now);
     const todayKey = `${parts.year}-${parts.month}-${parts.day}`;
     const currentMinutes = Number(parts.hour) * 60 + Number(parts.minute);
-    getElement("home-schedule-date").textContent = dateLabel(todayKey, {
+    const dateText = dateLabel(todayKey, {
       weekday: "long",
       month: "long",
       day: "numeric"
     });
+    getElement("home-schedule-date").textContent =
+      `Current time in the Philippines: ${dateText}, ${timeLabel(`${parts.hour}:${parts.minute}`)}`;
     container.replaceChildren();
-    const items = eventsForDate(todayKey);
-    if (!items.length) {
-      const empty = document.createElement("p");
-      empty.className = "home-schedule-empty";
-      empty.textContent = "Nothing scheduled for today. Add a personal reminder in the schedule.";
-      container.append(empty);
-      return;
+
+    const todayItems = eventsForDate(todayKey);
+    const currentEvent = todayItems.find((event) =>
+      minutesOf(event.start_time) <= currentMinutes
+      && currentMinutes < minutesOf(event.end_time)
+    );
+    let nextEvent = null;
+    for (let offset = 0; offset < 7 && !nextEvent; offset += 1) {
+      const eventDate = addDays(todayKey, offset);
+      nextEvent = eventsForDate(eventDate)
+        .filter((event) => {
+          const start = minutesOf(event.start_time);
+          if (offset > 0) return true;
+          return currentEvent
+            ? start >= minutesOf(currentEvent.end_time)
+            : start > currentMinutes;
+        })
+        .map((event) => ({ ...event, scheduleDate: eventDate }))[0] || null;
     }
-    items.forEach((event) => {
-      const status = statusFor(event, todayKey, todayKey, currentMinutes);
+
+    [
+      {
+        event: currentEvent ? { ...currentEvent, scheduleDate: todayKey } : null,
+        label: "Current",
+        emptyTitle: "No class in progress",
+        emptyDetails: "There is no class happening right now.",
+        status: "in-progress"
+      },
+      {
+        event: nextEvent,
+        label: "Up next",
+        emptyTitle: "No upcoming class scheduled",
+        emptyDetails: "Check the Schedule tab for your full calendar.",
+        status: "upcoming"
+      }
+    ].forEach(({ event, label, emptyTitle, emptyDetails, status }) => {
       const item = document.createElement("article");
-      item.className = `home-schedule-item ${status}`;
-      const time = document.createElement("span");
-      time.className = "home-schedule-time";
-      time.textContent = `${timeLabel(event.start_time)}–${timeLabel(event.end_time)}`;
+      item.className = `home-schedule-item ${event ? status : "empty"}`;
+      const state = document.createElement("span");
+      state.className = "home-schedule-label";
+      state.textContent = label;
       const description = document.createElement("div");
       const title = document.createElement("div");
       title.className = "home-schedule-title";
-      title.textContent = event.course_code ? `${event.course_code} · ${event.title}` : event.title;
       const detail = document.createElement("div");
       detail.className = "home-schedule-detail";
-      detail.textContent = `${event.origin === "shared" ? "" : formatLabel(event.delivery_mode)}${event.location ? `${event.origin === "shared" ? "" : " · "}${event.location}` : ""} · ${status === "done" ? "Done" : status === "in-progress" ? "In progress" : "Upcoming"}`;
+      if (event) {
+        title.textContent = event.course_code ? `${event.course_code} · ${event.title}` : event.title;
+        const eventDate = event.scheduleDate === todayKey
+          ? ""
+          : dateLabel(event.scheduleDate, { weekday: "short", month: "short", day: "numeric" });
+        const time = `${timeLabel(event.start_time)}–${timeLabel(event.end_time)}`;
+        const deliveryMode = event.origin === "shared"
+          ? scheduleState.modes[String(event.id)]
+          : event.delivery_mode;
+        detail.textContent = [
+          eventDate,
+          time,
+          deliveryMode ? formatLabel(deliveryMode) : "",
+          event.location || ""
+        ].filter(Boolean).join(" · ");
+      } else {
+        title.textContent = emptyTitle;
+        detail.textContent = emptyDetails;
+      }
       description.append(title, detail);
-      item.append(time, description);
-      if (event.origin === "shared") item.append(createModeSelect(event));
+      item.append(state, description);
       container.append(item);
     });
   }
