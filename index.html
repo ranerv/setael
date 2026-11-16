@@ -288,6 +288,8 @@
     .dialog-date { margin-bottom: 12px; color: #8b7967; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     .entry-dialog h2 { margin-bottom: 20px; font-size: 2rem; }
     .dialog-content { color: #625c54; line-height: 1.85; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .entry-music-player { display: block; width: 100%; margin-top: 20px; }
+    .entry-music-status { margin: 10px 0 0; color: #817a72; font-size: .85rem; }
     .invitation-dialog { width: min(calc(100% - 28px), 760px); }
     .invitation-dialog .dialog-content { margin-bottom: 22px; }
     .invitation-dialog img {
@@ -920,6 +922,8 @@
       <p class="dialog-date" id="dialog-date"></p>
       <h2 id="dialog-title"></h2>
       <div class="dialog-content" id="dialog-content"></div>
+      <audio class="entry-music-player" id="entry-music-player" controls preload="none" aria-label="Entry music" hidden></audio>
+      <p class="entry-music-status" id="entry-music-status" role="status" aria-live="polite" hidden></p>
     </div>
     <div class="dialog-actions"><button class="dialog-close" id="dialog-close" type="button">Close</button></div>
   </dialog>
@@ -950,6 +954,8 @@
     const supabaseUrl = typeof config.supabaseUrl === "string" ? config.supabaseUrl.replace(/\/+$/, "") : "";
     const publishableKey = typeof config.publishableKey === "string" ? config.publishableKey.trim() : "";
     const entryDialog = document.getElementById("entry-dialog");
+    const entryMusicPlayer = document.getElementById("entry-music-player");
+    const entryMusicStatus = document.getElementById("entry-music-status");
     const invitationDialog = document.getElementById("invitation-dialog");
     const siteStatus = document.getElementById("site-status");
     const activityLogStatus = document.getElementById("activity-log-status");
@@ -1158,7 +1164,30 @@
         ? "Sample entry · Preview only"
         : formatDate(entry.created_at);
       document.getElementById("dialog-content").textContent = entry.content;
+      stopEntryMusic();
+      const hasMusic = typeof entry.music_path === "string" && entry.music_path.length > 0;
+      if (hasMusic) {
+        const encodedPath = entry.music_path.split("/").map(encodeURIComponent).join("/");
+        entryMusicPlayer.src = `${supabaseUrl}/storage/v1/object/public/diary-music/${encodedPath}`;
+        entryMusicPlayer.hidden = false;
+      }
       entryDialog.showModal();
+      if (hasMusic) {
+        entryMusicPlayer.play().catch((error) => {
+          console.warn("Could not start entry music automatically.", error);
+          entryMusicStatus.textContent = "Press play on the music player to listen.";
+          entryMusicStatus.hidden = false;
+        });
+      }
+    }
+
+    function stopEntryMusic() {
+      entryMusicPlayer.pause();
+      entryMusicPlayer.removeAttribute("src");
+      entryMusicPlayer.load();
+      entryMusicPlayer.hidden = true;
+      entryMusicStatus.textContent = "";
+      entryMusicStatus.hidden = true;
     }
 
     function makeEntryCard(entry) {
@@ -1196,7 +1225,7 @@
       if (supabaseUrl && publishableKey) {
         try {
           const response = await fetch(
-            `${supabaseUrl}/rest/v1/diary_entries?select=id,created_at,title,content&is_published=eq.true&order=created_at.desc,id.desc`,
+            `${supabaseUrl}/rest/v1/diary_entries?select=id,created_at,title,content,music_path&is_published=eq.true&order=created_at.desc,id.desc`,
             { headers: { apikey: publishableKey } }
           );
           if (!response.ok) throw new Error(`Entries could not be loaded (${response.status}).`);
@@ -1470,6 +1499,7 @@
       if (!document.hidden) scheduleDailyNoteExpiry();
     });
     document.getElementById("dialog-close").addEventListener("click", () => entryDialog.close());
+    entryDialog.addEventListener("close", stopEntryMusic);
     entryDialog.addEventListener("cancel", (event) => {
       event.preventDefault();
       entryDialog.close();
