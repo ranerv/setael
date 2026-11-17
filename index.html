@@ -11,7 +11,7 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-SQG65GV1SY');
+    gtag('config', 'G-SQG65GV1SY', { send_page_view: false });
   </script>
   <style>
     :root {
@@ -1504,6 +1504,15 @@
       activityLogStatus.hidden = false;
     });
 
+    function sendPageView(page) {
+      if (typeof window.gtag !== "function") return;
+      window.gtag("event", "page_view", {
+        page_title: page,
+        page_location: window.location.href,
+        page_path: window.location.pathname + "#" + page
+      });
+    }
+
     function showPage(page) {
       document.querySelectorAll("[data-page-section]").forEach((section) => {
         section.hidden = section.dataset.pageSection !== page;
@@ -1516,6 +1525,7 @@
       if (page === "threads" && window.VisitorTools) window.VisitorTools.refreshThreads();
       closeMenu();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      sendPageView(page);
     }
 
     function closeMenu() {
@@ -1528,6 +1538,7 @@
       loginScreen.hidden = true;
       siteApp.hidden = false;
       loadSiteContent();
+      sendPageView("home");
       // Show the persistent floating check-in bubble and auto-open the dialog once
       const bubble = document.getElementById("checkin-bubble");
       bubble.hidden = false;
