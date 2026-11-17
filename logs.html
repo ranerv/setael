@@ -280,6 +280,12 @@
     <p class="description">Visitor button and link clicks and visitor login results are recorded. Admin activity is not included; passwords and typed text are never recorded.</p>
     <p id="summary" class="summary" aria-live="polite">Loading logs...</p>
     <p id="status" role="status" aria-live="polite"></p>
+    <div style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px;">
+      <button class="button" id="filter-all" type="button" style="min-height:36px;padding:7px 14px;font-size:.82rem;">All activity</button>
+      <button class="button" id="filter-reminders" type="button" style="min-height:36px;padding:7px 14px;font-size:.82rem;background:#fff4f7;color:#a95d76;border-color:#f1d5de;box-shadow:none;">Reminders added</button>
+      <button class="button" id="filter-likes" type="button" style="min-height:36px;padding:7px 14px;font-size:.82rem;background:#fff4f7;color:#a95d76;border-color:#f1d5de;box-shadow:none;">Likes</button>
+      <button class="button" id="filter-checkins" type="button" style="min-height:36px;padding:7px 14px;font-size:.82rem;background:#fff4f7;color:#a95d76;border-color:#f1d5de;box-shadow:none;">Check-ins</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -287,7 +293,7 @@
             <th scope="col">When (PHT)</th>
             <th scope="col">Action</th>
             <th scope="col">Page</th>
-            <th scope="col">Target</th>
+            <th scope="col">Target / Detail</th>
           </tr>
         </thead>
         <tbody id="log-list"></tbody>
@@ -513,42 +519,88 @@
       }
     }
 
+    let allLogs = [];
+    let activeFilter = "all";
+
+    const reminderActions = new Set(["Reminder added", "Reminder updated"]);
+    const likeActions = new Set(["Liked note", "Liked photo", "Liked video"]);
+    const checkinActions = new Set(["Check-in sent"]);
+
+    function rowHighlight(action) {
+      if (reminderActions.has(action)) return "background:#fff8f0;";
+      if (likeActions.has(action)) return "background:#fff0f4;";
+      if (checkinActions.has(action)) return "background:#f0fff8;";
+      return "";
+    }
+
+    function applyFilter() {
+      logList.replaceChildren();
+      let filtered = allLogs;
+      if (activeFilter === "reminders") filtered = allLogs.filter((l) => reminderActions.has(l.action));
+      else if (activeFilter === "likes") filtered = allLogs.filter((l) => likeActions.has(l.action));
+      else if (activeFilter === "checkins") filtered = allLogs.filter((l) => checkinActions.has(l.action));
+
+      summary.textContent = activeFilter === "all"
+        ? `${allLogs.length} ${allLogs.length === 1 ? "event" : "events"} from all visitors`
+        : `${filtered.length} ${filtered.length === 1 ? "event" : "events"} · filtered`;
+
+      if (filtered.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 4;
+        cell.style.textAlign = "center";
+        cell.style.color = "#9a98a0";
+        cell.textContent = activeFilter === "all" ? "No activity recorded yet." : "No matching records.";
+        row.append(cell);
+        logList.append(row);
+        return;
+      }
+
+      filtered.forEach((log) => {
+        const row = document.createElement("tr");
+        row.setAttribute("style", rowHighlight(log.action));
+        const timeCell = document.createElement("td");
+        const actionCell = document.createElement("td");
+        const pageCell = document.createElement("td");
+        const targetCell = document.createElement("td");
+        timeCell.textContent = formatPhilippineTime(log.created_at);
+        actionCell.textContent = log.action;
+        pageCell.textContent = log.page;
+        targetCell.textContent = log.target;
+        row.append(timeCell, actionCell, pageCell, targetCell);
+        logList.append(row);
+      });
+    }
+
+    function setActiveFilter(name) {
+      activeFilter = name;
+      ["all", "reminders", "likes", "checkins"].forEach((f) => {
+        const btn = document.getElementById("filter-" + f);
+        if (!btn) return;
+        const isActive = f === name;
+        btn.style.background = isActive ? "" : "#fff4f7";
+        btn.style.color = isActive ? "" : "#a95d76";
+        btn.style.borderColor = isActive ? "" : "#f1d5de";
+        btn.style.boxShadow = isActive ? "" : "none";
+      });
+      applyFilter();
+    }
+
+    document.getElementById("filter-all").addEventListener("click", () => setActiveFilter("all"));
+    document.getElementById("filter-reminders").addEventListener("click", () => setActiveFilter("reminders"));
+    document.getElementById("filter-likes").addEventListener("click", () => setActiveFilter("likes"));
+    document.getElementById("filter-checkins").addEventListener("click", () => setActiveFilter("checkins"));
+
     async function renderLogs() {
       if (!accessToken) {
         return;
       }
 
       try {
-        const logs = await getLogs();
-        logList.replaceChildren();
-        summary.textContent = `${logs.length} ${logs.length === 1 ? "event" : "events"} from all visitors`;
-        clearButton.disabled = logs.length === 0;
+        allLogs = await getLogs();
+        clearButton.disabled = allLogs.length === 0;
         status.textContent = "";
-
-        if (logs.length === 0) {
-          const row = document.createElement("tr");
-          row.id = "empty-row";
-          const cell = document.createElement("td");
-          cell.colSpan = 4;
-          cell.textContent = "No activity recorded yet.";
-          row.append(cell);
-          logList.append(row);
-          return;
-        }
-
-        logs.forEach((log) => {
-          const row = document.createElement("tr");
-          const timeCell = document.createElement("td");
-          const actionCell = document.createElement("td");
-          const pageCell = document.createElement("td");
-          const targetCell = document.createElement("td");
-          timeCell.textContent = formatPhilippineTime(log.created_at);
-          actionCell.textContent = log.action;
-          pageCell.textContent = log.page;
-          targetCell.textContent = log.target;
-          row.append(timeCell, actionCell, pageCell, targetCell);
-          logList.append(row);
-        });
+        applyFilter();
       } catch (error) {
         console.error("Could not load shared activity logs.", error);
         summary.textContent = "Shared logs could not be loaded.";

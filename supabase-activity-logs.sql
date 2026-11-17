@@ -46,7 +46,7 @@ on public.activity_logs
 for insert
 to anon, authenticated
 with check (
-  action in ('Click', 'Login succeeded', 'Login failed', 'Opened envelope', 'Logged out')
+  action in ('Click', 'Login succeeded', 'Login failed', 'Opened envelope', 'Logged out', 'Reminder added', 'Reminder updated', 'Liked note', 'Liked photo', 'Liked video', 'Check-in sent')
   and page in ('index.html', 'diary.html')
   and char_length(target) <= 100
   and char_length(device_model) <= 100
@@ -1007,6 +1007,235 @@ grant execute on function public.update_visitor_thread(uuid, bigint, text, text,
 grant execute on function public.delete_visitor_thread(uuid, bigint) to anon, authenticated;
 grant execute on function public.add_visitor_thread_comment(uuid, bigint, text, text) to anon, authenticated;
 
+create table if not exists public.visitor_content_likes (
+  content_type text not null check (content_type in ('daily_note', 'daily_media')),
+  content_id text not null check (char_length(content_id) between 1 and 20),
+  visitor_token uuid not null,
+  created_at timestamptz not null default now(),
+  primary key (content_type, content_id, visitor_token)
+);
+
+alter table public.visitor_content_likes enable row level security;
+revoke all on public.visitor_content_likes from anon, authenticated;
+
+create or replace function public.get_daily_content_like_status(
+  p_visitor_token uuid,
+  p_content_type text,
+  p_content_id text
+)
+returns table (like_count bigint, liked boolean)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_valid boolean := false;
+begin
+  if p_visitor_token is null then
+    raise exception 'A visitor session is required.';
+  end if;
+  if p_content_type = 'daily_note' and p_content_id ~ '^[0-9]{1,16}$' then
+    select exists (
+      select 1
+      from public.site_settings s
+      where s.id = 1
+        and char_length(btrim(s.daily_note_title)) > 0
+        and char_length(btrim(s.daily_note_content)) > 0
+        and s.daily_note_updated_at is not null
+        and floor(extract(epoch from s.daily_note_updated_at) * 1000)::bigint = p_content_id::bigint
+        and s.daily_note_updated_at <= now()
+        and s.daily_note_updated_at > now() - interval '24 hours'
+    ) into v_valid;
+  elsif p_content_type = 'daily_media' and p_content_id ~ '^[0-9]{1,20}$' then
+    select exists (
+      select 1
+      from public.site_daily_media m
+      where m.id::text = p_content_id
+        and m.created_at <= now()
+        and m.created_at > now() - interval '24 hours'
+        and m.id = (
+          select newest.id
+          from public.site_daily_media newest
+          order by newest.created_at desc, newest.id desc
+          limit 1
+        )
+    ) into v_valid;
+  end if;
+  if not v_valid then
+    raise exception 'This daily item is no longer available to like.';
+  end if;
+
+  return query
+  select count(*), exists (
+    select 1
+    from public.visitor_content_likes l
+    where l.content_type = p_content_type
+      and l.content_id = p_content_id
+      and l.visitor_token = p_visitor_token
+  )
+  from public.visitor_content_likes l
+  where l.content_type = p_content_type
+    and l.content_id = p_content_id;
+end;
+$$;
+
+create or replace function public.toggle_daily_content_like(
+  p_visitor_token uuid,
+  p_content_type text,
+  p_content_id text
+)
+returns table (like_count bigint, liked boolean)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_valid boolean := false;
+  v_deleted integer;
+begin
+  if p_visitor_token is null then
+    raise exception 'A visitor session is required.';
+  end if;
+  if p_content_type = 'daily_note' and p_content_id ~ '^[0-9]{1,16}$' then
+    select exists (
+      select 1
+      from public.site_settings s
+      where s.id = 1
+        and char_length(btrim(s.daily_note_title)) > 0
+        and char_length(btrim(s.daily_note_content)) > 0
+        and s.daily_note_updated_at is not null
+        and floor(extract(epoch from s.daily_note_updated_at) * 1000)::bigint = p_content_id::bigint
+        and s.daily_note_updated_at <= now()
+        and s.daily_note_updated_at > now() - interval '24 hours'
+    ) into v_valid;
+  elsif p_content_type = 'daily_media' and p_content_id ~ '^[0-9]{1,20}$' then
+    select exists (
+      select 1
+      from public.site_daily_media m
+      where m.id::text = p_content_id
+        and m.created_at <= now()
+        and m.created_at > now() - interval '24 hours'
+        and m.id = (
+          select newest.id
+          from public.site_daily_media newest
+          order by newest.created_at desc, newest.id desc
+          limit 1
+        )
+    ) into v_valid;
+  end if;
+  if not v_valid then
+    raise exception 'This daily item is no longer available to like.';
+  end if;
+
+  delete from public.visitor_content_likes l
+  where l.content_type = p_content_type
+    and l.content_id = p_content_id
+    and l.visitor_token = p_visitor_token;
+  get diagnostics v_deleted = row_count;
+  if v_deleted = 0 then
+    insert into public.visitor_content_likes (content_type, content_id, visitor_token)
+    values (p_content_type, p_content_id, p_visitor_token)
+    on conflict (content_type, content_id, visitor_token) do nothing;
+  end if;
+
+  return query
+  select count(*), exists (
+    select 1
+    from public.visitor_content_likes l
+    where l.content_type = p_content_type
+      and l.content_id = p_content_id
+      and l.visitor_token = p_visitor_token
+  )
+  from public.visitor_content_likes l
+  where l.content_type = p_content_type
+    and l.content_id = p_content_id;
+end;
+$$;
+
+revoke all on function public.get_daily_content_like_status(uuid, text, text) from public, anon, authenticated;
+revoke all on function public.toggle_daily_content_like(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.get_daily_content_like_status(uuid, text, text) to anon, authenticated;
+grant execute on function public.toggle_daily_content_like(uuid, text, text) to anon, authenticated;
+
+create table if not exists public.visitor_checkins (
+  id bigint generated always as identity primary key,
+  visitor_token uuid not null,
+  answer text not null check (answer in ('yes', 'no')),
+  message text not null default '' check (char_length(message) <= 1000),
+  created_at timestamptz not null default now(),
+  check (answer = 'yes' or message = '')
+);
+
+create index if not exists visitor_checkins_created_idx
+  on public.visitor_checkins (created_at desc, id desc);
+
+alter table public.visitor_checkins enable row level security;
+revoke all on public.visitor_checkins from anon, authenticated;
+grant select on public.visitor_checkins to authenticated;
+
+drop policy if exists "Only the listed owner can view visitor check-ins" on public.visitor_checkins;
+create policy "Only the listed owner can view visitor check-ins"
+on public.visitor_checkins
+for select
+to authenticated
+using ((select public.is_log_admin()));
+
+create or replace function public.submit_visitor_checkin(
+  p_visitor_token uuid,
+  p_answer text,
+  p_message text
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_message text := btrim(coalesce(p_message, ''));
+  v_id bigint;
+begin
+  if p_visitor_token is null or p_answer is null or p_answer not in ('yes', 'no') then
+    raise exception 'Choose a yes or no response.';
+  end if;
+  if char_length(v_message) > 1000 then
+    raise exception 'Your message must be 1,000 characters or fewer.';
+  end if;
+  if p_answer = 'no' and v_message <> '' then
+    raise exception 'A follow-up message is only available with a yes response.';
+  end if;
+
+  insert into public.visitor_checkins (visitor_token, answer, message)
+  values (p_visitor_token, p_answer, v_message)
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+revoke all on function public.submit_visitor_checkin(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.submit_visitor_checkin(uuid, text, text) to anon, authenticated;
+
 alter database postgres set timezone to 'Asia/Manila';
+
+notify pgrst, 'reload schema';
+
+-- ── Re-apply activity_logs insert policy with expanded allowed actions ───────
+-- Run this block after updating to add like and check-in logging support.
+drop policy if exists "Visitors can submit limited activity" on public.activity_logs;
+create policy "Visitors can submit limited activity"
+on public.activity_logs
+for insert
+to anon, authenticated
+with check (
+  action in (
+    'Click', 'Login succeeded', 'Login failed', 'Opened envelope', 'Logged out',
+    'Reminder added', 'Reminder updated',
+    'Liked note', 'Liked photo', 'Liked video',
+    'Check-in sent'
+  )
+  and page in ('index.html', 'diary.html')
+  and char_length(target) <= 100
+  and char_length(device_model) <= 100
+);
 
 notify pgrst, 'reload schema';

@@ -116,6 +116,12 @@
     .admin-thread-reply { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
     .admin-thread-reply textarea { min-height: 43px; resize: vertical; }
     .admin-thread-reply button { align-self: end; }
+    .checkin-list { display: grid; gap: 10px; }
+    .checkin-row { padding: 14px; border: 1px solid #eee9e2; border-radius: 12px; background: #fff; }
+    .checkin-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .checkin-row-head strong { color: #65535b; }
+    .checkin-row time { color: #8d8991; font-size: .76rem; }
+    .checkin-row p { margin: 8px 0 0; color: #5f5960; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
     .row-actions { display: flex; flex: 0 0 auto; gap: 8px; }
     .row-actions .button { min-height: 37px; padding: 7px 11px; font-size: .86rem; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
@@ -397,7 +403,7 @@
         bottom: 0;
         left: 0;
         display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-columns: repeat(8, minmax(0, 1fr));
         gap: 4px;
         padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
         border-top: 1px solid #f0e9ed;
@@ -446,6 +452,8 @@
         <a class="admin-nav-link" href="#entries" aria-current="page"><span aria-hidden="true">✎</span>Entries</a>
         <a class="admin-nav-link" href="#schedule"><span aria-hidden="true">▦</span>Class schedule</a>
         <a class="admin-nav-link" href="#threads"><span aria-hidden="true">♡</span>Visitor threads</a>
+        <a class="admin-nav-link" href="#checkins"><span aria-hidden="true">☼</span>Check-ins</a>
+        <a class="admin-nav-link" href="#reminders"><span aria-hidden="true">◈</span>Reminders &amp; likes</a>
         <a class="admin-nav-link" href="#photos"><span aria-hidden="true">▧</span>Photos</a>
         <a class="admin-nav-link" href="#settings"><span aria-hidden="true">⚙</span>Site settings</a>
         <a class="admin-nav-link" href="#daily-note"><span aria-hidden="true">✉</span>Daily note</a>
@@ -588,7 +596,35 @@
         <p class="status" id="threads-status" role="status" aria-live="polite"></p>
       </section>
 
-      <section class="panel" id="photos" aria-labelledby="photos-heading">
+      <section class="panel" id="checkins" aria-labelledby="checkins-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="checkins-heading">Visitor check-ins</h2>
+            <p class="subtle">Replies to “Are you doing fine?” are visible only to you. Visitors’ optional messages are shown here with Philippine timestamps.</p>
+          </div>
+          <button class="button secondary" id="refresh-checkins" type="button">Refresh check-ins</button>
+        </div>
+        <div class="checkin-list" id="visitor-checkin-list" aria-live="polite"></div>
+        <p class="status" id="checkins-status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" id="reminders" aria-labelledby="reminders-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="reminders-heading">Visitor reminders &amp; likes</h2>
+            <p class="subtle">Schedule reminders and likes that visitors logged. Reminders live on each visitor's browser; this list reflects what was recorded in the activity log when they saved one.</p>
+          </div>
+          <button class="button secondary" id="refresh-reminders" type="button">Refresh</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;" id="reminders-filter-bar">
+          <button class="button secondary" id="reminders-filter-all" data-filter="all" type="button" style="min-height:34px;padding:6px 12px;font-size:.82rem;">All</button>
+          <button class="button secondary" id="reminders-filter-reminders" data-filter="reminders" type="button" style="min-height:34px;padding:6px 12px;font-size:.82rem;">Reminders</button>
+          <button class="button secondary" id="reminders-filter-likes" data-filter="likes" type="button" style="min-height:34px;padding:6px 12px;font-size:.82rem;">Likes</button>
+          <button class="button secondary" id="reminders-filter-checkins" data-filter="checkins" type="button" style="min-height:34px;padding:6px 12px;font-size:.82rem;">Check-ins</button>
+        </div>
+        <div class="checkin-list" id="visitor-reminders-list" aria-live="polite"></div>
+        <p class="status" id="reminders-status" role="status" aria-live="polite"></p>
+      </section>
         <div class="panel-head">
           <div>
             <h2 id="photos-heading">Photos</h2>
@@ -712,6 +748,8 @@
         <a class="admin-nav-link" href="#entries"><span aria-hidden="true">✎</span>Entries</a>
         <a class="admin-nav-link" href="#schedule"><span aria-hidden="true">▦</span>Schedule</a>
         <a class="admin-nav-link" href="#threads"><span aria-hidden="true">♡</span>Threads</a>
+        <a class="admin-nav-link" href="#checkins"><span aria-hidden="true">☼</span>Check-ins</a>
+        <a class="admin-nav-link" href="#reminders"><span aria-hidden="true">◈</span>Reminders</a>
         <a class="admin-nav-link" href="#daily-media"><span aria-hidden="true">✧</span>Media</a>
         <a class="admin-nav-link" href="#photos"><span aria-hidden="true">▧</span>Photos</a>
         <a class="admin-nav-link" href="#settings"><span aria-hidden="true">⚙</span>Settings</a>
@@ -760,6 +798,8 @@
     const cancelScheduleEditButton = document.getElementById("cancel-schedule-edit");
     const adminThreadFeed = document.getElementById("admin-thread-feed");
     const threadsStatus = document.getElementById("threads-status");
+    const visitorCheckinList = document.getElementById("visitor-checkin-list");
+    const checkinsStatus = document.getElementById("checkins-status");
     const photoForm = document.getElementById("photo-form");
     const photoFiles = document.getElementById("photo-files");
     const photoGrid = document.getElementById("photo-grid");
@@ -810,6 +850,7 @@
     let scheduleEvents = [];
     let dailyMediaItems = [];
     let visitorThreads = [];
+    let visitorCheckins = [];
     let threadComments = [];
     let threadPollTimer = null;
     const weekdayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -944,7 +985,9 @@
         loadInvitation().catch((error) => setStatus(invitationStatus, error.message, true)),
         loadDailyMedia().catch((error) => setStatus(dailyMediaStatus, error.message, true)),
         loadScheduleEvents().catch((error) => setStatus(scheduleStatus, error.message, true)),
-        loadVisitorThreads().catch((error) => setStatus(threadsStatus, error.message, true))
+        loadVisitorThreads().catch((error) => setStatus(threadsStatus, error.message, true)),
+        loadVisitorCheckins().catch((error) => setStatus(checkinsStatus, error.message, true)),
+        loadReminderLogs()
       ]);
       startThreadPolling();
     }
@@ -1192,6 +1235,134 @@
         hour: "numeric",
         minute: "2-digit"
       }).format(date);
+    }
+
+    function renderVisitorCheckins() {
+      visitorCheckinList.replaceChildren();
+      if (!visitorCheckins.length) {
+        const empty = document.createElement("p");
+        empty.className = "subtle";
+        empty.textContent = "No check-ins yet.";
+        visitorCheckinList.append(empty);
+        return;
+      }
+
+      visitorCheckins.forEach((checkin) => {
+        const row = document.createElement("article");
+        row.className = "checkin-row";
+        const header = document.createElement("div");
+        header.className = "checkin-row-head";
+        const answer = document.createElement("strong");
+        answer.textContent = checkin.answer === "yes" ? "Yes — wants to talk" : "No — doing okay";
+        const timestamp = document.createElement("time");
+        timestamp.dateTime = checkin.created_at;
+        timestamp.textContent = formatThreadTimestamp(checkin.created_at);
+        header.append(answer, timestamp);
+        row.append(header);
+        if (checkin.message) {
+          const message = document.createElement("p");
+          message.textContent = checkin.message;
+          row.append(message);
+        }
+        visitorCheckinList.append(row);
+      });
+    }
+
+    async function loadVisitorCheckins() {
+      const result = await api("/rest/v1/visitor_checkins?select=id,answer,message,created_at&order=created_at.desc,id.desc&limit=100");
+      if (!Array.isArray(result)) throw new Error("Visitor check-ins returned an unexpected response.");
+      visitorCheckins = result;
+      renderVisitorCheckins();
+      setStatus(checkinsStatus, "", false);
+    }
+
+    // ── Visitor reminders & likes (from activity_logs) ──────────────────────
+    const REMINDER_ACTIONS = new Set(["Reminder added", "Reminder updated"]);
+    const LIKE_ACTIONS     = new Set(["Liked note", "Liked photo", "Liked video"]);
+    const CHECKIN_ACTIONS  = new Set(["Check-in sent"]);
+    let reminderLogs = [];
+    let reminderFilter = "all";
+
+    function reminderActionIcon(action) {
+      if (REMINDER_ACTIONS.has(action)) return "▦";
+      if (LIKE_ACTIONS.has(action))     return "♥";
+      if (CHECKIN_ACTIONS.has(action))  return "☼";
+      return "·";
+    }
+
+    function reminderRowBg(action) {
+      if (REMINDER_ACTIONS.has(action)) return "#fff8f0";
+      if (LIKE_ACTIONS.has(action))     return "#fff0f4";
+      if (CHECKIN_ACTIONS.has(action))  return "#f0fff8";
+      return "#fff";
+    }
+
+    function applyReminderFilter() {
+      const list = document.getElementById("visitor-reminders-list");
+      list.replaceChildren();
+
+      let filtered = reminderLogs;
+      if (reminderFilter === "reminders") filtered = reminderLogs.filter((l) => REMINDER_ACTIONS.has(l.action));
+      else if (reminderFilter === "likes")    filtered = reminderLogs.filter((l) => LIKE_ACTIONS.has(l.action));
+      else if (reminderFilter === "checkins") filtered = reminderLogs.filter((l) => CHECKIN_ACTIONS.has(l.action));
+
+      // Update filter button styles
+      document.querySelectorAll("#reminders-filter-bar button").forEach((btn) => {
+        const isActive = btn.dataset.filter === reminderFilter;
+        btn.style.background = isActive ? "#f3a9c0" : "";
+        btn.style.color = isActive ? "#fff" : "";
+        btn.style.borderColor = isActive ? "#f3a9c0" : "";
+        btn.style.boxShadow = isActive ? "0 5px 13px #f4aec433" : "none";
+      });
+
+      if (!filtered.length) {
+        const empty = document.createElement("p");
+        empty.className = "subtle";
+        empty.textContent = reminderFilter === "all" ? "No visitor reminders or likes logged yet." : "No matching records.";
+        list.append(empty);
+        return;
+      }
+
+      filtered.forEach((log) => {
+        const row = document.createElement("article");
+        row.className = "checkin-row";
+        row.style.background = reminderRowBg(log.action);
+        const header = document.createElement("div");
+        header.className = "checkin-row-head";
+        const label = document.createElement("strong");
+        label.textContent = `${reminderActionIcon(log.action)} ${log.action}`;
+        const timestamp = document.createElement("time");
+        timestamp.dateTime = log.created_at;
+        timestamp.textContent = formatThreadTimestamp(log.created_at);
+        header.append(label, timestamp);
+        row.append(header);
+        if (log.target) {
+          const detail = document.createElement("p");
+          detail.textContent = log.target;
+          row.append(detail);
+        }
+        list.append(row);
+      });
+    }
+
+    async function loadReminderLogs() {
+      const reminderStatus = document.getElementById("reminders-status");
+      setStatus(reminderStatus, "Loading…", false);
+      try {
+        const actionsFilter = [
+          ...REMINDER_ACTIONS, ...LIKE_ACTIONS, ...CHECKIN_ACTIONS
+        ].map((a) => `"${a}"`).join(",");
+        const result = await api(
+          `/rest/v1/activity_logs?select=id,created_at,action,page,target&action=in.(${actionsFilter})&order=created_at.desc,id.desc&limit=200`
+        );
+        if (!Array.isArray(result)) throw new Error("Activity log returned an unexpected response.");
+        reminderLogs = result;
+        applyReminderFilter();
+        setStatus(reminderStatus, "", false);
+      } catch (error) {
+        console.error("Could not load visitor reminder logs.", error);
+        setStatus(reminderStatus, error.message || "Could not load reminder logs.", true);
+      }
     }
 
     function visitorThreadImageUrl(path) {
@@ -1756,6 +1927,22 @@
         console.error("Could not refresh visitor threads.", error);
         setStatus(threadsStatus, error.message || "Threads could not be refreshed.", true);
       });
+    });
+    document.getElementById("refresh-checkins").addEventListener("click", () => {
+      loadVisitorCheckins().catch((error) => {
+        console.error("Could not refresh visitor check-ins.", error);
+        setStatus(checkinsStatus, error.message || "Check-ins could not be refreshed.", true);
+      });
+    });
+
+    document.getElementById("refresh-reminders").addEventListener("click", () => {
+      loadReminderLogs();
+    });
+    document.getElementById("reminders-filter-bar").addEventListener("click", (event) => {
+      const btn = event.target.closest("button[data-filter]");
+      if (!btn) return;
+      reminderFilter = btn.dataset.filter;
+      applyReminderFilter();
     });
     adminThreadFeed.addEventListener("submit", submitOwnerThreadComment);
 

@@ -497,6 +497,7 @@
       setStatus(getElement("schedule-status"), "Choose a start and end between 7:00 AM and 7:00 PM; the end must be later.", true);
       return;
     }
+    const isEditing = Boolean(scheduleState.editingPersonalId);
     const updatedEvent = {
       id: scheduleState.editingPersonalId || crypto.randomUUID(),
       title: getElement("personal-schedule-title").value.trim(),
@@ -522,6 +523,10 @@
     resetPersonalForm();
     renderSchedule();
     setStatus(getElement("schedule-status"), "Personal reminder saved on this browser and device.", false);
+    if (typeof window.logActivity === "function") {
+      const target = `${updatedEvent.title} · ${updatedEvent.event_date} · ${timeLabel(start)}–${timeLabel(end)} · ${formatLabel(updatedEvent.delivery_mode)}`;
+      window.logActivity(isEditing ? "Reminder updated" : "Reminder added", target);
+    }
   }
 
   function initSchedule() {
@@ -598,6 +603,40 @@
       throw new Error((result && (result.message || result.msg)) || `The request failed (${response.status}).`);
     }
     return result;
+  }
+
+  function readLikeResult(result) {
+    const row = Array.isArray(result) ? result[0] : result;
+    if (!row || !Number.isFinite(Number(row.like_count)) || typeof row.liked !== "boolean") {
+      throw new Error("The like service returned an unexpected response.");
+    }
+    return { count: Number(row.like_count), liked: row.liked };
+  }
+
+  async function loadContentLikeStatus(contentType, contentId) {
+    const result = await callVisitorRpc("get_daily_content_like_status", {
+      p_visitor_token: visitorToken(),
+      p_content_type: contentType,
+      p_content_id: String(contentId)
+    });
+    return readLikeResult(result);
+  }
+
+  async function toggleContentLike(contentType, contentId) {
+    const result = await callVisitorRpc("toggle_daily_content_like", {
+      p_visitor_token: visitorToken(),
+      p_content_type: contentType,
+      p_content_id: String(contentId)
+    });
+    return readLikeResult(result);
+  }
+
+  async function submitVisitorCheckin(answer, message) {
+    return callVisitorRpc("submit_visitor_checkin", {
+      p_visitor_token: visitorToken(),
+      p_answer: answer,
+      p_message: message
+    });
   }
 
   function threadImageUrl(path) {
@@ -917,7 +956,14 @@
   if (getElement("page-schedule") && getElement("page-threads")) {
     initSchedule();
     initThreads();
-    window.VisitorTools = { loadSchedule, refreshSchedule: loadSchedule, refreshThreads };
+    window.VisitorTools = {
+      loadSchedule,
+      refreshSchedule: loadSchedule,
+      refreshThreads,
+      loadContentLikeStatus,
+      toggleContentLike,
+      submitVisitorCheckin
+    };
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
         renderSchedule();

@@ -531,6 +531,10 @@
     .feature-card h2 { margin-bottom: 8px; color: #fff; font-family: Georgia, serif; font-size: clamp(1.2rem, 2.3vw, 1.65rem); font-weight: 500; }
     .feature-excerpt { display: -webkit-box; max-width: 445px; margin-bottom: 15px; overflow: hidden; color: #fff; font-size: .81rem; line-height: 1.55; opacity: .93; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
     .hero #daily-note-content { display: block; overflow: visible; white-space: pre-line; -webkit-line-clamp: unset; }
+    .content-like { display: inline-flex; min-height: 35px; align-items: center; gap: 6px; padding: 6px 11px; border: 1px solid #ffffff99; border-radius: 999px; background: #ffffff20; color: #fff; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 700; }
+    .content-like[aria-pressed="true"] { border-color: #fff; background: #fff; color: #c65e7e; }
+    .content-like:disabled { cursor: wait; opacity: .7; }
+    .content-like-status { min-height: 1.2em; margin: 4px 0 0; color: #fff; font-size: .72rem; }
     .hero-actions { display: flex; flex-wrap: wrap; gap: 9px; }
     .hero .text-button { min-height: 37px; padding: 8px 17px; border-radius: 999px; background: #fff; color: #df8da7; font-size: .78rem; }
     .hero .text-button.secondary { border: 1px solid #ffffff8a; background: transparent; color: #fff; }
@@ -544,6 +548,52 @@
     .daily-media-feature-content img, .daily-media-feature-content video { display: block; width: auto; max-width: 100%; max-height: min(62vh, 620px); border-radius: 13px; background: #f7f3f5; object-fit: contain; }
     .daily-media-feature-content video { width: min(100%, 900px); }
     .daily-media-caption { width: 100%; margin: 0; color: #655b61; font-size: .9rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .daily-media-like-row { display: flex; width: 100%; align-items: center; gap: 9px; }
+    .daily-media-like { border-color: #f0d7e0; background: #fff8fa; color: #b8617c; }
+    .daily-media-like[aria-pressed="true"] { border-color: #d58ba0; background: #fff0f4; color: #ae4f70; }
+    .daily-media-like-status { min-height: 1.2em; margin: 0; color: #98939a; font-size: .75rem; }
+    .checkin-box { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 24px 0 36px; padding: 18px 20px; border: 1px solid #f0dfe5; border-radius: 17px; background: linear-gradient(120deg, #fff8fa, #fffefa); }
+    .checkin-box h2 { margin: 0 0 5px; color: #64555d; font-family: Georgia, serif; font-size: 1.15rem; font-weight: 500; }
+    .checkin-box p { margin: 0; color: #898087; font-size: .82rem; line-height: 1.5; }
+    .checkin-box button, .checkin-dialog button { min-height: 40px; padding: 8px 14px; border: 1px solid #e8cbd5; border-radius: 10px; background: #fff; color: #a64e68; cursor: pointer; font: inherit; font-size: .84rem; font-weight: 700; }
+    .checkin-dialog { width: min(calc(100% - 28px), 520px); }
+    .checkin-dialog h2 { margin: 0 0 10px; color: #5c5157; font-family: Georgia, serif; font-size: clamp(1.6rem, 6vw, 2rem); }
+    .checkin-dialog-copy { color: #756d72; line-height: 1.65; }
+    .checkin-dialog-options, .checkin-dialog-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+    .checkin-dialog .checkin-primary { border-color: #d888a0; background: #d888a0; color: #fff; }
+    .checkin-dialog .checkin-secondary { border-color: #e5dce0; color: #6a6066; }
+    .checkin-dialog textarea { display: block; width: 100%; min-height: 110px; margin: 8px 0 13px; padding: 11px 12px; border: 1px solid #e6dce1; border-radius: 10px; font: inherit; resize: vertical; }
+    .checkin-dialog label { color: #625a60; font-size: .85rem; font-weight: 700; }
+    .checkin-dialog-status { min-height: 1.4em; margin: 10px 0 0; color: #777078; font-size: .82rem; }
+    .checkin-dialog-status[data-error="true"] { color: #a13e36; }
+    /* Floating check-in bubble */
+    #checkin-bubble {
+      position: fixed;
+      z-index: 50;
+      right: 22px;
+      bottom: 22px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 16px 10px 13px;
+      border: 1px solid #f0d7e0;
+      border-radius: 999px;
+      background: linear-gradient(120deg, #fff0f4, #ffe4ee);
+      box-shadow: 0 6px 20px #e08daa2a;
+      color: #a64e68;
+      cursor: pointer;
+      font: inherit;
+      font-size: .84rem;
+      font-weight: 700;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+      user-select: none;
+    }
+    #checkin-bubble:hover { transform: translateY(-2px); box-shadow: 0 10px 26px #e08daa3a; }
+    #checkin-bubble:focus-visible { outline: 3px solid #f2b4c7; outline-offset: 3px; }
+    #checkin-bubble-icon { font-size: 1.1rem; line-height: 1; }
+    @media (max-width: 720px) {
+      #checkin-bubble { right: 14px; bottom: 72px; padding: 9px 13px 9px 11px; font-size: .78rem; }
+    }
     .media-archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 16px; }
     .media-archive-card { min-width: 0; padding: 12px; border: 1px solid #f0e9ed; border-radius: 16px; background: #fff; box-shadow: 0 7px 22px #493b2608; }
     .media-archive-card img, .media-archive-card video { display: block; width: 100%; max-height: 440px; border-radius: 11px; background: #f7f3f5; object-fit: contain; }
@@ -948,6 +998,7 @@
       .home-daily-media-head { align-items: start; }
       .home-daily-media-head button { padding: 7px 8px; font-size: .68rem; }
       .media-archive-grid { grid-template-columns: 1fr; }
+      .checkin-box { align-items: start; flex-direction: column; }
     }
   </style>
 </head>
@@ -1022,6 +1073,8 @@
                 <div class="feature-meta">Daily note</div>
                 <h2 id="daily-note-title"></h2>
                 <p class="feature-excerpt" id="daily-note-content"></p>
+                <button class="content-like" id="daily-note-like" type="button" data-content-like aria-pressed="false" disabled>♡ Like note</button>
+                <p class="content-like-status" id="daily-note-like-status" role="status" aria-live="polite"></p>
               </div>
             </div>
             <svg class="hero-art" viewBox="0 0 340 300" role="img" aria-label="Illustration of a tiny garden door surrounded by flowers">
@@ -1056,6 +1109,10 @@
               <button type="button" data-page="media-archive">View archive&nbsp; →</button>
             </div>
             <div id="home-daily-media-content" class="daily-media-feature-content"></div>
+            <div class="daily-media-like-row">
+              <button class="content-like daily-media-like" id="daily-media-like" type="button" data-content-like aria-pressed="false" disabled>♡ Like photo</button>
+              <p class="daily-media-like-status" id="daily-media-like-status" role="status" aria-live="polite"></p>
+            </div>
           </section>
           <section class="home-schedule" aria-labelledby="home-schedule-heading">
             <div class="home-schedule-head">
@@ -1066,6 +1123,13 @@
               <button type="button" data-page="schedule">Open calendar&nbsp; →</button>
             </div>
             <div class="home-schedule-list" id="home-schedule-list" aria-live="polite"></div>
+          </section>
+          <section class="checkin-box" aria-labelledby="checkin-box-heading">
+            <div>
+              <h2 id="checkin-box-heading">Are you doing fine?</h2>
+              <p>Want to talk? You can check in privately, and reopen this any time.</p>
+            </div>
+            <button type="button" id="open-checkin">Open check-in</button>
           </section>
           <div class="section-heading">
             <h2>Recent entries</h2>
@@ -1273,6 +1337,32 @@
     </div>
     <div class="dialog-actions"><button class="dialog-close" id="invitation-dialog-close" type="button">Close invitation</button></div>
   </dialog>
+  <!-- Floating check-in bubble -->
+  <div id="checkin-bubble" role="button" tabindex="0" aria-label="Open check-in" title="Are you doing fine?" hidden>
+    <span id="checkin-bubble-icon" aria-hidden="true">♡</span>
+    <span id="checkin-bubble-label">Check in</span>
+  </div>
+
+  <dialog class="entry-dialog checkin-dialog" id="visitor-checkin-dialog" aria-labelledby="visitor-checkin-title">
+    <p class="dialog-date">A gentle check-in</p>
+    <h2 id="visitor-checkin-title">Are you doing fine? Do you want to talk?</h2>
+    <p class="checkin-dialog-copy">You can answer either way. If you say yes, you can optionally leave a note for the owner. Only the owner can see check-in replies.</p>
+    <div id="visitor-checkin-options" class="checkin-dialog-options">
+      <button class="checkin-primary" id="visitor-checkin-yes" type="button">Yes, I’d like to talk</button>
+      <button class="checkin-secondary" id="visitor-checkin-no" type="button">No, I’m okay</button>
+    </div>
+    <form id="visitor-checkin-followup" hidden>
+      <label for="visitor-checkin-message">Tell me what you want to say (optional)</label>
+      <textarea id="visitor-checkin-message" maxlength="1000"></textarea>
+      <div class="checkin-dialog-actions">
+        <button class="checkin-primary" id="send-visitor-checkin" type="submit">Send check-in</button>
+      </div>
+    </form>
+    <p id="visitor-checkin-status" class="checkin-dialog-status" role="status" aria-live="polite"></p>
+    <div class="checkin-dialog-actions">
+      <button class="checkin-secondary" id="close-visitor-checkin" type="button">Close for now</button>
+    </div>
+  </dialog>
   <dialog class="media-viewer" id="media-viewer" aria-label="Photo or video viewer">
     <button class="media-viewer-close" id="media-viewer-close" type="button" aria-label="Close media viewer">×</button>
     <div class="media-viewer-content" id="media-viewer-content">
@@ -1302,6 +1392,11 @@
     const passwordInput = document.getElementById("site-password");
     const loginError = document.getElementById("login-error");
     const photoStatus = document.getElementById("photo-status");
+    const checkinDialog = document.getElementById("visitor-checkin-dialog");
+    const checkinOptions = document.getElementById("visitor-checkin-options");
+    const checkinFollowup = document.getElementById("visitor-checkin-followup");
+    const checkinMessage = document.getElementById("visitor-checkin-message");
+    const checkinStatus = document.getElementById("visitor-checkin-status");
     const mediaViewer = document.getElementById("media-viewer");
     const mediaViewerContent = document.getElementById("media-viewer-content");
     const mediaViewerImage = document.getElementById("media-viewer-image");
@@ -1395,6 +1490,7 @@
     let dailyNoteExpiresAt = 0;
     let dailyMediaTimer = null;
     let dailyMediaExpiresAt = 0;
+    let checkinAutoOpened = false;
 
     window.addEventListener("activitylogerror", (event) => {
       activityLogStatus.textContent = event.detail;
@@ -1425,6 +1521,112 @@
       loginScreen.hidden = true;
       siteApp.hidden = false;
       loadSiteContent();
+      // Show the persistent floating check-in bubble and auto-open the dialog once
+      const bubble = document.getElementById("checkin-bubble");
+      bubble.hidden = false;
+      if (!checkinAutoOpened) {
+        checkinAutoOpened = true;
+        window.setTimeout(() => {
+          if (!checkinDialog.open) {
+            resetCheckinDialog();
+            checkinDialog.showModal();
+          }
+        }, 600);
+      }
+    }
+
+    function renderContentLike(button, result, label) {
+      button.setAttribute("aria-pressed", String(result.liked));
+      button.textContent = `${result.liked ? "♥ Liked" : "♡ Like"} ${label} · ${result.count}`;
+      button.disabled = false;
+    }
+
+    async function loadContentLike(button, contentType, contentId, label) {
+      button.dataset.contentType = contentType;
+      button.dataset.contentId = contentId;
+      button.dataset.likeLabel = label;
+      button.disabled = true;
+      const status = button.nextElementSibling;
+      status.textContent = "Loading likes…";
+      delete status.dataset.error;
+      try {
+        const result = await window.VisitorTools.loadContentLikeStatus(contentType, contentId);
+        if (button.dataset.contentId !== contentId) return;
+        renderContentLike(button, result, label);
+        status.textContent = "";
+      } catch (error) {
+        console.error("Could not load content likes.", error);
+        if (button.dataset.contentId !== contentId) return;
+        button.disabled = false;
+        status.textContent = "Likes are unavailable right now.";
+        status.dataset.error = "true";
+      }
+    }
+
+    async function toggleContentLike(button) {
+      const contentType = button.dataset.contentType;
+      const contentId = button.dataset.contentId;
+      if (!contentType || !contentId || button.disabled) return;
+      const label = button.dataset.likeLabel || (contentType === "daily_note" ? "note" : "photo");
+      const status = button.nextElementSibling;
+      button.disabled = true;
+      status.textContent = "Saving…";
+      delete status.dataset.error;
+      try {
+        const result = await window.VisitorTools.toggleContentLike(contentType, contentId);
+        if (button.dataset.contentId !== contentId) return;
+        renderContentLike(button, result, label);
+        status.textContent = "";
+        // Log the like action (only when liking, not un-liking)
+        if (result.liked && typeof window.logActivity === "function") {
+          const actionName = contentType === "daily_note" ? "Liked note"
+            : (contentType === "daily_media" && label === "video") ? "Liked video"
+            : "Liked photo";
+          window.logActivity(actionName, label);
+        }
+      } catch (error) {
+        console.error("Could not update content like.", error);
+        if (button.dataset.contentId !== contentId) return;
+        button.disabled = false;
+        status.textContent = error.message || "Your like could not be saved.";
+        status.dataset.error = "true";
+      }
+    }
+
+    function resetCheckinDialog() {
+      checkinOptions.hidden = false;
+      checkinFollowup.hidden = true;
+      checkinFollowup.reset();
+      checkinStatus.textContent = "";
+      delete checkinStatus.dataset.error;
+    }
+
+    async function submitCheckin(answer, message) {
+      const buttons = checkinDialog.querySelectorAll("button");
+      buttons.forEach((button) => { button.disabled = true; });
+      checkinStatus.textContent = "Sending your check-in…";
+      delete checkinStatus.dataset.error;
+      try {
+        await window.VisitorTools.submitVisitorCheckin(answer, message);
+        if (typeof window.logActivity === "function") {
+          window.logActivity("Check-in sent", answer === "yes" ? "Yes – wants to talk" : "No – doing okay");
+        }
+        checkinDialog.close();
+        resetCheckinDialog();
+        // Update bubble to reflect a completed check-in
+        const bubble = document.getElementById("checkin-bubble");
+        bubble.classList.add("done");
+        document.getElementById("checkin-bubble-icon").textContent = "♥";
+        document.getElementById("checkin-bubble-label").textContent = answer === "yes" ? "Talked ♥" : "Checked in ♥";
+        const checkinHeading = document.getElementById("checkin-box-heading");
+        if (checkinHeading) checkinHeading.textContent = "Thanks for checking in.";
+      } catch (error) {
+        console.error("Could not send visitor check-in.", error);
+        checkinStatus.textContent = error.message || "Your check-in could not be sent. Please try again.";
+        checkinStatus.dataset.error = "true";
+      } finally {
+        buttons.forEach((button) => { button.disabled = false; });
+      }
     }
 
     function loadSiteContent() {
@@ -1484,6 +1686,12 @@
       document.getElementById("daily-note-title").textContent = title;
       document.getElementById("daily-note-content").textContent = content;
       card.hidden = false;
+      loadContentLike(
+        document.getElementById("daily-note-like"),
+        "daily_note",
+        String(Math.floor(savedAt)),
+        "note"
+      );
       dailyNoteExpiresAt = expiresAt;
       scheduleDailyNoteExpiry();
     }
@@ -1562,6 +1770,12 @@
       if (latest.caption) content.append(caption);
       document.getElementById("home-daily-media-date").textContent = `Shared ${dailyMediaDate(latest.created_at)} · shown for 24 hours`;
       section.hidden = false;
+      loadContentLike(
+        document.getElementById("daily-media-like"),
+        "daily_media",
+        String(latest.id),
+        latest.media_type === "video" ? "video" : "photo"
+      );
       dailyMediaExpiresAt = expiresAt;
       scheduleDailyMediaExpiry();
     }
@@ -1629,7 +1843,8 @@
         const items = await response.json();
         if (!Array.isArray(items)) throw new Error("The media archive returned an unexpected response.");
         dailyMediaItems = items.filter((item) =>
-          item && typeof item.media_path === "string"
+          item && (typeof item.id === "number" || /^\d+$/.test(String(item.id)))
+          && typeof item.media_path === "string"
           && (item.media_type === "image" || item.media_type === "video")
           && typeof item.created_at === "string"
         );
@@ -2005,6 +2220,34 @@
     });
     invitationDialog.addEventListener("click", (event) => {
       if (event.target === invitationDialog) invitationDialog.close();
+    });
+    document.querySelectorAll("[data-content-like]").forEach((button) => {
+      button.addEventListener("click", () => toggleContentLike(button));
+    });
+    function openCheckinDialog() {
+      resetCheckinDialog();
+      checkinDialog.showModal();
+    }
+    document.getElementById("open-checkin").addEventListener("click", openCheckinDialog);
+    // Floating bubble opens the same dialog
+    const checkinBubble = document.getElementById("checkin-bubble");
+    checkinBubble.addEventListener("click", openCheckinDialog);
+    checkinBubble.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openCheckinDialog(); }
+    });
+    document.getElementById("close-visitor-checkin").addEventListener("click", () => checkinDialog.close());
+    document.getElementById("visitor-checkin-yes").addEventListener("click", () => {
+      checkinOptions.hidden = true;
+      checkinFollowup.hidden = false;
+      checkinMessage.focus();
+    });
+    document.getElementById("visitor-checkin-no").addEventListener("click", () => submitCheckin("no", ""));
+    checkinFollowup.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitCheckin("yes", checkinMessage.value.trim());
+    });
+    checkinDialog.addEventListener("click", (event) => {
+      if (event.target === checkinDialog) checkinDialog.close();
     });
     document.getElementById("entry-search").addEventListener("input", (event) => {
       const query = event.target.value.trim().toLocaleLowerCase();
