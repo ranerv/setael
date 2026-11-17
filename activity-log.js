@@ -46,10 +46,21 @@
   }
 
   window.logActivity = function (action, target) {
-    if (action === "Login succeeded" && typeof window.gtag === "function") {
-      window.gtag("event", "login", {
-        method: "site_password"
-      });
+    if (typeof window.gtag === "function") {
+      if (action === "Login succeeded") {
+        window.gtag("event", "login", { method: "site_password" });
+      } else if (action === "Liked note" || action === "Liked photo" || action === "Liked video") {
+        window.gtag("event", "like", { event_category: "engagement", event_label: target || action });
+      } else if (action === "Check-in sent") {
+        window.gtag("event", "check_in", { event_category: "engagement", event_label: target || action });
+      } else if (action === "Reminder added" || action === "Reminder updated") {
+        window.gtag("event", "reminder", { event_category: "schedule", event_label: target || action });
+      } else if (action === "Opened envelope") {
+        window.gtag("event", "open_entry", { event_category: "content", event_label: target || action });
+      } else if (action === "Click") {
+        window.gtag("event", "click", { event_category: "ui", event_label: target || action });
+      }
+    }
     }
 
     if (!isConfigured) {
