@@ -563,6 +563,72 @@
     .checkin-box h2 { margin: 0 0 5px; color: #64555d; font-family: Georgia, serif; font-size: 1.15rem; font-weight: 500; }
     .checkin-box p { margin: 0; color: #898087; font-size: .82rem; line-height: 1.5; }
     .checkin-box button, .checkin-dialog button { min-height: 40px; padding: 8px 14px; border: 1px solid #e8cbd5; border-radius: 10px; background: #fff; color: #a64e68; cursor: pointer; font: inherit; font-size: .84rem; font-weight: 700; }
+    /* Visitor upload tip banner */
+    .visitor-upload-tip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin: 0 0 18px;
+      padding: 13px 16px;
+      border: 1px solid #e8d8f0;
+      border-left: 4px solid #c47fd4;
+      border-radius: 12px;
+      background: #fdf5ff;
+      color: #6a4d7a;
+      font-size: .84rem;
+      line-height: 1.55;
+    }
+    .visitor-upload-tip p { margin: 0; }
+    .visitor-upload-tip button { flex: 0 0 auto; min-height: 32px; padding: 5px 11px; border: 1px solid #d8b8e8; border-radius: 8px; background: transparent; color: #9a5cb0; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+    /* Visitor share form */
+    .visitor-share-section { margin: 0 0 36px; padding: clamp(18px, 3vw, 26px); border: 1px solid #f0e9ed; border-radius: 20px; background: #fff; box-shadow: 0 8px 26px #493b2609; }
+    .visitor-share-section h2 { margin: 0 0 5px; color: #55535b; font-family: Georgia, serif; font-size: 1.3rem; font-weight: 500; }
+    .visitor-share-section > p { margin: 0 0 18px; color: #98939a; font-size: .82rem; line-height: 1.5; }
+    .visitor-share-field { display: grid; gap: 7px; margin: 0 0 13px; }
+    .visitor-share-field label { color: #625c66; font-size: .86rem; font-weight: 650; }
+    .visitor-share-field input, .visitor-share-field textarea {
+      width: 100%;
+      min-height: 43px;
+      padding: 9px 11px;
+      border: 1px solid #e7dfe4;
+      border-radius: 10px;
+      background: #fff;
+      color: #56555d;
+      font: inherit;
+    }
+    .visitor-share-field textarea { min-height: 100px; resize: vertical; line-height: 1.6; }
+    .visitor-share-field input:focus-visible, .visitor-share-field textarea:focus-visible {
+      outline: 3px solid #f3b4c8;
+      outline-offset: 2px;
+    }
+    .visitor-share-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 5px; }
+    .visitor-share-btn {
+      min-height: 42px;
+      padding: 9px 18px;
+      border: 1px solid #e999b1;
+      border-radius: 11px;
+      background: #f3a9c0;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-size: .88rem;
+      font-weight: 700;
+    }
+    .visitor-share-btn:hover { background: #ed98b2; }
+    .visitor-share-btn:disabled { cursor: wait; opacity: .6; }
+    .visitor-share-btn.secondary { border-color: #e7dfe4; background: #fff; color: #70656d; }
+    .visitor-share-status { min-height: 1.4em; margin: 10px 0 0; color: #817a84; font-size: .84rem; }
+    .visitor-share-status[data-error="true"] { color: #a64e68; }
+    .visitor-submissions-list { display: grid; gap: 13px; margin-top: 18px; }
+    .visitor-submission-card { padding: 14px 16px; border: 1px solid #f0e9ed; border-radius: 14px; background: #fdf9fb; }
+    .visitor-submission-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .visitor-submission-head strong { color: #55535b; font-size: .9rem; }
+    .visitor-submission-head time { color: #9a9298; font-size: .74rem; }
+    .visitor-submission-head button { border: 0; background: transparent; color: #a64e68; cursor: pointer; font: inherit; font-size: .76rem; font-weight: 700; }
+    .visitor-submission-card p { margin: 0 0 8px; color: #5f5a62; font-size: .86rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .visitor-submission-card p:last-child { margin-bottom: 0; }
+    .visitor-submission-card img { display: block; max-width: 100%; max-height: 320px; margin: 8px 0 0; border-radius: 10px; object-fit: contain; }
     .checkin-dialog { width: min(calc(100% - 28px), 520px); }
     .checkin-dialog h2 { margin: 0 0 10px; color: #5c5157; font-family: Georgia, serif; font-size: clamp(1.6rem, 6vw, 2rem); }
     .checkin-dialog-copy { color: #756d72; line-height: 1.65; }
@@ -1138,6 +1204,42 @@
             </div>
             <button type="button" id="open-checkin">Open check-in</button>
           </section>
+
+          <!-- Visitor upload tip banner (shown a few times, then dismissed) -->
+          <div class="visitor-upload-tip" id="visitor-upload-tip" hidden>
+            <p>✨ <strong>Did you know?</strong> You can share your own daily note or photo here — it'll show up in your personal journal below.</p>
+            <button type="button" id="dismiss-upload-tip">Got it</button>
+          </div>
+
+          <!-- Visitor share section -->
+          <section class="visitor-share-section" aria-labelledby="visitor-share-heading">
+            <h2 id="visitor-share-heading">Share your moment</h2>
+            <p>Write a note, share a photo, or both. Your submissions stay here on this device.</p>
+            <form id="visitor-share-form">
+              <div class="visitor-share-field">
+                <label for="visitor-share-name">Your name (optional)</label>
+                <input id="visitor-share-name" maxlength="60" autocomplete="nickname" placeholder="Visitor">
+              </div>
+              <div class="visitor-share-field">
+                <label for="visitor-share-title">Title (optional)</label>
+                <input id="visitor-share-title" maxlength="120" placeholder="Give your note a title…">
+              </div>
+              <div class="visitor-share-field">
+                <label for="visitor-share-content">What's on your mind? (optional)</label>
+                <textarea id="visitor-share-content" maxlength="2000" placeholder="Write something…"></textarea>
+              </div>
+              <div class="visitor-share-field">
+                <label for="visitor-share-photo">Add a photo (optional, up to 10 MB)</label>
+                <input id="visitor-share-photo" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif">
+              </div>
+              <div class="visitor-share-actions">
+                <button class="visitor-share-btn" id="save-visitor-share" type="submit">Share</button>
+              </div>
+            </form>
+            <p class="visitor-share-status" id="visitor-share-status" role="status" aria-live="polite"></p>
+            <div class="visitor-submissions-list" id="visitor-submissions-list" hidden></div>
+          </section>
+
           <div class="section-heading">
             <h2>Recent entries</h2>
             <button type="button" data-page="entries">Browse all entries&nbsp; →</button>
@@ -2296,6 +2398,243 @@
     });
 
     if (sessionStorage.getItem(accessSessionKey) === "true") unlockSite();
+
+    // ── Visitor share (daily note + photo) ───────────────────────────────────
+    const visitorShareForm    = document.getElementById("visitor-share-form");
+    const visitorShareName    = document.getElementById("visitor-share-name");
+    const visitorShareTitle   = document.getElementById("visitor-share-title");
+    const visitorShareContent = document.getElementById("visitor-share-content");
+    const visitorSharePhoto   = document.getElementById("visitor-share-photo");
+    const visitorShareStatus  = document.getElementById("visitor-share-status");
+    const visitorShareBtn     = document.getElementById("save-visitor-share");
+    const submissionsList     = document.getElementById("visitor-submissions-list");
+    const uploadTip           = document.getElementById("visitor-upload-tip");
+    const dismissTipBtn       = document.getElementById("dismiss-upload-tip");
+    const uploadTipKey        = "sachel-upload-tip-count";
+    const uploadTipMax        = 5; // show tip this many times before auto-hiding
+
+    const visitorShareExtensions = {
+      "image/jpeg": "jpg", "image/png": "png",
+      "image/gif": "gif",  "image/webp": "webp", "image/avif": "avif"
+    };
+
+    function showUploadTip() {
+      try {
+        const count = parseInt(localStorage.getItem(uploadTipKey) || "0", 10);
+        if (count < uploadTipMax) {
+          uploadTip.hidden = false;
+          localStorage.setItem(uploadTipKey, String(count + 1));
+        }
+      } catch (e) { /* storage unavailable */ }
+    }
+
+    function dismissUploadTip() {
+      uploadTip.hidden = true;
+      try { localStorage.setItem(uploadTipKey, String(uploadTipMax)); } catch (e) {}
+    }
+
+    dismissTipBtn.addEventListener("click", dismissUploadTip);
+
+    function visitorShareToken() {
+      return window.VisitorTools ? window.VisitorTools.getToken() : null;
+    }
+
+    function visitorUploadPhotoUrl(path) {
+      return `${supabaseUrl}/storage/v1/object/public/visitor-daily-uploads/${path.split("/").map(encodeURIComponent).join("/")}`;
+    }
+
+    function formatSubmissionDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("en-PH", {
+        timeZone: "Asia/Manila", month: "short", day: "numeric",
+        year: "numeric", hour: "numeric", minute: "2-digit"
+      }).format(date);
+    }
+
+    function renderVisitorSubmissions(submissions) {
+      submissionsList.replaceChildren();
+      if (!submissions || !submissions.length) {
+        submissionsList.hidden = true;
+        return;
+      }
+      submissionsList.hidden = false;
+      submissions.forEach((sub) => {
+        const card = document.createElement("article");
+        card.className = "visitor-submission-card";
+        const head = document.createElement("div");
+        head.className = "visitor-submission-head";
+        const name = document.createElement("strong");
+        name.textContent = sub.display_name || "Visitor";
+        const time = document.createElement("time");
+        time.dateTime = sub.created_at;
+        time.textContent = formatSubmissionDate(sub.created_at);
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.textContent = "Delete";
+        delBtn.dataset.submissionId = String(sub.id);
+        delBtn.dataset.photoPath = sub.photo_path || "";
+        head.append(name, time, delBtn);
+        card.append(head);
+        if (sub.note_title) {
+          const title = document.createElement("p");
+          title.style.fontWeight = "700";
+          title.textContent = sub.note_title;
+          card.append(title);
+        }
+        if (sub.note_content) {
+          const content = document.createElement("p");
+          content.textContent = sub.note_content;
+          card.append(content);
+        }
+        if (sub.photo_path) {
+          const img = document.createElement("img");
+          img.src = visitorUploadPhotoUrl(sub.photo_path);
+          img.alt = sub.note_title || "Shared photo";
+          img.loading = "lazy";
+          card.append(img);
+        }
+        submissionsList.append(card);
+      });
+    }
+
+    async function loadVisitorSubmissions() {
+      if (!supabaseUrl || !publishableKey) return;
+      if (!window.VisitorTools) return;
+      try {
+        const token = window.VisitorTools.getToken();
+        const response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_my_visitor_submissions`, {
+          method: "POST",
+          headers: { apikey: publishableKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ p_visitor_token: token })
+        });
+        if (!response.ok) return;
+        const submissions = await response.json();
+        if (Array.isArray(submissions)) renderVisitorSubmissions(submissions);
+      } catch (error) {
+        console.error("Could not load visitor submissions.", error);
+      }
+    }
+
+    async function uploadVisitorPhoto(file, token) {
+      if (!visitorShareExtensions[file.type]) throw new Error("Choose a JPEG, PNG, GIF, WebP, or AVIF image.");
+      if (file.size > 10 * 1024 * 1024) throw new Error("Photo must be 10 MB or smaller.");
+      const ext = visitorShareExtensions[file.type];
+      const path = `${token}/${crypto.randomUUID()}.${ext}`;
+      const safePath = path.split("/").map(encodeURIComponent).join("/");
+      const response = await fetch(`${supabaseUrl}/storage/v1/object/visitor-daily-uploads/${safePath}`, {
+        method: "POST",
+        headers: {
+          apikey: publishableKey,
+          Authorization: `Bearer ${publishableKey}`,
+          "Content-Type": file.type,
+          "x-upsert": "false"
+        },
+        body: file
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.message || result.error || `Photo upload failed (${response.status}).`);
+      }
+      return path;
+    }
+
+    visitorShareForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!window.VisitorTools) {
+        visitorShareStatus.textContent = "The sharing service is not ready yet. Try again in a moment.";
+        visitorShareStatus.dataset.error = "true";
+        return;
+      }
+      const token = window.VisitorTools.getToken();
+      const name    = visitorShareName.value.trim() || "Visitor";
+      const title   = visitorShareTitle.value.trim();
+      const content = visitorShareContent.value.trim();
+      const file    = visitorSharePhoto.files[0] || null;
+      if (!title && !content && !file) {
+        visitorShareStatus.textContent = "Write something or add a photo before sharing.";
+        visitorShareStatus.dataset.error = "true";
+        return;
+      }
+      visitorShareBtn.disabled = true;
+      visitorShareStatus.textContent = file ? "Uploading photo…" : "Sharing…";
+      delete visitorShareStatus.dataset.error;
+      let uploadedPath = null;
+      try {
+        if (file) {
+          uploadedPath = await uploadVisitorPhoto(file, token);
+          visitorShareStatus.textContent = "Saving…";
+        }
+        const response = await fetch(`${supabaseUrl}/rest/v1/rpc/submit_visitor_daily`, {
+          method: "POST",
+          headers: { apikey: publishableKey, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            p_visitor_token: token,
+            p_display_name: name,
+            p_note_title: title,
+            p_note_content: content,
+            p_photo_path: uploadedPath
+          })
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || err.msg || `Could not save your submission (${response.status}).`);
+        }
+        visitorShareForm.reset();
+        visitorShareStatus.textContent = "Shared! You can see it below.";
+        delete visitorShareStatus.dataset.error;
+        dismissUploadTip();
+        await loadVisitorSubmissions();
+        if (typeof window.logActivity === "function") window.logActivity("Click", "Visitor share submitted");
+      } catch (error) {
+        console.error("Could not save visitor submission.", error);
+        visitorShareStatus.textContent = error.message || "Could not save your submission. Please try again.";
+        visitorShareStatus.dataset.error = "true";
+      } finally {
+        visitorShareBtn.disabled = false;
+      }
+    });
+
+    submissionsList.addEventListener("click", async (event) => {
+      const btn = event.target.closest("button[data-submission-id]");
+      if (!btn) return;
+      if (!window.confirm("Delete this submission? This cannot be undone.")) return;
+      const id = btn.dataset.submissionId;
+      const photoPath = btn.dataset.photoPath;
+      btn.disabled = true;
+      try {
+        const token = window.VisitorTools.getToken();
+        const response = await fetch(`${supabaseUrl}/rest/v1/rpc/delete_visitor_submission`, {
+          method: "POST",
+          headers: { apikey: publishableKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ p_visitor_token: token, p_submission_id: Number(id) })
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || `Delete failed (${response.status}).`);
+        }
+        if (photoPath) {
+          const safePath = photoPath.split("/").map(encodeURIComponent).join("/");
+          await fetch(`${supabaseUrl}/storage/v1/object/visitor-daily-uploads/${safePath}`, {
+            method: "DELETE",
+            headers: { apikey: publishableKey, Authorization: `Bearer ${publishableKey}` }
+          }).catch(() => {});
+        }
+        await loadVisitorSubmissions();
+      } catch (error) {
+        console.error("Could not delete visitor submission.", error);
+        alert(error.message || "Could not delete. Please try again.");
+        btn.disabled = false;
+      }
+    });
+
+    // Load submissions + show tip when site unlocks (hook into existing unlockSite flow)
+    const _origLoadSiteContent = loadSiteContent;
+    loadSiteContent = function () {
+      _origLoadSiteContent();
+      showUploadTip();
+      loadVisitorSubmissions();
+    };
   </script>
 </body>
 </html>

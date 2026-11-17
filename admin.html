@@ -461,6 +461,7 @@
         <a class="admin-nav-link" href="#threads"><span aria-hidden="true">♡</span>Visitor threads</a>
         <a class="admin-nav-link" href="#checkins"><span aria-hidden="true">☼</span>Check-ins</a>
         <a class="admin-nav-link" href="#reminders"><span aria-hidden="true">◈</span>Reminders &amp; likes</a>
+        <a class="admin-nav-link" href="#visitor-submissions-panel"><span aria-hidden="true">✦</span>Shared moments</a>
         <a class="admin-nav-link" href="#photos"><span aria-hidden="true">▧</span>Photos</a>
         <a class="admin-nav-link" href="#settings"><span aria-hidden="true">⚙</span>Site settings</a>
         <a class="admin-nav-link" href="#daily-note"><span aria-hidden="true">✉</span>Daily note</a>
@@ -631,6 +632,18 @@
         </div>
         <div class="checkin-list" id="visitor-reminders-list" aria-live="polite"></div>
         <p class="status" id="reminders-status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" id="visitor-submissions-panel" aria-labelledby="visitor-submissions-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="visitor-submissions-heading">Visitor shared moments</h2>
+            <p class="subtle">Notes and photos visitors shared from the home page. Sorted newest first.</p>
+          </div>
+          <button class="button secondary" id="refresh-visitor-submissions" type="button">Refresh</button>
+        </div>
+        <div class="checkin-list" id="admin-submissions-list" aria-live="polite"></div>
+        <p class="status" id="visitor-submissions-status" role="status" aria-live="polite"></p>
       </section>
         <div class="panel-head">
           <div>
@@ -994,7 +1007,8 @@
         loadScheduleEvents().catch((error) => setStatus(scheduleStatus, error.message, true)),
         loadVisitorThreads().catch((error) => setStatus(threadsStatus, error.message, true)),
         loadVisitorCheckins().catch((error) => setStatus(checkinsStatus, error.message, true)),
-        loadReminderLogs()
+        loadReminderLogs(),
+        loadVisitorSubmissions()
       ]);
       startThreadPolling();
     }
@@ -1369,6 +1383,70 @@
       } catch (error) {
         console.error("Could not load visitor reminder logs.", error);
         setStatus(reminderStatus, error.message || "Could not load reminder logs.", true);
+      }
+    }
+
+    function visitorSubmissionPhotoUrl(path) {
+      const safePath = path.split("/").map(encodeURIComponent).join("/");
+      return `${supabaseUrl}/storage/v1/object/public/visitor-daily-uploads/${safePath}`;
+    }
+
+    async function loadVisitorSubmissions() {
+      const subStatus = document.getElementById("visitor-submissions-status");
+      const subList = document.getElementById("admin-submissions-list");
+      setStatus(subStatus, "Loading…", false);
+      try {
+        const result = await api(
+          "/rest/v1/visitor_daily_submissions?select=id,display_name,note_title,note_content,photo_path,created_at&order=created_at.desc,id.desc&limit=100"
+        );
+        if (!Array.isArray(result)) throw new Error("Visitor submissions returned an unexpected response.");
+        subList.replaceChildren();
+        if (!result.length) {
+          const empty = document.createElement("p");
+          empty.className = "subtle";
+          empty.textContent = "No visitor submissions yet.";
+          subList.append(empty);
+          setStatus(subStatus, "", false);
+          return;
+        }
+        result.forEach((sub) => {
+          const row = document.createElement("article");
+          row.className = "checkin-row";
+          const head = document.createElement("div");
+          head.className = "checkin-row-head";
+          const name = document.createElement("strong");
+          name.textContent = sub.display_name || "Visitor";
+          const time = document.createElement("time");
+          time.dateTime = sub.created_at;
+          time.textContent = formatThreadTimestamp(sub.created_at);
+          head.append(name, time);
+          row.append(head);
+          if (sub.note_title) {
+            const title = document.createElement("p");
+            title.style.fontWeight = "700";
+            title.style.marginTop = "8px";
+            title.textContent = sub.note_title;
+            row.append(title);
+          }
+          if (sub.note_content) {
+            const content = document.createElement("p");
+            content.textContent = sub.note_content;
+            row.append(content);
+          }
+          if (sub.photo_path) {
+            const img = document.createElement("img");
+            img.src = visitorSubmissionPhotoUrl(sub.photo_path);
+            img.alt = sub.note_title || "Shared photo";
+            img.loading = "lazy";
+            img.style.cssText = "display:block;max-width:100%;max-height:320px;margin:10px 0 0;border-radius:10px;object-fit:contain;";
+            row.append(img);
+          }
+          subList.append(row);
+        });
+        setStatus(subStatus, `${result.length} ${result.length === 1 ? "submission" : "submissions"}`, false);
+      } catch (error) {
+        console.error("Could not load visitor submissions.", error);
+        setStatus(subStatus, error.message || "Could not load visitor submissions.", true);
       }
     }
 
@@ -1951,6 +2029,9 @@
       if (!btn) return;
       reminderFilter = btn.dataset.filter;
       applyReminderFilter();
+    });
+    document.getElementById("refresh-visitor-submissions").addEventListener("click", () => {
+      loadVisitorSubmissions();
     });
     adminThreadFeed.addEventListener("submit", submitOwnerThreadComment);
 

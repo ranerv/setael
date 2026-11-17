@@ -1400,3 +1400,201 @@ as $$
 $$;
 
 notify pgrst, 'reload schema';
+
+-- ── Visitor daily submissions (note + optional photo) ────────────────────────
+
+-- Storage bucket for visitor-uploaded photos
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'visitor-daily-uploads',
+  'visitor-daily-uploads',
+  true,
+  10485760,
+  array['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif']
+)
+on conflict (id) do update
+set name = excluded.name,
+    public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Anyone can view visitor daily upload photos" on storage.objects;
+create policy "Anyone can view visitor daily upload photos"
+on storage.objects for select to anon, authenticated
+using (bucket_id = 'visitor-daily-uploads');
+
+drop policy if exists "Visitors can upload their own daily photos" on storage.objects;
+create policy "Visitors can upload their own daily photos"
+on storage.objects for insert to anon, authenticated
+with check (
+  bucket_id = 'visitor-daily-uploads'
+  and (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+);
+
+drop policy if exists "Visitors can delete their own daily photos" on storage.objects;
+create policy "Visitors can delete their own daily photos"
+on storage.objects for delete to anon, authenticated
+using (
+  bucket_id = 'visitor-daily-uploads'
+  and (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+);
+
+-- Table to store visitor submissions
+create table if not exists public.visitor_daily_submissions (
+  id bigint generated always as identity primary key,
+  visitor_token uuid not null,
+  display_name text not null default 'Visitor'
+    check (char_length(display_name) between 1 and 60),
+  note_title text not null default ''
+    check (char_length(note_title) <= 120),
+  note_content text not null default ''
+    check (char_length(note_content) <= 2000),
+  photo_path text
+    check (photo_path is null or char_length(photo_path) <= 255),
+  created_at timestamptz not null default now(),
+  check (
+    char_length(btrim(note_title)) > 0
+    or char_length(btrim(note_content)) > 0
+    or photo_path is not null
+  )
+);
+
+create index if not exists visitor_daily_submissions_token_idx
+  on public.visitor_daily_submissions (visitor_token, created_at desc);
+create index if not exists visitor_daily_submissions_created_idx
+  on public.visitor_daily_submissions (created_at desc);
+
+alter table public.visitor_daily_submissions enable row level security;
+revoke all on public.visitor_daily_submissions from anon, authenticated;
+grant select on public.visitor_daily_submissions to authenticated;
+grant usage, select on sequence public.visitor_daily_submissions_id_seq to authenticated;
+
+drop policy if exists "Only the listed owner can view visitor submissions" on public.visitor_daily_submissions;
+create policy "Only the listed owner can view visitor submissions"
+on public.visitor_daily_submissions for select to authenticated
+using ((select public.is_log_admin()));
+
+-- RPC: submit a daily note + optional photo
+create or replace function public.submit_visitor_daily(
+  p_visitor_token uuid,
+  p_display_name text,
+  p_note_title text,
+  p_note_content text,
+  p_photo_path text
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_name text;
+  v_title text;
+  v_content text;
+  v_id bigint;
+  v_last timestamptz;
+begin
+  if p_visitor_token is null then
+    raise exception 'A session token is required.';
+  end if;
+
+  v_name    := coalesce(nullif(btrim(p_display_name), ''), 'Visitor');
+  v_title   := btrim(coalesce(p_note_title, ''));
+  v_content := btrim(coalesce(p_note_content, ''));
+
+  if char_length(v_name) > 60 then
+    raise exception 'Name must be 60 characters or fewer.';
+  end if;
+  if char_length(v_title) > 120 then
+    raise exception 'Title must be 120 characters or fewer.';
+  end if;
+  if char_length(v_content) > 2000 then
+    raise exception 'Note must be 2,000 characters or fewer.';
+  end if;
+  if v_title = '' and v_content = '' and p_photo_path is null then
+    raise exception 'Write something or add a photo before sharing.';
+  end if;
+  if p_photo_path is not null then
+    if char_length(p_photo_path) > 255
+      or split_part(p_photo_path, '/', 1) <> p_visitor_token::text
+      or split_part(p_photo_path, '/', 2) = ''
+      or split_part(p_photo_path, '/', 3) <> ''
+    then
+      raise exception 'The photo does not belong to this session.';
+    end if;
+    if not exists (
+      select 1 from storage.objects
+      where bucket_id = 'visitor-daily-uploads' and name = p_photo_path
+    ) then
+      raise exception 'The uploaded photo could not be found.';
+    end if;
+  end if;
+
+  -- Rate limit: one submission per visitor every 60 seconds
+  select max(created_at) into v_last
+  from public.visitor_daily_submissions
+  where visitor_token = p_visitor_token;
+  if v_last > now() - interval '60 seconds' then
+    raise exception 'Please wait a moment before sharing again.';
+  end if;
+
+  insert into public.visitor_daily_submissions
+    (visitor_token, display_name, note_title, note_content, photo_path)
+  values
+    (p_visitor_token, v_name, v_title, v_content, p_photo_path)
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- RPC: load this visitor's own submissions
+create or replace function public.get_my_visitor_submissions(p_visitor_token uuid)
+returns table (
+  id bigint,
+  display_name text,
+  note_title text,
+  note_content text,
+  photo_path text,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select id, display_name, note_title, note_content, photo_path, created_at
+  from public.visitor_daily_submissions
+  where visitor_token = p_visitor_token
+  order by created_at desc, id desc
+  limit 20;
+$$;
+
+-- RPC: delete visitor's own submission
+create or replace function public.delete_visitor_submission(
+  p_visitor_token uuid,
+  p_submission_id bigint
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.visitor_daily_submissions
+  where id = p_submission_id and visitor_token = p_visitor_token;
+  if not found then
+    raise exception 'This submission could not be found for your session.';
+  end if;
+  return true;
+end;
+$$;
+
+revoke all on function public.submit_visitor_daily(uuid, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.get_my_visitor_submissions(uuid) from public, anon, authenticated;
+revoke all on function public.delete_visitor_submission(uuid, bigint) from public, anon, authenticated;
+
+grant execute on function public.submit_visitor_daily(uuid, text, text, text, text) to anon, authenticated;
+grant execute on function public.get_my_visitor_submissions(uuid) to anon, authenticated;
+grant execute on function public.delete_visitor_submission(uuid, bigint) to anon, authenticated;
+
+notify pgrst, 'reload schema';

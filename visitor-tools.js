@@ -969,7 +969,8 @@
       refreshThreads,
       loadContentLikeStatus,
       toggleContentLike,
-      submitVisitorCheckin
+      submitVisitorCheckin,
+      getToken: visitorToken
     };
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
