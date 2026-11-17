@@ -61,7 +61,6 @@
         window.gtag("event", "click", { event_category: "ui", event_label: target || action });
       }
     }
-    }
 
     if (!isConfigured) {
       if (!configurationWarningShown) {
