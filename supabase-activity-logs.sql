@@ -1239,3 +1239,164 @@ with check (
 );
 
 notify pgrst, 'reload schema';
+
+-- ── Public threads: all visitors see all threads & comments ──────────────────
+
+-- 1. Return ALL threads (not filtered by token) so every visitor sees everyone's posts
+create or replace function public.get_all_visitor_threads()
+returns table (
+  id bigint,
+  visitor_token uuid,
+  display_name text,
+  content text,
+  image_path text,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select t.id, t.visitor_token, t.display_name, t.content, t.image_path,
+         t.created_at, t.updated_at
+  from public.visitor_threads t
+  order by t.created_at desc, t.id desc;
+$$;
+
+-- 2. Return ALL comments for a thread (not filtered by token)
+create or replace function public.get_all_thread_comments(p_thread_id bigint)
+returns table (
+  id bigint,
+  sender text,
+  sender_label text,
+  content text,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.id, c.sender, c.sender_label, c.content, c.created_at
+  from public.visitor_thread_comments c
+  where c.thread_id = p_thread_id
+  order by c.created_at, c.id;
+$$;
+
+-- 3. Let any visitor comment on any thread (not just their own)
+create or replace function public.add_comment_to_thread(
+  p_visitor_token uuid,
+  p_thread_id bigint,
+  p_display_name text,
+  p_content text
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_content text;
+  v_name text;
+  v_last_comment timestamptz;
+  v_comment_id bigint;
+begin
+  if p_visitor_token is null then
+    raise exception 'A session token is required to comment.';
+  end if;
+  if not exists (select 1 from public.visitor_threads where id = p_thread_id) then
+    raise exception 'This thread could not be found.';
+  end if;
+
+  v_content := btrim(coalesce(p_content, ''));
+  v_name := coalesce(nullif(btrim(p_display_name), ''), 'Visitor');
+  if char_length(v_content) not between 1 and 1000 then
+    raise exception 'Comments must be between 1 and 1,000 characters.';
+  end if;
+  if char_length(v_name) > 60 then
+    raise exception 'Names must be 60 characters or fewer.';
+  end if;
+
+  -- Rate-limit: 3-second cooldown per visitor per thread
+  select max(created_at) into v_last_comment
+  from public.visitor_thread_comments
+  where thread_id = p_thread_id and visitor_token = p_visitor_token;
+  if v_last_comment > now() - interval '3 seconds' then
+    raise exception 'Please wait a moment before commenting again.';
+  end if;
+
+  insert into public.visitor_thread_comments
+    (thread_id, visitor_token, sender, sender_label, content)
+  values
+    (p_thread_id, p_visitor_token, 'visitor', v_name, v_content)
+  returning id into v_comment_id;
+  return v_comment_id;
+end;
+$$;
+
+revoke all on function public.get_all_visitor_threads() from public, anon, authenticated;
+revoke all on function public.get_all_thread_comments(bigint) from public, anon, authenticated;
+revoke all on function public.add_comment_to_thread(uuid, bigint, text, text) from public, anon, authenticated;
+
+grant execute on function public.get_all_visitor_threads() to anon, authenticated;
+grant execute on function public.get_all_thread_comments(bigint) to anon, authenticated;
+grant execute on function public.add_comment_to_thread(uuid, bigint, text, text) to anon, authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ── Allow visitors to delete their own comments ──────────────────────────────
+create or replace function public.delete_visitor_thread_comment(
+  p_visitor_token uuid,
+  p_comment_id bigint
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_visitor_token is null then
+    raise exception 'A session token is required.';
+  end if;
+
+  delete from public.visitor_thread_comments
+  where id = p_comment_id
+    and visitor_token = p_visitor_token
+    and sender = 'visitor';
+
+  if not found then
+    raise exception 'This comment could not be found for your session.';
+  end if;
+
+  return true;
+end;
+$$;
+
+revoke all on function public.delete_visitor_thread_comment(uuid, bigint) from public, anon, authenticated;
+grant execute on function public.delete_visitor_thread_comment(uuid, bigint) to anon, authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ── Update get_all_thread_comments to include visitor_token for ownership check ──
+create or replace function public.get_all_thread_comments(p_thread_id bigint)
+returns table (
+  id bigint,
+  visitor_token uuid,
+  sender text,
+  sender_label text,
+  content text,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.id, c.visitor_token, c.sender, c.sender_label, c.content, c.created_at
+  from public.visitor_thread_comments c
+  where c.thread_id = p_thread_id
+  order by c.created_at, c.id;
+$$;
+
+notify pgrst, 'reload schema';

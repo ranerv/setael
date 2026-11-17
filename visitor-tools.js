@@ -116,7 +116,7 @@
       );
     } catch (error) {
       console.error("Could not read personal schedule reminders.", error);
-      setStatus(getElement("schedule-status"), "Your saved reminders could not be read. Clear this site’s stored schedule data or use another browser.", true);
+      setStatus(getElement("schedule-status"), "Your saved reminders could not be read. Clear this site's stored schedule data or use another browser.", true);
       scheduleState.personalEvents = [];
     }
   }
@@ -162,7 +162,7 @@
         mode === "face_to_face" || mode === "online"));
     } catch (error) {
       console.error("Could not read class-format preferences.", error);
-      setStatus(getElement("schedule-status"), "Your saved class-format choices could not be read. Clear this site’s stored schedule data or use another browser.", true);
+      setStatus(getElement("schedule-status"), "Your saved class-format choices could not be read. Clear this site's stored schedule data or use another browser.", true);
       scheduleState.modes = {};
     }
   }
@@ -236,10 +236,7 @@
     getElement("schedule-week-label").textContent =
       `${dateLabel(scheduleState.weekStart, { month: "short", day: "numeric" })} – ${dateLabel(addDays(scheduleState.weekStart, 6), { month: "short", day: "numeric", year: "numeric" })}`;
     getElement("schedule-selected-date").textContent = dateLabel(scheduleState.selectedDate, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric"
+      weekday: "long", month: "long", day: "numeric", year: "numeric"
     });
     getElement("schedule-current-time").textContent = `Current time in the Philippines: ${timeLabel(`${currentParts.hour}:${currentParts.minute}`)}`;
 
@@ -354,19 +351,14 @@
     const parts = getPhtParts(now);
     const todayKey = `${parts.year}-${parts.month}-${parts.day}`;
     const currentMinutes = Number(parts.hour) * 60 + Number(parts.minute);
-    const dateText = dateLabel(todayKey, {
-      weekday: "long",
-      month: "long",
-      day: "numeric"
-    });
+    const dateText = dateLabel(todayKey, { weekday: "long", month: "long", day: "numeric" });
     getElement("home-schedule-date").textContent =
       `Current time in the Philippines: ${dateText}, ${timeLabel(`${parts.hour}:${parts.minute}`)}`;
     container.replaceChildren();
 
     const todayItems = eventsForDate(todayKey);
     const currentEvent = todayItems.find((event) =>
-      minutesOf(event.start_time) <= currentMinutes
-      && currentMinutes < minutesOf(event.end_time)
+      minutesOf(event.start_time) <= currentMinutes && currentMinutes < minutesOf(event.end_time)
     );
     let nextEvent = null;
     for (let offset = 0; offset < 7 && !nextEvent; offset += 1) {
@@ -375,28 +367,14 @@
         .filter((event) => {
           const start = minutesOf(event.start_time);
           if (offset > 0) return true;
-          return currentEvent
-            ? start >= minutesOf(currentEvent.end_time)
-            : start > currentMinutes;
+          return currentEvent ? start >= minutesOf(currentEvent.end_time) : start > currentMinutes;
         })
         .map((event) => ({ ...event, scheduleDate: eventDate }))[0] || null;
     }
 
     [
-      {
-        event: currentEvent ? { ...currentEvent, scheduleDate: todayKey } : null,
-        label: "Current",
-        emptyTitle: "No class in progress",
-        emptyDetails: "There is no class happening right now.",
-        status: "in-progress"
-      },
-      {
-        event: nextEvent,
-        label: "Up next",
-        emptyTitle: "No upcoming class scheduled",
-        emptyDetails: "Check the Schedule tab for your full calendar.",
-        status: "upcoming"
-      }
+      { event: currentEvent ? { ...currentEvent, scheduleDate: todayKey } : null, label: "Current", emptyTitle: "No class in progress", emptyDetails: "There is no class happening right now.", status: "in-progress" },
+      { event: nextEvent, label: "Up next", emptyTitle: "No upcoming class scheduled", emptyDetails: "Check the Schedule tab for your full calendar.", status: "upcoming" }
     ].forEach(({ event, label, emptyTitle, emptyDetails, status }) => {
       const item = document.createElement("article");
       item.className = `home-schedule-item ${event ? status : "empty"}`;
@@ -410,19 +388,10 @@
       detail.className = "home-schedule-detail";
       if (event) {
         title.textContent = event.course_code ? `${event.course_code} · ${event.title}` : event.title;
-        const eventDate = event.scheduleDate === todayKey
-          ? ""
-          : dateLabel(event.scheduleDate, { weekday: "short", month: "short", day: "numeric" });
+        const eventDate = event.scheduleDate === todayKey ? "" : dateLabel(event.scheduleDate, { weekday: "short", month: "short", day: "numeric" });
         const time = `${timeLabel(event.start_time)}–${timeLabel(event.end_time)}`;
-        const deliveryMode = event.origin === "shared"
-          ? scheduleState.modes[String(event.id)]
-          : event.delivery_mode;
-        detail.textContent = [
-          eventDate,
-          time,
-          deliveryMode ? formatLabel(deliveryMode) : "",
-          event.location || ""
-        ].filter(Boolean).join(" · ");
+        const deliveryMode = event.origin === "shared" ? scheduleState.modes[String(event.id)] : event.delivery_mode;
+        detail.textContent = [eventDate, time, deliveryMode ? formatLabel(deliveryMode) : "", event.location || ""].filter(Boolean).join(" · ");
       } else {
         title.textContent = emptyTitle;
         detail.textContent = emptyDetails;
@@ -541,13 +510,8 @@
       console.error("Could not read the schedule guide preference.", error);
     }
     getElement("personal-schedule-date").value = todayKey;
-
     getElement("dismiss-schedule-guide").addEventListener("click", () => {
-      try {
-        localStorage.setItem(guideKey, "true");
-      } catch (error) {
-        console.error("Could not save the schedule guide preference.", error);
-      }
+      try { localStorage.setItem(guideKey, "true"); } catch (error) { console.error("Could not save the schedule guide preference.", error); }
       getElement("schedule-guide").hidden = true;
     });
     getElement("schedule-previous-week").addEventListener("click", () => {
@@ -571,6 +535,8 @@
     loadSchedule();
     scheduleState.timer = window.setInterval(renderSchedule, 30000);
   }
+
+  // ── Token ────────────────────────────────────────────────────────────────
 
   function visitorToken() {
     if (threadState.token) return threadState.token;
@@ -639,6 +605,8 @@
     });
   }
 
+  // ── Threads ──────────────────────────────────────────────────────────────
+
   function threadImageUrl(path) {
     const safePath = path.split("/").map(encodeURIComponent).join("/");
     return `${supabaseUrl}/storage/v1/object/public/visitor-thread-images/${safePath}`;
@@ -648,12 +616,7 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
     return new Intl.DateTimeFormat("en-PH", {
-      timeZone: zone,
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit"
+      timeZone: zone, month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit"
     }).format(date);
   }
 
@@ -663,38 +626,49 @@
     if (!threadState.posts.length) {
       const empty = document.createElement("p");
       empty.className = "thread-empty";
-      empty.textContent = "No threads yet. Whenever you’re ready, start one above.";
+      empty.textContent = "No threads yet. Whenever you're ready, start one above.";
       feed.append(empty);
       return;
     }
 
+    // Identify this visitor's own posts so only they see Edit/Delete
+    const myToken = threadState.token || localStorage.getItem(threadTokenKey) || "";
+
     threadState.posts.forEach((post) => {
+      const isOwn = post.visitor_token && String(post.visitor_token) === myToken;
+
       const card = document.createElement("article");
       card.className = "visitor-thread-card";
+
       const header = document.createElement("div");
       header.className = "visitor-thread-head";
       const author = document.createElement("div");
       const name = document.createElement("p");
       name.className = "visitor-thread-author";
-      name.textContent = post.display_name || "You";
+      name.textContent = post.display_name || "Visitor";
       const date = document.createElement("p");
       date.className = "visitor-thread-date";
       date.textContent = threadDateLabel(post.created_at);
       author.append(name, date);
-      const actions = document.createElement("div");
-      actions.className = "visitor-thread-actions";
-      const edit = document.createElement("button");
-      edit.type = "button";
-      edit.dataset.action = "edit";
-      edit.dataset.threadId = String(post.id);
-      edit.textContent = "Edit";
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.dataset.action = "delete";
-      remove.dataset.threadId = String(post.id);
-      remove.textContent = "Delete";
-      actions.append(edit, remove);
-      header.append(author, actions);
+      header.append(author);
+
+      // Only the original poster sees Edit / Delete
+      if (isOwn) {
+        const actions = document.createElement("div");
+        actions.className = "visitor-thread-actions";
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.dataset.action = "edit";
+        edit.dataset.threadId = String(post.id);
+        edit.textContent = "Edit";
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.dataset.action = "delete";
+        remove.dataset.threadId = String(post.id);
+        remove.textContent = "Delete";
+        actions.append(edit, remove);
+        header.append(actions);
+      }
       card.append(header);
 
       if (post.content) {
@@ -712,6 +686,7 @@
         card.append(image);
       }
 
+      // Comments section — visible to all
       const comments = document.createElement("div");
       comments.className = "visitor-thread-comments";
       (threadState.comments[String(post.id)] || []).forEach((comment) => {
@@ -724,11 +699,27 @@
         const commentDate = document.createElement("time");
         commentDate.textContent = threadDateLabel(comment.created_at);
         commentHeader.append(commentAuthor, commentDate);
+
+        // Show Delete only on the visitor's own comments
+        const isOwnComment = comment.sender === "visitor"
+          && comment.visitor_token && String(comment.visitor_token) === myToken;
+        if (isOwnComment) {
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.dataset.action = "delete-comment";
+          delBtn.dataset.commentId = String(comment.id);
+          delBtn.textContent = "Delete";
+          delBtn.style.cssText = "margin-left:auto;padding:2px 0;border:0;background:transparent;color:#a64e68;cursor:pointer;font-size:.7rem;font-weight:700;";
+          commentHeader.append(delBtn);
+        }
+
         const body = document.createElement("p");
         body.textContent = comment.content;
         item.append(commentHeader, body);
         comments.append(item);
       });
+
+      // Comment form — available to all visitors
       const commentForm = document.createElement("form");
       commentForm.className = "visitor-thread-comment-form";
       commentForm.dataset.threadId = String(post.id);
@@ -737,7 +728,7 @@
       commentInput.maxLength = 1000;
       commentInput.required = true;
       commentInput.placeholder = "Write a comment…";
-      commentInput.setAttribute("aria-label", `Comment on ${post.display_name || "your"} thread`);
+      commentInput.setAttribute("aria-label", `Comment on ${post.display_name || "this"} thread`);
       const commentButton = document.createElement("button");
       commentButton.type = "submit";
       commentButton.textContent = "Comment";
@@ -753,15 +744,15 @@
       throw new Error("Threads are unavailable because the content service is not configured.");
     }
     setStatus(getElement("visitor-thread-status"), "Loading threads…", false);
-    const token = visitorToken();
-    const posts = await callVisitorRpc("get_visitor_threads", { p_visitor_token: token });
+
+    // Load ALL threads — every visitor sees everyone's posts
+    const posts = await callVisitorRpc("get_all_visitor_threads", {});
     if (!Array.isArray(posts)) throw new Error("Threads returned an unexpected response.");
     threadState.posts = posts;
+
+    // Load all comments for every thread
     const commentResults = await Promise.all(posts.map(async (post) => {
-      const comments = await callVisitorRpc("get_visitor_thread_comments", {
-        p_visitor_token: token,
-        p_thread_id: post.id
-      });
+      const comments = await callVisitorRpc("get_all_thread_comments", { p_thread_id: post.id });
       if (!Array.isArray(comments)) throw new Error("Thread comments returned an unexpected response.");
       return [String(post.id), comments];
     }));
@@ -796,25 +787,14 @@
   }
 
   async function uploadThreadImage(file, token) {
-    const extensions = {
-      "image/jpeg": "jpg",
-      "image/png": "png",
-      "image/gif": "gif",
-      "image/webp": "webp",
-      "image/avif": "avif"
-    };
+    const extensions = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp", "image/avif": "avif" };
     if (!extensions[file.type]) throw new Error("Choose a JPEG, PNG, GIF, WebP, or AVIF image.");
     if (file.size > 5 * 1024 * 1024) throw new Error("Thread photos must be 5 MB or smaller.");
     const path = `${token}/${window.crypto.randomUUID()}.${extensions[file.type]}`;
     const safePath = path.split("/").map(encodeURIComponent).join("/");
     const response = await fetch(`${supabaseUrl}/storage/v1/object/visitor-thread-images/${safePath}`, {
       method: "POST",
-      headers: {
-        apikey: publishableKey,
-        Authorization: `Bearer ${publishableKey}`,
-        "Content-Type": file.type,
-        "x-upsert": "false"
-      },
+      headers: { apikey: publishableKey, Authorization: `Bearer ${publishableKey}`, "Content-Type": file.type, "x-upsert": "false" },
       body: file
     });
     if (!response.ok) {
@@ -842,24 +822,12 @@
     setStatus(getElement("visitor-thread-status"), threadState.editingId ? "Saving your changes…" : "Posting your thread…", false);
     try {
       const token = visitorToken();
-      const imagePath = file
-        ? await uploadThreadImage(file, token)
-        : (removeImage ? null : threadState.imagePath);
-      const payload = {
-        p_visitor_token: token,
-        p_thread_id: threadState.editingId,
-        p_display_name: name,
-        p_content: content,
-        p_image_path: imagePath
-      };
+      const imagePath = file ? await uploadThreadImage(file, token) : (removeImage ? null : threadState.imagePath);
       await callVisitorRpc(
         threadState.editingId ? "update_visitor_thread" : "create_visitor_thread",
-        threadState.editingId ? payload : {
-          p_visitor_token: token,
-          p_display_name: name,
-          p_content: content,
-          p_image_path: imagePath
-        }
+        threadState.editingId
+          ? { p_visitor_token: token, p_thread_id: threadState.editingId, p_display_name: name, p_content: content, p_image_path: imagePath }
+          : { p_visitor_token: token, p_display_name: name, p_content: content, p_image_path: imagePath }
       );
       localStorage.setItem(threadNameKey, name);
       resetThreadForm();
@@ -874,15 +842,28 @@
     }
   }
 
+  async function deleteComment(commentId) {
+    if (!window.confirm("Delete this comment? This cannot be undone.")) return;
+    setStatus(getElement("visitor-thread-status"), "Deleting comment…", false);
+    try {
+      await callVisitorRpc("delete_visitor_thread_comment", {
+        p_visitor_token: visitorToken(),
+        p_comment_id: Number(commentId)
+      });
+      await loadThreads();
+      setStatus(getElement("visitor-thread-status"), "Comment deleted.", false);
+    } catch (error) {
+      console.error("Could not delete the visitor thread comment.", error);
+      setStatus(getElement("visitor-thread-status"), error.message || "The comment could not be deleted.", true);
+    }
+  }
+
   async function deleteThread(id) {
     const post = threadState.posts.find((item) => String(item.id) === id);
     if (!post || !window.confirm("Delete this thread and its comments? This cannot be undone.")) return;
     setStatus(getElement("visitor-thread-status"), "Deleting thread…", false);
     try {
-      await callVisitorRpc("delete_visitor_thread", {
-        p_visitor_token: visitorToken(),
-        p_thread_id: post.id
-      });
+      await callVisitorRpc("delete_visitor_thread", { p_visitor_token: visitorToken(), p_thread_id: post.id });
       await loadThreads();
       setStatus(getElement("visitor-thread-status"), "Thread deleted.", false);
     } catch (error) {
@@ -901,12 +882,14 @@
     if (!content) return;
     button.disabled = true;
     try {
-      await callVisitorRpc("add_visitor_thread_comment", {
+      // Uses the new public RPC — any visitor can comment on any thread
+      await callVisitorRpc("add_comment_to_thread", {
         p_visitor_token: visitorToken(),
-        p_thread_id: form.dataset.threadId,
+        p_thread_id: Number(form.dataset.threadId),
         p_display_name: getElement("visitor-thread-name").value.trim() || localStorage.getItem(threadNameKey) || "Visitor",
         p_content: content
       });
+      input.value = "";
       await loadThreads();
       setStatus(getElement("visitor-thread-status"), "Comment added.", false);
     } catch (error) {
@@ -944,6 +927,7 @@
         if (!button) return;
         if (button.dataset.action === "edit") editThread(button.dataset.threadId);
         if (button.dataset.action === "delete") deleteThread(button.dataset.threadId);
+        if (button.dataset.action === "delete-comment") deleteComment(button.dataset.commentId);
       });
       getElement("visitor-thread-feed").addEventListener("submit", sendThreadComment);
       startThreadPolling();

@@ -1480,12 +1480,13 @@
           method: "POST",
           headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify({
-            thread_id: form.dataset.threadId,
+            thread_id: Number(form.dataset.threadId),
             sender: "owner",
             sender_label: "Owner",
             content
           })
         });
+        field.value = "";
         await loadVisitorThreads();
         setStatus(threadsStatus, "Comment sent.");
       } catch (error) {
