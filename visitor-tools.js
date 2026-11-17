@@ -880,6 +880,7 @@
     const button = form.querySelector("button");
     const content = input.value.trim();
     if (!content) return;
+    const savedValue = input.value;
     button.disabled = true;
     try {
       // Uses the new public RPC — any visitor can comment on any thread
@@ -894,6 +895,7 @@
       setStatus(getElement("visitor-thread-status"), "Comment added.", false);
     } catch (error) {
       console.error("Could not add the visitor thread comment.", error);
+      input.value = savedValue; // restore what they typed
       setStatus(getElement("visitor-thread-status"), error.message || "Your comment could not be added.", true);
     } finally {
       button.disabled = false;
@@ -901,7 +903,25 @@
   }
 
   function refreshThreads() {
-    loadThreads().catch((error) => {
+    // Save any comment text the visitor is currently typing
+    const drafts = {};
+    document.querySelectorAll(".visitor-thread-comment-form").forEach((form) => {
+      const input = form.querySelector("input");
+      if (input && input.value.trim()) drafts[form.dataset.threadId] = input.value;
+    });
+
+    loadThreads().then(() => {
+      // Restore saved drafts after re-render
+      if (Object.keys(drafts).length) {
+        document.querySelectorAll(".visitor-thread-comment-form").forEach((form) => {
+          const saved = drafts[form.dataset.threadId];
+          if (saved) {
+            const input = form.querySelector("input");
+            if (input) input.value = saved;
+          }
+        });
+      }
+    }).catch((error) => {
       console.error("Could not load visitor threads.", error);
       setStatus(getElement("visitor-thread-status"), error.message || "Threads could not be loaded.", true);
     });
@@ -911,6 +931,9 @@
     if (threadState.timer) window.clearInterval(threadState.timer);
     threadState.timer = window.setInterval(() => {
       if (getElement("page-threads").hidden || document.hidden) return;
+      // Don't refresh if the visitor is actively typing in a comment box
+      const focused = document.activeElement;
+      if (focused && focused.closest(".visitor-thread-comment-form")) return;
       refreshThreads();
     }, 15000);
   }
