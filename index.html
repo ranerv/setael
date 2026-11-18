@@ -541,6 +541,38 @@
     .content-like { display: inline-flex; min-height: 35px; align-items: center; gap: 6px; padding: 6px 11px; border: 1px solid #ffffff99; border-radius: 999px; background: #ffffff20; color: #fff; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 700; }
     .content-like[aria-pressed="true"] { border-color: #fff; background: #fff; color: #c65e7e; }
     .content-like:disabled { cursor: wait; opacity: .7; }
+    /* Daily note reply box */
+    .daily-note-reply { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ffffff33; }
+    .daily-note-reply form { display: flex; gap: 7px; align-items: flex-end; }
+    .daily-note-reply input {
+      flex: 1;
+      min-height: 36px;
+      padding: 7px 11px;
+      border: 1px solid #ffffff66;
+      border-radius: 999px;
+      background: #ffffff18;
+      color: #fff;
+      font: inherit;
+      font-size: .78rem;
+    }
+    .daily-note-reply input::placeholder { color: #ffffff88; }
+    .daily-note-reply input:focus-visible { outline: 2px solid #ffffff99; outline-offset: 2px; }
+    .daily-note-reply button {
+      min-height: 36px;
+      padding: 7px 14px;
+      border: 1px solid #ffffff88;
+      border-radius: 999px;
+      background: #ffffff20;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-size: .78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .daily-note-reply button:hover { background: #ffffff35; }
+    .daily-note-reply button:disabled { cursor: wait; opacity: .6; }
+    .daily-note-reply-status { min-height: 1.2em; margin: 6px 0 0; color: #fff; font-size: .72rem; opacity: .9; }
     .content-like-status { min-height: 1.2em; margin: 4px 0 0; color: #fff; font-size: .72rem; }
     .hero-actions { display: flex; flex-wrap: wrap; gap: 9px; }
     .hero .text-button { min-height: 37px; padding: 8px 17px; border-radius: 999px; background: #fff; color: #df8da7; font-size: .78rem; }
@@ -1148,6 +1180,13 @@
                 <p class="feature-excerpt" id="daily-note-content"></p>
                 <button class="content-like" id="daily-note-like" type="button" data-content-like aria-pressed="false" disabled>♡ Like note</button>
                 <p class="content-like-status" id="daily-note-like-status" role="status" aria-live="polite"></p>
+                <div class="daily-note-reply">
+                  <form id="daily-note-reply-form" autocomplete="off">
+                    <input id="daily-note-reply-input" maxlength="500" placeholder="Leave a reply…" aria-label="Reply to the daily note">
+                    <button id="daily-note-reply-btn" type="submit">Send</button>
+                  </form>
+                  <p class="daily-note-reply-status" id="daily-note-reply-status" role="status" aria-live="polite"></p>
+                </div>
               </div>
             </div>
             <svg class="hero-art" viewBox="0 0 340 300" role="img" aria-label="Illustration of a tiny garden door surrounded by flowers">
@@ -2398,6 +2437,57 @@
     });
 
     if (sessionStorage.getItem(accessSessionKey) === "true") unlockSite();
+
+    // ── Daily note reply ─────────────────────────────────────────────────────
+    (function () {
+      const replyForm   = document.getElementById("daily-note-reply-form");
+      const replyInput  = document.getElementById("daily-note-reply-input");
+      const replyBtn    = document.getElementById("daily-note-reply-btn");
+      const replyStatus = document.getElementById("daily-note-reply-status");
+
+      replyForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const message = replyInput.value.trim();
+        if (!message) return;
+        if (!window.VisitorTools) {
+          replyStatus.textContent = "Not ready yet — try again in a moment.";
+          return;
+        }
+        // note_id matches what the like button uses: Math.floor(savedAt)
+        const noteId = document.getElementById("daily-note-like").dataset.contentId;
+        if (!noteId) {
+          replyStatus.textContent = "No active daily note to reply to.";
+          return;
+        }
+        replyBtn.disabled = true;
+        replyStatus.textContent = "Sending…";
+        try {
+          const token = window.VisitorTools.getToken();
+          const response = await fetch(`${supabaseUrl}/rest/v1/rpc/submit_daily_note_reply`, {
+            method: "POST",
+            headers: { apikey: publishableKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              p_visitor_token: token,
+              p_display_name: "Visitor",
+              p_note_id: noteId,
+              p_message: message
+            })
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || err.msg || `Failed (${response.status}).`);
+          }
+          replyInput.value = "";
+          replyStatus.textContent = "Sent ♥";
+          if (typeof window.logActivity === "function") window.logActivity("Click", "Daily note reply sent");
+        } catch (error) {
+          console.error("Could not send daily note reply.", error);
+          replyStatus.textContent = error.message || "Could not send. Try again.";
+        } finally {
+          replyBtn.disabled = false;
+        }
+      });
+    }());
 
     // ── Visitor share (daily note + photo) ───────────────────────────────────
     const visitorShareForm    = document.getElementById("visitor-share-form");

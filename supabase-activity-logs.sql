@@ -1954,3 +1954,85 @@ using (
 -- No additional policy needed for media_path/media_type columns
 
 notify pgrst, 'reload schema';
+
+-- ── Daily note replies (visitors reply to the daily note, admin sees them) ───
+
+create table if not exists public.daily_note_replies (
+  id bigint generated always as identity primary key,
+  visitor_token uuid not null,
+  display_name text not null default 'Visitor'
+    check (char_length(display_name) between 1 and 60),
+  note_id text not null
+    check (char_length(note_id) between 1 and 20),
+  message text not null
+    check (char_length(message) between 1 and 500 and message = btrim(message)),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists daily_note_replies_created_idx
+  on public.daily_note_replies (created_at desc, id desc);
+
+alter table public.daily_note_replies enable row level security;
+revoke all on public.daily_note_replies from anon, authenticated;
+grant select on public.daily_note_replies to authenticated;
+grant usage, select on sequence public.daily_note_replies_id_seq to authenticated;
+
+drop policy if exists "Only the listed owner can view daily note replies" on public.daily_note_replies;
+create policy "Only the listed owner can view daily note replies"
+on public.daily_note_replies for select to authenticated
+using ((select public.is_log_admin()));
+
+create or replace function public.submit_daily_note_reply(
+  p_visitor_token uuid,
+  p_display_name text,
+  p_note_id text,
+  p_message text
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_name text;
+  v_message text;
+  v_id bigint;
+  v_last timestamptz;
+begin
+  if p_visitor_token is null then
+    raise exception 'A session token is required.';
+  end if;
+
+  v_name    := coalesce(nullif(btrim(p_display_name), ''), 'Visitor');
+  v_message := btrim(coalesce(p_message, ''));
+
+  if char_length(v_name) > 60 then
+    raise exception 'Name must be 60 characters or fewer.';
+  end if;
+  if char_length(v_message) not between 1 and 500 then
+    raise exception 'Reply must be between 1 and 500 characters.';
+  end if;
+  if p_note_id is null or char_length(p_note_id) = 0 then
+    raise exception 'Note ID is required.';
+  end if;
+
+  -- Rate limit: one reply per visitor per note per 30 seconds
+  select max(created_at) into v_last
+  from public.daily_note_replies
+  where visitor_token = p_visitor_token and note_id = p_note_id;
+  if v_last > now() - interval '30 seconds' then
+    raise exception 'Please wait a moment before replying again.';
+  end if;
+
+  insert into public.daily_note_replies (visitor_token, display_name, note_id, message)
+  values (p_visitor_token, v_name, p_note_id, v_message)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+revoke all on function public.submit_daily_note_reply(uuid, text, text, text) from public, anon, authenticated;
+grant execute on function public.submit_daily_note_reply(uuid, text, text, text) to anon, authenticated;
+
+notify pgrst, 'reload schema';

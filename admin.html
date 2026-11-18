@@ -465,6 +465,7 @@
         <a class="admin-nav-link" href="#photos"><span aria-hidden="true">▧</span>Photos</a>
         <a class="admin-nav-link" href="#settings"><span aria-hidden="true">⚙</span>Site settings</a>
         <a class="admin-nav-link" href="#daily-note"><span aria-hidden="true">✉</span>Daily note</a>
+        <a class="admin-nav-link" href="#daily-note-replies-panel"><span aria-hidden="true">✍</span>Note replies</a>
         <a class="admin-nav-link" href="#daily-media"><span aria-hidden="true">✧</span>Daily media</a>
         <a class="admin-nav-link" href="#invitation"><span aria-hidden="true">♡</span>Invitation</a>
       </nav>
@@ -720,6 +721,18 @@
           <button class="button" id="save-daily-note" type="submit">Save daily note</button>
         </form>
         <p class="status" id="daily-note-status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" id="daily-note-replies-panel" aria-labelledby="daily-note-replies-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="daily-note-replies-heading">Daily note replies</h2>
+            <p class="subtle">Visitor replies to the daily note. Only visible to you.</p>
+          </div>
+          <button class="button secondary" id="refresh-note-replies" type="button">Refresh</button>
+        </div>
+        <div class="checkin-list" id="daily-note-replies-list" aria-live="polite"></div>
+        <p class="status" id="daily-note-replies-status" role="status" aria-live="polite"></p>
       </section>
 
       <section class="panel" id="daily-media" aria-labelledby="daily-media-heading">
@@ -1023,7 +1036,8 @@
         loadVisitorThreads().catch((error) => setStatus(threadsStatus, error.message, true)),
         loadVisitorCheckins().catch((error) => setStatus(checkinsStatus, error.message, true)),
         loadReminderLogs(),
-        loadVisitorSubmissions()
+        loadVisitorSubmissions(),
+        loadDailyNoteReplies()
       ]);
       startThreadPolling();
     }
@@ -1465,6 +1479,49 @@
       }
     }
 
+    async function loadDailyNoteReplies() {
+      const statusEl = document.getElementById("daily-note-replies-status");
+      const listEl = document.getElementById("daily-note-replies-list");
+      setStatus(statusEl, "Loading...", false);
+      try {
+        const result = await api("/rest/v1/daily_note_replies?select=id,display_name,note_id,message,created_at&order=created_at.desc,id.desc&limit=100");
+        if (!Array.isArray(result)) throw new Error("Replies returned an unexpected response.");
+        listEl.replaceChildren();
+        if (!result.length) {
+          const empty = document.createElement("p");
+          empty.className = "subtle";
+          empty.textContent = "No replies yet.";
+          listEl.append(empty);
+          setStatus(statusEl, "", false);
+          return;
+        }
+        result.forEach((reply) => {
+          const row = document.createElement("article");
+          row.className = "checkin-row";
+          const head = document.createElement("div");
+          head.className = "checkin-row-head";
+          const name = document.createElement("strong");
+          name.textContent = reply.display_name || "Visitor";
+          const time = document.createElement("time");
+          time.dateTime = reply.created_at;
+          time.textContent = formatThreadTimestamp(reply.created_at);
+          head.append(name, time);
+          row.append(head);
+          const msg = document.createElement("p");
+          msg.textContent = reply.message;
+          row.append(msg);
+          const noteLabel = document.createElement("p");
+          noteLabel.style.cssText = "margin:4px 0 0;color:#aaa5aa;font-size:.72rem;";
+          noteLabel.textContent = "Note ID: " + reply.note_id;
+          row.append(noteLabel);
+          listEl.append(row);
+        });
+        setStatus(statusEl, result.length + " " + (result.length === 1 ? "reply" : "replies"), false);
+      } catch (error) {
+        console.error("Could not load daily note replies.", error);
+        setStatus(statusEl, error.message || "Could not load replies.", true);
+      }
+    }
     function visitorThreadImageUrl(path) {
       const safePath = path.split("/").map(encodeURIComponent).join("/");
       return `${supabaseUrl}/storage/v1/object/public/visitor-thread-images/${safePath}`;
@@ -2170,6 +2227,9 @@
     });
     document.getElementById("refresh-visitor-submissions").addEventListener("click", () => {
       loadVisitorSubmissions();
+    });
+    document.getElementById("refresh-note-replies").addEventListener("click", () => {
+      loadDailyNoteReplies();
     });
     adminThreadFeed.addEventListener("submit", submitOwnerThreadComment);
     document.getElementById("owner-thread-form").addEventListener("submit", submitOwnerThread);
