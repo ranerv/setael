@@ -596,10 +596,25 @@
         <div class="panel-head">
           <div>
             <h2 id="threads-heading">Visitor threads</h2>
-            <p class="subtle">Visitors’ private text and photo posts appear here. You can comment on their threads; visitors can edit or delete only their own posts.</p>
+            <p class="subtle">Post your own thread for everyone to see, or comment on visitor threads. Photos and videos supported.</p>
           </div>
           <button class="button secondary" id="refresh-threads" type="button">Refresh threads</button>
         </div>
+        <form id="owner-thread-form" style="margin-bottom:22px;padding:18px 20px;border:1px solid #f0e9ed;border-radius:16px;background:#fff;">
+          <p style="margin:0 0 12px;font-weight:750;color:#55535b;font-size:.95rem;">Post a new thread</p>
+          <div class="field">
+            <label for="owner-thread-content">What would you like to share?</label>
+            <textarea id="owner-thread-content" maxlength="2000" placeholder="Write something for everyone to see..." style="min-height:90px;"></textarea>
+          </div>
+          <div class="field">
+            <label for="owner-thread-media">Add a photo or video (optional, up to 100 MB)</label>
+            <input id="owner-thread-media" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime">
+          </div>
+          <div class="form-actions" style="margin-top:10px;">
+            <button class="button" id="save-owner-thread" type="submit">Post thread</button>
+          </div>
+        </form>
+        <p class="status" id="owner-thread-status" role="status" aria-live="polite"></p>
         <div class="entry-list admin-thread-feed" id="admin-thread-feed" aria-live="polite"></div>
         <p class="status" id="threads-status" role="status" aria-live="polite"></p>
       </section>
@@ -1455,12 +1470,40 @@
       return `${supabaseUrl}/storage/v1/object/public/visitor-thread-images/${safePath}`;
     }
 
+    function adminThreadMediaUrl(path) {
+      const safePath = path.split("/").map(encodeURIComponent).join("/");
+      return supabaseUrl + "/storage/v1/object/public/visitor-thread-images/" + safePath;
+    }
+
+    function createAdminMediaElement(mediaPath, mediaType, legacyImagePath) {
+      const path = mediaPath || legacyImagePath;
+      if (!path) return null;
+      const url = adminThreadMediaUrl(path);
+      const type = mediaPath ? mediaType : "image";
+      if (type === "video") {
+        const video = document.createElement("video");
+        video.src = url;
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = "metadata";
+        video.className = "admin-thread-image";
+        video.style.maxHeight = "360px";
+        return video;
+      }
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Attached media";
+      img.loading = "lazy";
+      img.className = "admin-thread-image";
+      return img;
+    }
+
     function renderVisitorThreads() {
       adminThreadFeed.replaceChildren();
       if (!visitorThreads.length) {
         const empty = document.createElement("p");
         empty.className = "admin-thread-empty";
-        empty.textContent = "No visitor threads yet.";
+        empty.textContent = "No threads yet.";
         adminThreadFeed.append(empty);
         return;
       }
@@ -1468,34 +1511,32 @@
       visitorThreads.forEach((thread) => {
         const card = document.createElement("article");
         card.className = "admin-thread-card";
+        if (thread.is_owner_post) card.style.borderLeft = "4px solid #f3a9c0";
+
         const header = document.createElement("div");
         header.className = "admin-thread-head";
         const author = document.createElement("strong");
-        author.textContent = thread.display_name || "Visitor";
+        author.textContent = (thread.is_owner_post ? "Owner: " : "") + (thread.display_name || "Visitor");
         const date = document.createElement("time");
         date.textContent = formatThreadTimestamp(thread.created_at);
         header.append(author, date);
         card.append(header);
+
         if (thread.content) {
           const content = document.createElement("p");
           content.className = "admin-thread-content";
           content.textContent = thread.content;
           card.append(content);
         }
-        if (thread.image_path) {
-          const image = document.createElement("img");
-          image.className = "admin-thread-image";
-          image.src = visitorThreadImageUrl(thread.image_path);
-          image.alt = "Photo attached to visitor thread";
-          image.loading = "lazy";
-          card.append(image);
-        }
+
+        const threadMedia = createAdminMediaElement(thread.media_path, thread.media_type, thread.image_path);
+        if (threadMedia) card.append(threadMedia);
 
         const comments = document.createElement("div");
         comments.className = "admin-thread-comments";
-        threadComments.filter((comment) => String(comment.thread_id) === String(thread.id)).forEach((comment) => {
+        threadComments.filter((c) => String(c.thread_id) === String(thread.id)).forEach((comment) => {
           const item = document.createElement("article");
-          item.className = `admin-thread-comment ${comment.sender === "owner" ? "owner" : ""}`;
+          item.className = "admin-thread-comment" + (comment.sender === "owner" ? " owner" : "");
           const label = document.createElement("strong");
           label.textContent = comment.sender_label || (comment.sender === "owner" ? "Owner" : "Visitor");
           const timestamp = document.createElement("time");
@@ -1503,31 +1544,41 @@
           const body = document.createElement("p");
           body.textContent = comment.content;
           item.append(label, timestamp, body);
+          const commentMedia = createAdminMediaElement(comment.media_path, comment.media_type, null);
+          if (commentMedia) item.append(commentMedia);
           comments.append(item);
         });
         card.append(comments);
+
+        // Reply form with media support
         const form = document.createElement("form");
         form.className = "admin-thread-reply";
         form.dataset.threadId = String(thread.id);
         const field = document.createElement("textarea");
         field.maxLength = 1000;
-        field.required = true;
-        field.placeholder = "Write a comment…";
-        field.setAttribute("aria-label", `Comment on ${thread.display_name || "visitor"} thread`);
+        field.placeholder = "Write a comment...";
+        field.setAttribute("aria-label", "Comment on " + (thread.display_name || "visitor") + " thread");
+        const fileLabel = document.createElement("label");
+        fileLabel.style.cssText = "display:flex;align-items:center;gap:6px;margin-top:6px;font-size:.8rem;color:#827d85;cursor:pointer;";
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.className = "admin-comment-media-input";
+        fileInput.accept = "image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime";
+        fileInput.style.cssText = "max-width:200px;font-size:.76rem;";
+        fileLabel.append("\uD83D\uDCCE Attach photo/video", fileInput);
         const submit = document.createElement("button");
         submit.className = "button";
         submit.type = "submit";
         submit.textContent = "Comment";
-        form.append(field, submit);
+        form.append(field, fileLabel, submit);
         card.append(form);
         adminThreadFeed.append(card);
       });
     }
-
     async function loadVisitorThreads() {
       const [threads, comments] = await Promise.all([
-        api("/rest/v1/visitor_threads?select=id,display_name,content,image_path,created_at&order=created_at.desc"),
-        api("/rest/v1/visitor_thread_comments?select=id,thread_id,sender,sender_label,content,created_at&order=created_at.asc")
+        api("/rest/v1/visitor_threads?select=id,display_name,content,image_path,media_path,media_type,is_owner_post,created_at&order=created_at.desc"),
+        api("/rest/v1/visitor_thread_comments?select=id,thread_id,sender,sender_label,content,media_path,media_type,created_at&order=created_at.asc")
       ]);
       if (!Array.isArray(threads) || !Array.isArray(comments)) {
         throw new Error("Visitor threads returned an unexpected response.");
@@ -1550,17 +1601,102 @@
       }, 15000);
     }
 
+    const adminMediaExtensions = {
+      "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif",
+      "image/webp": "webp", "image/avif": "avif",
+      "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov"
+    };
+
+    async function uploadAdminMedia(file) {
+      if (!adminMediaExtensions[file.type]) throw new Error("Unsupported file type.");
+      const isVideo = file.type.startsWith("video/");
+      const maxSize = isVideo ? 100 * 1024 * 1024 : 5 * 1024 * 1024;
+      if (file.size > maxSize) throw new Error(isVideo ? "Video must be 100 MB or smaller." : "Photo must be 5 MB or smaller.");
+      const ext = adminMediaExtensions[file.type];
+      const path = "owner/" + crypto.randomUUID() + "." + ext;
+      const safePath = path.split("/").map(encodeURIComponent).join("/");
+      const response = await fetch(supabaseUrl + "/storage/v1/object/visitor-thread-images/" + safePath, {
+        method: "POST",
+        headers: {
+          apikey: publishableKey,
+          Authorization: "Bearer " + accessToken,
+          "Content-Type": file.type,
+          "x-upsert": "false"
+        },
+        body: file
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.message || result.error || "Upload failed (" + response.status + ").");
+      }
+      return { path, mediaType: isVideo ? "video" : "image" };
+    }
+
+    async function submitOwnerThread(event) {
+      event.preventDefault();
+      const contentField = document.getElementById("owner-thread-content");
+      const mediaInput = document.getElementById("owner-thread-media");
+      const submitBtn = document.getElementById("save-owner-thread");
+      const statusEl = document.getElementById("owner-thread-status");
+      const content = contentField.value.trim();
+      const file = mediaInput.files[0] || null;
+      if (!content && !file) {
+        setStatus(statusEl, "Write something or add media before posting.", true);
+        return;
+      }
+      submitBtn.disabled = true;
+      setStatus(statusEl, file ? "Uploading media..." : "Posting...");
+      try {
+        let mediaPath = null;
+        let mediaType = null;
+        if (file) {
+          const uploaded = await uploadAdminMedia(file);
+          mediaPath = uploaded.path;
+          mediaType = uploaded.mediaType;
+          setStatus(statusEl, "Saving thread...");
+        }
+        await api("/rest/v1/rpc/create_owner_thread", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            p_display_name: "Owner",
+            p_content: content,
+            p_media_path: mediaPath,
+            p_media_type: mediaType
+          })
+        });
+        contentField.value = "";
+        mediaInput.value = "";
+        setStatus(statusEl, "Thread posted.");
+        await loadVisitorThreads();
+      } catch (error) {
+        console.error("Could not post owner thread.", error);
+        setStatus(statusEl, error.message || "Could not post the thread.", true);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    }
+
     async function submitOwnerThreadComment(event) {
       event.preventDefault();
       const form = event.target;
       if (!(form instanceof HTMLFormElement) || !form.matches(".admin-thread-reply")) return;
       const field = form.querySelector("textarea");
-      const submit = form.querySelector("button");
+      const fileInput = form.querySelector(".admin-comment-media-input");
+      const submit = form.querySelector("button[type='submit']");
       const content = field.value.trim();
-      if (!content) return;
+      const file = fileInput ? (fileInput.files[0] || null) : null;
+      if (!content && !file) return;
       submit.disabled = true;
-      setStatus(threadsStatus, "Sending comment…");
+      setStatus(threadsStatus, "Sending comment...");
       try {
+        let mediaPath = null;
+        let mediaType = null;
+        if (file) {
+          const uploaded = await uploadAdminMedia(file);
+          mediaPath = uploaded.path;
+          mediaType = uploaded.mediaType;
+        }
         await api("/rest/v1/visitor_thread_comments", {
           method: "POST",
           headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
@@ -1568,10 +1704,13 @@
             thread_id: Number(form.dataset.threadId),
             sender: "owner",
             sender_label: "Owner",
-            content
+            content: content,
+            media_path: mediaPath,
+            media_type: mediaType
           })
         });
         field.value = "";
+        if (fileInput) fileInput.value = "";
         await loadVisitorThreads();
         setStatus(threadsStatus, "Comment sent.");
       } catch (error) {
@@ -1581,7 +1720,6 @@
         submit.disabled = false;
       }
     }
-
     async function removeEntry(entry) {
       if (!window.confirm(`Remove "${entry.title}" from the visitor site? This cannot be undone.`)) return;
       setStatus(entryStatus, "Removing entry…");
@@ -2034,6 +2172,7 @@
       loadVisitorSubmissions();
     });
     adminThreadFeed.addEventListener("submit", submitOwnerThreadComment);
+    document.getElementById("owner-thread-form").addEventListener("submit", submitOwnerThread);
 
     entryForm.addEventListener("submit", async (event) => {
       event.preventDefault();

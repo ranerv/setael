@@ -33,7 +33,8 @@
     timer: null,
     saving: false,
     editingId: null,
-    imagePath: null
+    imagePath: null,
+    mediaType: null
   };
 
   function getElement(id) {
@@ -612,7 +613,70 @@
     return `${supabaseUrl}/storage/v1/object/public/visitor-thread-images/${safePath}`;
   }
 
-  function threadDateLabel(value) {
+  const threadMediaExtensions = {
+    "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif",
+    "image/webp": "webp", "image/avif": "avif",
+    "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov"
+  };
+
+  function isVideoType(mimeType) {
+    return mimeType && mimeType.startsWith("video/");
+  }
+
+  function threadMediaType(mimeType) {
+    return isVideoType(mimeType) ? "video" : "image";
+  }
+
+  async function uploadThreadMedia(file, token) {
+    if (!threadMediaExtensions[file.type]) {
+      throw new Error("Choose a JPEG, PNG, GIF, WebP, AVIF image or MP4/WebM/MOV video.");
+    }
+    const maxSize = isVideoType(file.type) ? 100 * 1024 * 1024 : 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new Error(isVideoType(file.type) ? "Videos must be 100 MB or smaller." : "Photos must be 5 MB or smaller.");
+    }
+    const ext = threadMediaExtensions[file.type];
+    const path = `${token}/${window.crypto.randomUUID()}.${ext}`;
+    const safePath = path.split("/").map(encodeURIComponent).join("/");
+    const response = await fetch(`${supabaseUrl}/storage/v1/object/visitor-thread-images/${safePath}`, {
+      method: "POST",
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${publishableKey}`,
+        "Content-Type": file.type,
+        "x-upsert": "false"
+      },
+      body: file
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result.message || result.error || `Upload failed (${response.status}).`);
+    }
+    return { path, mediaType: threadMediaType(file.type) };
+  }
+
+  function createMediaElement(mediaPath, mediaType, legacyImagePath) {
+    const path = mediaPath || legacyImagePath;
+    if (!path) return null;
+    const url = threadImageUrl(path);
+    const type = mediaPath ? mediaType : "image";
+    if (type === "video") {
+      const video = document.createElement("video");
+      video.src = url;
+      video.controls = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+      video.className = "visitor-thread-image";
+      video.style.maxHeight = "360px";
+      return video;
+    }
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "Attached media";
+    img.loading = "lazy";
+    img.className = "visitor-thread-image";
+    return img;
+  }
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
     return new Intl.DateTimeFormat("en-PH", {
@@ -677,21 +741,16 @@
         content.textContent = post.content;
         card.append(content);
       }
-      if (post.image_path) {
-        const image = document.createElement("img");
-        image.className = "visitor-thread-image";
-        image.src = threadImageUrl(post.image_path);
-        image.alt = "Photo attached to this thread";
-        image.loading = "lazy";
-        card.append(image);
-      }
+      // Show media (new media_path/media_type, fallback to legacy image_path)
+      const threadMedia = createMediaElement(post.media_path, post.media_type, post.image_path);
+      if (threadMedia) card.append(threadMedia);
 
-      // Comments section — visible to all
+      // Comments section - visible to all
       const comments = document.createElement("div");
       comments.className = "visitor-thread-comments";
       (threadState.comments[String(post.id)] || []).forEach((comment) => {
         const item = document.createElement("article");
-        item.className = `visitor-thread-comment ${comment.sender === "owner" ? "owner" : ""}`;
+        item.className = "visitor-thread-comment" + (comment.sender === "owner" ? " owner" : "");
         const commentHeader = document.createElement("div");
         commentHeader.className = "visitor-thread-comment-head";
         const commentAuthor = document.createElement("strong");
@@ -700,39 +759,60 @@
         commentDate.textContent = threadDateLabel(comment.created_at);
         commentHeader.append(commentAuthor, commentDate);
 
-        // Show Delete only on the visitor's own comments
         const isOwnComment = comment.sender === "visitor"
           && comment.visitor_token && String(comment.visitor_token) === myToken;
         if (isOwnComment) {
+          const editBtn = document.createElement("button");
+          editBtn.type = "button";
+          editBtn.dataset.action = "edit-comment";
+          editBtn.dataset.commentId = String(comment.id);
+          editBtn.dataset.commentContent = comment.content;
+          editBtn.textContent = "Edit";
+          editBtn.style.cssText = "margin-left:auto;padding:2px 6px;border:1px solid #e7dfe4;border-radius:6px;background:transparent;color:#a64e68;cursor:pointer;font-size:.7rem;font-weight:700;";
           const delBtn = document.createElement("button");
           delBtn.type = "button";
           delBtn.dataset.action = "delete-comment";
           delBtn.dataset.commentId = String(comment.id);
           delBtn.textContent = "Delete";
-          delBtn.style.cssText = "margin-left:auto;padding:2px 0;border:0;background:transparent;color:#a64e68;cursor:pointer;font-size:.7rem;font-weight:700;";
-          commentHeader.append(delBtn);
+          delBtn.style.cssText = "padding:2px 6px;border:0;background:transparent;color:#a64e68;cursor:pointer;font-size:.7rem;font-weight:700;";
+          commentHeader.append(editBtn, delBtn);
         }
 
         const body = document.createElement("p");
         body.textContent = comment.content;
         item.append(commentHeader, body);
+
+        const commentMedia = createMediaElement(comment.media_path, comment.media_type, null);
+        if (commentMedia) item.append(commentMedia);
+
         comments.append(item);
       });
 
-      // Comment form — available to all visitors
+      // Comment form - available to all visitors
       const commentForm = document.createElement("form");
       commentForm.className = "visitor-thread-comment-form";
       commentForm.dataset.threadId = String(post.id);
+
       const commentInput = document.createElement("input");
       commentInput.type = "text";
       commentInput.maxLength = 1000;
-      commentInput.required = true;
-      commentInput.placeholder = "Write a comment…";
-      commentInput.setAttribute("aria-label", `Comment on ${post.display_name || "this"} thread`);
+      commentInput.placeholder = "Write a comment...";
+      commentInput.setAttribute("aria-label", "Comment on " + (post.display_name || "this") + " thread");
+
+      const commentFileLabel = document.createElement("label");
+      commentFileLabel.style.cssText = "display:flex;align-items:center;gap:6px;margin-top:6px;font-size:.76rem;color:#827d85;cursor:pointer;";
+      const commentFileInput = document.createElement("input");
+      commentFileInput.type = "file";
+      commentFileInput.className = "comment-media-input";
+      commentFileInput.accept = "image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime";
+      commentFileInput.style.cssText = "max-width:180px;font-size:.74rem;";
+      commentFileLabel.append("\uD83D\uDCCE Attach photo/video", commentFileInput);
+
       const commentButton = document.createElement("button");
       commentButton.type = "submit";
       commentButton.textContent = "Comment";
-      commentForm.append(commentInput, commentButton);
+
+      commentForm.append(commentInput, commentFileLabel, commentButton);
       comments.append(commentForm);
       card.append(comments);
       feed.append(card);
@@ -764,6 +844,7 @@
   function resetThreadForm() {
     threadState.editingId = null;
     threadState.imagePath = null;
+    threadState.mediaType = null;
     getElement("visitor-thread-form").reset();
     getElement("visitor-thread-name").value = localStorage.getItem(threadNameKey) || "";
     getElement("visitor-thread-remove-image-field").hidden = true;
@@ -776,6 +857,7 @@
     if (!post) return;
     threadState.editingId = post.id;
     threadState.imagePath = post.image_path || null;
+    threadState.mediaType = post.media_type || (post.image_path ? "image" : null);
     getElement("visitor-thread-name").value = post.display_name || "";
     getElement("visitor-thread-content").value = post.content || "";
     getElement("visitor-thread-image").value = "";
@@ -786,25 +868,13 @@
     getElement("visitor-thread-form").scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
+  // uploadThreadImage now wraps uploadThreadMedia for backward compat
   async function uploadThreadImage(file, token) {
-    const extensions = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp", "image/avif": "avif" };
-    if (!extensions[file.type]) throw new Error("Choose a JPEG, PNG, GIF, WebP, or AVIF image.");
-    if (file.size > 5 * 1024 * 1024) throw new Error("Thread photos must be 5 MB or smaller.");
-    const path = `${token}/${window.crypto.randomUUID()}.${extensions[file.type]}`;
-    const safePath = path.split("/").map(encodeURIComponent).join("/");
-    const response = await fetch(`${supabaseUrl}/storage/v1/object/visitor-thread-images/${safePath}`, {
-      method: "POST",
-      headers: { apikey: publishableKey, Authorization: `Bearer ${publishableKey}`, "Content-Type": file.type, "x-upsert": "false" },
-      body: file
-    });
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({}));
-      throw new Error(result.message || result.error || `Photo upload failed (${response.status}).`);
-    }
-    return path;
+    const result = await uploadThreadMedia(file, token);
+    return result.path;
   }
 
-  async function saveThread(event) {
+    async function saveThread(event) {
     event.preventDefault();
     if (threadState.saving) return;
     const content = getElement("visitor-thread-content").value.trim();
@@ -822,12 +892,20 @@
     setStatus(getElement("visitor-thread-status"), threadState.editingId ? "Saving your changes…" : "Posting your thread…", false);
     try {
       const token = visitorToken();
-      const imagePath = file ? await uploadThreadImage(file, token) : (removeImage ? null : threadState.imagePath);
+      let mediaSavePath = threadState.imagePath;
+      let mediaSaveType = threadState.mediaType || "image";
+      if (removeImage) { mediaSavePath = null; mediaSaveType = null; }
+      if (file) {
+        const uploaded = await uploadThreadMedia(file, token);
+        mediaSavePath = uploaded.path;
+        mediaSaveType = uploaded.mediaType;
+      }
+      const imagePath = (mediaSaveType === "image" || !mediaSavePath) ? mediaSavePath : null;
       await callVisitorRpc(
         threadState.editingId ? "update_visitor_thread" : "create_visitor_thread",
         threadState.editingId
-          ? { p_visitor_token: token, p_thread_id: threadState.editingId, p_display_name: name, p_content: content, p_image_path: imagePath }
-          : { p_visitor_token: token, p_display_name: name, p_content: content, p_image_path: imagePath }
+          ? { p_visitor_token: token, p_thread_id: threadState.editingId, p_display_name: name, p_content: content, p_image_path: imagePath, p_media_path: mediaSavePath, p_media_type: mediaSaveType }
+          : { p_visitor_token: token, p_display_name: name, p_content: content, p_image_path: imagePath, p_media_path: mediaSavePath, p_media_type: mediaSaveType }
       );
       localStorage.setItem(threadNameKey, name);
       resetThreadForm();
@@ -876,32 +954,63 @@
     event.preventDefault();
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.matches(".visitor-thread-comment-form")) return;
-    const input = form.querySelector("input");
-    const button = form.querySelector("button");
-    const content = input.value.trim();
-    if (!content) return;
-    const savedValue = input.value;
+    const input = form.querySelector("input[type='text']");
+    const fileInput = form.querySelector(".comment-media-input");
+    const button = form.querySelector("button[type='submit']");
+    const content = input ? input.value.trim() : "";
+    const file = fileInput ? (fileInput.files[0] || null) : null;
+    if (!content && !file) return;
+    const savedValue = input ? input.value : "";
     button.disabled = true;
     try {
-      // Uses the new public RPC — any visitor can comment on any thread
+      const token = visitorToken();
+      let commentMediaPath = null;
+      let commentMediaType = null;
+      if (file) {
+        const uploaded = await uploadThreadMedia(file, token);
+        commentMediaPath = uploaded.path;
+        commentMediaType = uploaded.mediaType;
+      }
       await callVisitorRpc("add_comment_to_thread", {
-        p_visitor_token: visitorToken(),
+        p_visitor_token: token,
         p_thread_id: Number(form.dataset.threadId),
         p_display_name: getElement("visitor-thread-name").value.trim() || localStorage.getItem(threadNameKey) || "Visitor",
-        p_content: content
+        p_content: content,
+        p_media_path: commentMediaPath,
+        p_media_type: commentMediaType
       });
-      input.value = "";
+      if (input) input.value = "";
+      if (fileInput) fileInput.value = "";
       await loadThreads();
       setStatus(getElement("visitor-thread-status"), "Comment added.", false);
     } catch (error) {
       console.error("Could not add the visitor thread comment.", error);
-      input.value = savedValue; // restore what they typed
+      if (input) input.value = savedValue;
       setStatus(getElement("visitor-thread-status"), error.message || "Your comment could not be added.", true);
     } finally {
       button.disabled = false;
     }
   }
 
+  async function editComment(commentId, currentContent) {
+    const newContent = window.prompt("Edit your comment:", currentContent);
+    if (newContent === null) return; // cancelled
+    const trimmed = newContent.trim();
+    if (!trimmed) { alert("Comment cannot be empty."); return; }
+    setStatus(getElement("visitor-thread-status"), "Saving edit...", false);
+    try {
+      await callVisitorRpc("edit_visitor_thread_comment", {
+        p_visitor_token: visitorToken(),
+        p_comment_id: Number(commentId),
+        p_content: trimmed
+      });
+      await loadThreads();
+      setStatus(getElement("visitor-thread-status"), "Comment updated.", false);
+    } catch (error) {
+      console.error("Could not edit the visitor thread comment.", error);
+      setStatus(getElement("visitor-thread-status"), error.message || "The comment could not be edited.", true);
+    }
+  }
   function refreshThreads() {
     // Save any comment text the visitor is currently typing
     const drafts = {};
@@ -951,6 +1060,7 @@
         if (button.dataset.action === "edit") editThread(button.dataset.threadId);
         if (button.dataset.action === "delete") deleteThread(button.dataset.threadId);
         if (button.dataset.action === "delete-comment") deleteComment(button.dataset.commentId);
+        if (button.dataset.action === "edit-comment") editComment(button.dataset.commentId, button.dataset.commentContent);
       });
       getElement("visitor-thread-feed").addEventListener("submit", sendThreadComment);
       startThreadPolling();

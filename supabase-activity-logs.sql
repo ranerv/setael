@@ -1598,3 +1598,359 @@ grant execute on function public.get_my_visitor_submissions(uuid) to anon, authe
 grant execute on function public.delete_visitor_submission(uuid, bigint) to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ── Threads: video support, comment media, admin posting, comment editing ────
+
+-- 1. Add media columns to visitor_threads (alongside existing image_path)
+alter table public.visitor_threads
+  add column if not exists media_path text
+    check (media_path is null or char_length(media_path) <= 255),
+  add column if not exists media_type text
+    check (media_type is null or media_type in ('image', 'video')),
+  add column if not exists is_owner_post boolean not null default false;
+
+-- 2. Add media + edit columns to visitor_thread_comments
+alter table public.visitor_thread_comments
+  add column if not exists media_path text
+    check (media_path is null or char_length(media_path) <= 255),
+  add column if not exists media_type text
+    check (media_type is null or media_type in ('image', 'video')),
+  add column if not exists updated_at timestamptz;
+
+-- 3. Expand visitor-thread-images bucket to allow videos
+update storage.buckets
+set
+  file_size_limit = 104857600,
+  allowed_mime_types = array[
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
+    'video/mp4', 'video/webm', 'video/quicktime'
+  ]
+where id = 'visitor-thread-images';
+
+-- 4. Allow visitors to delete their own thread media files
+drop policy if exists "Visitors can delete their own thread media" on storage.objects;
+create policy "Visitors can delete their own thread media"
+on storage.objects for delete to anon, authenticated
+using (
+  bucket_id = 'visitor-thread-images'
+  and (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+);
+
+-- 5. Grant comment update permission for edit support
+grant update (content, updated_at) on public.visitor_thread_comments to authenticated;
+
+-- 6. get_all_visitor_threads — now includes media_path, media_type, is_owner_post
+create or replace function public.get_all_visitor_threads()
+returns table (
+  id bigint,
+  visitor_token uuid,
+  display_name text,
+  content text,
+  image_path text,
+  media_path text,
+  media_type text,
+  is_owner_post boolean,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select t.id, t.visitor_token, t.display_name, t.content,
+         t.image_path, t.media_path, t.media_type, t.is_owner_post,
+         t.created_at, t.updated_at
+  from public.visitor_threads t
+  order by t.created_at desc, t.id desc;
+$$;
+
+-- 7. get_all_thread_comments — now includes media_path, media_type
+create or replace function public.get_all_thread_comments(p_thread_id bigint)
+returns table (
+  id bigint,
+  visitor_token uuid,
+  sender text,
+  sender_label text,
+  content text,
+  media_path text,
+  media_type text,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.id, c.visitor_token, c.sender, c.sender_label, c.content,
+         c.media_path, c.media_type, c.created_at, c.updated_at
+  from public.visitor_thread_comments c
+  where c.thread_id = p_thread_id
+  order by c.created_at, c.id;
+$$;
+
+-- 8. create_visitor_thread — updated to accept media_path + media_type
+create or replace function public.create_visitor_thread(
+  p_visitor_token uuid,
+  p_display_name text,
+  p_content text,
+  p_image_path text,
+  p_media_path text default null,
+  p_media_type text default null
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_name text;
+  v_content text;
+  v_thread_id bigint;
+  v_media_path text := p_media_path;
+  v_media_type text := p_media_type;
+begin
+  if p_visitor_token is null then
+    raise exception 'A private thread session is required.';
+  end if;
+  v_name := coalesce(nullif(btrim(p_display_name), ''), 'Visitor');
+  v_content := btrim(coalesce(p_content, ''));
+  if char_length(v_name) > 60 then raise exception 'Names must be 60 characters or fewer.'; end if;
+  if char_length(v_content) > 2000 then raise exception 'Threads must be 2,000 characters or fewer.'; end if;
+  if v_content = '' and p_image_path is null and v_media_path is null then
+    raise exception 'Write something or add a photo or video before posting.';
+  end if;
+  if v_media_type is not null and v_media_type not in ('image','video') then
+    raise exception 'Invalid media type.';
+  end if;
+  if v_media_path is not null then
+    if char_length(v_media_path) > 255
+      or split_part(v_media_path, '/', 1) <> p_visitor_token::text then
+      raise exception 'The media file does not belong to this session.';
+    end if;
+    if not exists (select 1 from storage.objects where bucket_id = 'visitor-thread-images' and name = v_media_path) then
+      raise exception 'The uploaded media file could not be found.';
+    end if;
+  end if;
+  insert into public.visitor_threads (visitor_token, display_name, content, image_path, media_path, media_type)
+  values (p_visitor_token, v_name, v_content, p_image_path, v_media_path, v_media_type)
+  returning id into v_thread_id;
+  return v_thread_id;
+end;
+$$;
+
+-- 9. update_visitor_thread — updated to accept media_path + media_type
+create or replace function public.update_visitor_thread(
+  p_visitor_token uuid,
+  p_thread_id bigint,
+  p_display_name text,
+  p_content text,
+  p_image_path text,
+  p_media_path text default null,
+  p_media_type text default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_name text;
+  v_content text;
+begin
+  if p_visitor_token is null then raise exception 'A private thread session is required.'; end if;
+  v_name := coalesce(nullif(btrim(p_display_name), ''), 'Visitor');
+  v_content := btrim(coalesce(p_content, ''));
+  if char_length(v_name) > 60 then raise exception 'Names must be 60 characters or fewer.'; end if;
+  if char_length(v_content) > 2000 then raise exception 'Threads must be 2,000 characters or fewer.'; end if;
+  if v_content = '' and p_image_path is null and p_media_path is null then
+    raise exception 'Write something or keep a photo or video before saving.';
+  end if;
+  if p_media_path is not null then
+    if char_length(p_media_path) > 255
+      or split_part(p_media_path, '/', 1) <> p_visitor_token::text then
+      raise exception 'The media file does not belong to this session.';
+    end if;
+  end if;
+  update public.visitor_threads
+  set display_name = v_name, content = v_content,
+      image_path = p_image_path, media_path = p_media_path,
+      media_type = p_media_type, updated_at = now()
+  where id = p_thread_id and visitor_token = p_visitor_token;
+  if not found then raise exception 'This thread could not be found for this browser.'; end if;
+  return true;
+end;
+$$;
+
+-- 10. add_comment_to_thread — updated to accept optional media
+create or replace function public.add_comment_to_thread(
+  p_visitor_token uuid,
+  p_thread_id bigint,
+  p_display_name text,
+  p_content text,
+  p_media_path text default null,
+  p_media_type text default null
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_content text;
+  v_name text;
+  v_last_comment timestamptz;
+  v_comment_id bigint;
+begin
+  if p_visitor_token is null then raise exception 'A session token is required to comment.'; end if;
+  if not exists (select 1 from public.visitor_threads where id = p_thread_id) then
+    raise exception 'This thread could not be found.';
+  end if;
+  v_content := btrim(coalesce(p_content, ''));
+  v_name := coalesce(nullif(btrim(p_display_name), ''), 'Visitor');
+  if char_length(v_content) > 1000 then raise exception 'Comments must be 1,000 characters or fewer.'; end if;
+  if v_content = '' and p_media_path is null then
+    raise exception 'Write something or add a photo or video before commenting.';
+  end if;
+  if char_length(v_name) > 60 then raise exception 'Names must be 60 characters or fewer.'; end if;
+  if p_media_type is not null and p_media_type not in ('image','video') then
+    raise exception 'Invalid media type.';
+  end if;
+  if p_media_path is not null then
+    if char_length(p_media_path) > 255
+      or split_part(p_media_path, '/', 1) <> p_visitor_token::text then
+      raise exception 'The media file does not belong to this session.';
+    end if;
+    if not exists (select 1 from storage.objects where bucket_id = 'visitor-thread-images' and name = p_media_path) then
+      raise exception 'The uploaded media could not be found.';
+    end if;
+  end if;
+  select max(created_at) into v_last_comment
+  from public.visitor_thread_comments
+  where thread_id = p_thread_id and visitor_token = p_visitor_token;
+  if v_last_comment > now() - interval '3 seconds' then
+    raise exception 'Please wait a moment before commenting again.';
+  end if;
+  insert into public.visitor_thread_comments
+    (thread_id, visitor_token, sender, sender_label, content, media_path, media_type)
+  values
+    (p_thread_id, p_visitor_token, 'visitor', v_name, v_content, p_media_path, p_media_type)
+  returning id into v_comment_id;
+  return v_comment_id;
+end;
+$$;
+
+-- 11. edit_visitor_thread_comment — new: visitor can edit their own comment text
+create or replace function public.edit_visitor_thread_comment(
+  p_visitor_token uuid,
+  p_comment_id bigint,
+  p_content text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_content text;
+begin
+  if p_visitor_token is null then raise exception 'A session token is required.'; end if;
+  v_content := btrim(coalesce(p_content, ''));
+  if char_length(v_content) not between 1 and 1000 then
+    raise exception 'Comments must be between 1 and 1,000 characters.';
+  end if;
+  update public.visitor_thread_comments
+  set content = v_content, updated_at = now()
+  where id = p_comment_id
+    and visitor_token = p_visitor_token
+    and sender = 'visitor';
+  if not found then raise exception 'This comment could not be found for your session.'; end if;
+  return true;
+end;
+$$;
+
+-- 12. create_owner_thread — admin can post a thread everyone sees
+create or replace function public.create_owner_thread(
+  p_display_name text,
+  p_content text,
+  p_media_path text default null,
+  p_media_type text default null
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_name text;
+  v_content text;
+  v_thread_id bigint;
+begin
+  if not (select public.is_log_admin()) then
+    raise exception 'Only the owner can post owner threads.';
+  end if;
+  v_name := coalesce(nullif(btrim(p_display_name), ''), 'Owner');
+  v_content := btrim(coalesce(p_content, ''));
+  if char_length(v_name) > 60 then raise exception 'Name must be 60 characters or fewer.'; end if;
+  if char_length(v_content) > 2000 then raise exception 'Thread must be 2,000 characters or fewer.'; end if;
+  if v_content = '' and p_media_path is null then
+    raise exception 'Write something or add media before posting.';
+  end if;
+  if p_media_type is not null and p_media_type not in ('image','video') then
+    raise exception 'Invalid media type.';
+  end if;
+  -- Owner threads use a nil UUID as token (never matches a real visitor)
+  insert into public.visitor_threads
+    (visitor_token, display_name, content, media_path, media_type, is_owner_post)
+  values
+    ('00000000-0000-0000-0000-000000000000'::uuid, v_name, v_content, p_media_path, p_media_type, true)
+  returning id into v_thread_id;
+  return v_thread_id;
+end;
+$$;
+
+-- 13. Revoke/grant all updated and new functions
+revoke all on function public.get_all_visitor_threads() from public, anon, authenticated;
+revoke all on function public.get_all_thread_comments(bigint) from public, anon, authenticated;
+revoke all on function public.create_visitor_thread(uuid, text, text, text) from public, anon, authenticated;
+revoke all on function public.create_visitor_thread(uuid, text, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.update_visitor_thread(uuid, bigint, text, text, text) from public, anon, authenticated;
+revoke all on function public.update_visitor_thread(uuid, bigint, text, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.add_comment_to_thread(uuid, bigint, text, text) from public, anon, authenticated;
+revoke all on function public.add_comment_to_thread(uuid, bigint, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.edit_visitor_thread_comment(uuid, bigint, text) from public, anon, authenticated;
+revoke all on function public.create_owner_thread(text, text, text, text) from public, anon, authenticated;
+
+grant execute on function public.get_all_visitor_threads() to anon, authenticated;
+grant execute on function public.get_all_thread_comments(bigint) to anon, authenticated;
+grant execute on function public.create_visitor_thread(uuid, text, text, text, text, text) to anon, authenticated;
+grant execute on function public.update_visitor_thread(uuid, bigint, text, text, text, text, text) to anon, authenticated;
+grant execute on function public.add_comment_to_thread(uuid, bigint, text, text, text, text) to anon, authenticated;
+grant execute on function public.edit_visitor_thread_comment(uuid, bigint, text) to anon, authenticated;
+grant execute on function public.create_owner_thread(text, text, text, text) to authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ── Allow owner to upload media to visitor-thread-images bucket ──────────────
+drop policy if exists "Owner can upload thread media" on storage.objects;
+create policy "Owner can upload thread media"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'visitor-thread-images'
+  and (select public.is_log_admin())
+);
+
+drop policy if exists "Owner can delete thread media" on storage.objects;
+create policy "Owner can delete thread media"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'visitor-thread-images'
+  and (select public.is_log_admin())
+);
+
+-- Allow insert on visitor_thread_comments media columns (they were added via ALTER)
+-- The existing insert policy already covers it since it only checks sender/sender_label/visitor_token
+-- No additional policy needed for media_path/media_type columns
+
+notify pgrst, 'reload schema';
