@@ -2036,3 +2036,110 @@ revoke all on function public.submit_daily_note_reply(uuid, text, text, text) fr
 grant execute on function public.submit_daily_note_reply(uuid, text, text, text) to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ── Remove character limits on threads and comments ──────────────────────────
+
+-- Raise thread content limit to 100,000 characters (effectively unlimited)
+alter table public.visitor_threads
+  drop constraint if exists visitor_threads_content_check;
+alter table public.visitor_threads
+  add constraint visitor_threads_content_check
+  check (char_length(content) <= 100000);
+
+-- Raise comment content limit to 100,000 characters
+alter table public.visitor_thread_comments
+  drop constraint if exists visitor_thread_comments_content_check;
+alter table public.visitor_thread_comments
+  add constraint visitor_thread_comments_content_check
+  check (char_length(content) <= 100000 and content = btrim(content));
+
+-- Update create_visitor_thread to allow long content
+create or replace function public.create_visitor_thread(p_visitor_token uuid, p_display_name text, p_content text, p_image_path text, p_media_path text default null, p_media_type text default null)
+returns bigint language plpgsql security definer set search_path = ''
+as $$
+declare v_name text; v_content text; v_thread_id bigint;
+begin
+  if p_visitor_token is null then raise exception 'A private thread session is required.'; end if;
+  v_name := coalesce(nullif(btrim(p_display_name),''),'Visitor');
+  v_content := btrim(coalesce(p_content,''));
+  if char_length(v_name)>60 then raise exception 'Names must be 60 characters or fewer.'; end if;
+  if v_content='' and p_image_path is null and p_media_path is null then raise exception 'Write something or add media before posting.'; end if;
+  if p_media_path is not null and (char_length(p_media_path)>255 or split_part(p_media_path,'/',1)<>p_visitor_token::text) then raise exception 'The media file does not belong to this session.'; end if;
+  if p_media_path is not null and not exists(select 1 from storage.objects where bucket_id='visitor-thread-images' and name=p_media_path) then raise exception 'The uploaded media file could not be found.'; end if;
+  insert into public.visitor_threads(visitor_token,display_name,content,image_path,media_path,media_type)
+  values(p_visitor_token,v_name,v_content,p_image_path,p_media_path,p_media_type) returning id into v_thread_id;
+  return v_thread_id;
+end;$$;
+
+-- Update update_visitor_thread to allow long content
+create or replace function public.update_visitor_thread(p_visitor_token uuid, p_thread_id bigint, p_display_name text, p_content text, p_image_path text, p_media_path text default null, p_media_type text default null)
+returns boolean language plpgsql security definer set search_path = ''
+as $$
+declare v_name text; v_content text;
+begin
+  if p_visitor_token is null then raise exception 'A private thread session is required.'; end if;
+  v_name := coalesce(nullif(btrim(p_display_name),''),'Visitor');
+  v_content := btrim(coalesce(p_content,''));
+  if v_content='' and p_image_path is null and p_media_path is null then raise exception 'Write something or keep media before saving.'; end if;
+  update public.visitor_threads set display_name=v_name, content=v_content, image_path=p_image_path, media_path=p_media_path, media_type=p_media_type, updated_at=now()
+  where id=p_thread_id and visitor_token=p_visitor_token;
+  if not found then raise exception 'This thread could not be found for this browser.'; end if;
+  return true;
+end;$$;
+
+-- Update add_comment_to_thread to allow long comments
+create or replace function public.add_comment_to_thread(p_visitor_token uuid, p_thread_id bigint, p_display_name text, p_content text, p_media_path text default null, p_media_type text default null)
+returns bigint language plpgsql security definer set search_path = ''
+as $$
+declare v_content text; v_name text; v_last timestamptz; v_id bigint;
+begin
+  if p_visitor_token is null then raise exception 'A session token is required.'; end if;
+  if not exists(select 1 from public.visitor_threads where id=p_thread_id) then raise exception 'Thread not found.'; end if;
+  v_content := btrim(coalesce(p_content,''));
+  v_name := coalesce(nullif(btrim(p_display_name),''),'Visitor');
+  if v_content='' and p_media_path is null then raise exception 'Write something or add media before commenting.'; end if;
+  if p_media_path is not null and (char_length(p_media_path)>255 or split_part(p_media_path,'/',1)<>p_visitor_token::text) then raise exception 'Media does not belong to this session.'; end if;
+  if p_media_path is not null and not exists(select 1 from storage.objects where bucket_id='visitor-thread-images' and name=p_media_path) then raise exception 'Uploaded media not found.'; end if;
+  select max(created_at) into v_last from public.visitor_thread_comments where thread_id=p_thread_id and visitor_token=p_visitor_token;
+  if v_last > now()-interval '3 seconds' then raise exception 'Please wait before commenting again.'; end if;
+  insert into public.visitor_thread_comments(thread_id,visitor_token,sender,sender_label,content,media_path,media_type)
+  values(p_thread_id,p_visitor_token,'visitor',v_name,v_content,p_media_path,p_media_type) returning id into v_id;
+  return v_id;
+end;$$;
+
+-- Update edit_visitor_thread_comment to allow long comments
+create or replace function public.edit_visitor_thread_comment(p_visitor_token uuid, p_comment_id bigint, p_content text)
+returns boolean language plpgsql security definer set search_path = ''
+as $$
+declare v_content text;
+begin
+  if p_visitor_token is null then raise exception 'A session token is required.'; end if;
+  v_content := btrim(coalesce(p_content,''));
+  if char_length(v_content) = 0 then raise exception 'Comment cannot be empty.'; end if;
+  update public.visitor_thread_comments set content=v_content, updated_at=now()
+  where id=p_comment_id and visitor_token=p_visitor_token and sender='visitor';
+  if not found then raise exception 'Comment not found for your session.'; end if;
+  return true;
+end;$$;
+
+-- Update create_owner_thread to allow long content
+create or replace function public.create_owner_thread(p_display_name text, p_content text, p_media_path text default null, p_media_type text default null)
+returns bigint language plpgsql security definer set search_path = ''
+as $$
+declare v_thread_id bigint;
+begin
+  if not (select public.is_log_admin()) then raise exception 'Only the owner can post owner threads.'; end if;
+  if btrim(coalesce(p_content,''))='' and p_media_path is null then raise exception 'Write something or add media before posting.'; end if;
+  insert into public.visitor_threads(visitor_token,display_name,content,media_path,media_type,is_owner_post)
+  values('00000000-0000-0000-0000-000000000000'::uuid,coalesce(nullif(btrim(p_display_name),''),'Owner'),btrim(coalesce(p_content,'')),p_media_path,p_media_type,true)
+  returning id into v_thread_id;
+  return v_thread_id;
+end;$$;
+
+grant execute on function public.create_visitor_thread(uuid,text,text,text,text,text) to anon, authenticated;
+grant execute on function public.update_visitor_thread(uuid,bigint,text,text,text,text,text) to anon, authenticated;
+grant execute on function public.add_comment_to_thread(uuid,bigint,text,text,text,text) to anon, authenticated;
+grant execute on function public.edit_visitor_thread_comment(uuid,bigint,text) to anon, authenticated;
+grant execute on function public.create_owner_thread(text,text,text,text) to authenticated;
+
+notify pgrst, 'reload schema';

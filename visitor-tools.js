@@ -797,7 +797,7 @@
 
       const commentInput = document.createElement("input");
       commentInput.type = "text";
-      commentInput.maxLength = 1000;
+      // no maxlength limit on comments
       commentInput.placeholder = "Write a comment...";
       commentInput.setAttribute("aria-label", "Comment on " + (post.display_name || "this") + " thread");
 
@@ -884,8 +884,8 @@
     const file = getElement("visitor-thread-image").files[0] || null;
     const removeImage = getElement("visitor-thread-remove-image").checked;
     const wasEditing = Boolean(threadState.editingId);
-    if (!content && !file && !(threadState.imagePath && !removeImage)) {
-      setStatus(getElement("visitor-thread-status"), "Write something or add a photo before posting.", true);
+    if (!content && !file && !(mediaSavePath && !removeImage)) {
+      setStatus(getElement("visitor-thread-status"), "Write something or add media before posting.", true);
       return;
     }
     threadState.saving = true;
