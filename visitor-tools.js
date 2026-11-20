@@ -667,7 +667,17 @@
 
     reactBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      picker.hidden = !picker.hidden;
+      // Close all other open pickers first
+      document.querySelectorAll(".reaction-picker:not([hidden])").forEach((p) => { p.hidden = true; });
+      if (picker.hidden) {
+        document.body.append(picker);
+        const rect = reactBtn.getBoundingClientRect();
+        picker.style.top = (rect.top - 52 + window.scrollY) + "px";
+        picker.style.left = rect.left + "px";
+        picker.hidden = false;
+      } else {
+        picker.hidden = true;
+      }
     });
 
     bar.append(summary, reactBtn, picker);
@@ -854,7 +864,18 @@
             // Remove any existing reply form for this comment
             const existing = item.querySelector(".visitor-thread-comment-form");
             if (existing) { existing.remove(); return; }
-            const replyForm = buildCommentForm(post.id, comment.id, `Reply to ${comment.sender_label || "Visitor"}...`);
+            const replyForm = buildCommentForm(post.id, comment.id, "Write your reply...");
+            // Quote box showing original message
+            const quoteBox = document.createElement("div");
+            quoteBox.style.cssText = "margin-bottom:8px;padding:8px 12px;border-left:3px solid #f3a9c0;background:#fff8fa;border-radius:0 8px 8px 0;font-size:.82rem;color:#70656d;";
+            const quoteAuthor = document.createElement("strong");
+            quoteAuthor.style.cssText = "display:block;margin-bottom:3px;font-size:.75rem;color:#a64e68;";
+            quoteAuthor.textContent = (comment.sender_label || (comment.sender === "owner" ? "Owner" : "Visitor"));
+            const quoteText = document.createElement("p");
+            quoteText.style.cssText = "margin:0;white-space:pre-wrap;overflow-wrap:anywhere;max-height:60px;overflow:hidden;font-style:italic;";
+            quoteText.textContent = comment.content || "(media attachment)";
+            quoteBox.append(quoteAuthor, quoteText);
+            replyForm.prepend(quoteBox);
             item.append(replyForm);
             replyForm.querySelector("textarea").focus();
           });
@@ -983,7 +1004,7 @@
 
   async function deleteThread(id) {
     const post = threadState.posts.find((item) => String(item.id) === id);
-    if (!post || !window.confirm("Delete this thread and its comments? This cannot be undone.")) return;
+    if (!post) return;
     setStatus(getElement("visitor-thread-status"), "Deleting thread...", false);
     try {
       await callVisitorRpc("delete_visitor_thread", { p_visitor_token: visitorToken(), p_thread_id: post.id });
@@ -996,7 +1017,7 @@
   }
 
   async function deleteComment(commentId) {
-    if (!window.confirm("Delete this comment? This cannot be undone.")) return;
+    
     setStatus(getElement("visitor-thread-status"), "Deleting comment...", false);
     try {
       await callVisitorRpc("delete_visitor_thread_comment", { p_visitor_token: visitorToken(), p_comment_id: Number(commentId) });
@@ -1094,14 +1115,8 @@
   }
 
   function startThreadPolling() {
-    if (threadState.timer) window.clearInterval(threadState.timer);
-    threadState.timer = window.setInterval(() => {
-      if (getElement("page-threads").hidden || document.hidden) return;
-      // Skip if user is actively typing anywhere
-      const focused = document.activeElement;
-      if (focused && (focused.tagName === "INPUT" || focused.tagName === "TEXTAREA")) return;
-      refreshThreads();
-    }, 60000);
+    // No automatic polling — threads only refresh when the user clicks Refresh
+    // or navigates to the threads tab
   }
 
   function initThreads() {

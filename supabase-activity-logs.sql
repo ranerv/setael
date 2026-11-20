@@ -2322,3 +2322,21 @@ grant insert, delete on public.thread_reactions to anon, authenticated;
 grant update on public.thread_reactions to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ── Update create_owner_thread to use Raneb as default display name ──────────
+create or replace function public.create_owner_thread(p_display_name text, p_content text, p_media_path text default null, p_media_type text default null)
+returns bigint language plpgsql security definer set search_path = ''
+as $$
+declare v_thread_id bigint;
+begin
+  if not (select public.is_log_admin()) then raise exception 'Only the owner can post owner threads.'; end if;
+  if btrim(coalesce(p_content,''))='' and p_media_path is null then raise exception 'Write something or add media before posting.'; end if;
+  insert into public.visitor_threads(visitor_token,display_name,content,media_path,media_type,is_owner_post)
+  values('00000000-0000-0000-0000-000000000000'::uuid, coalesce(nullif(btrim(p_display_name),''),'Raneb'), btrim(coalesce(p_content,'')), p_media_path, p_media_type, true)
+  returning id into v_thread_id;
+  return v_thread_id;
+end;$$;
+
+grant execute on function public.create_owner_thread(text,text,text,text) to authenticated;
+
+notify pgrst, 'reload schema';

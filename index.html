@@ -1043,13 +1043,13 @@
     .visitor-thread-comment-head strong { font-size: .76rem; }
     .visitor-thread-comment-head time { color: #9a9298; font-size: .7rem; }
     /* Reactions */
-    .thread-reaction-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .thread-reaction-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; position: relative; }
     .thread-reaction-summary { display: flex; flex-wrap: wrap; gap: 4px; }
     .reaction-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border: 1px solid #f0e9ed; border-radius: 999px; background: #fff8fa; font-size: .78rem; cursor: default; }
     .reaction-badge.mine { border-color: #f3a9c0; background: #fff0f5; font-weight: 700; }
     .reaction-btn { min-height: 28px; padding: 3px 10px; border: 1px solid #f0e9ed; border-radius: 999px; background: #fff; color: #827d85; cursor: pointer; font: inherit; font-size: .78rem; position: relative; }
     .reaction-btn:hover { background: #fff0f5; }
-    .reaction-picker { display: flex; gap: 4px; padding: 6px 8px; border: 1px solid #f0e9ed; border-radius: 12px; background: #fff; box-shadow: 0 4px 14px #5c596014; position: absolute; z-index: 10; bottom: calc(100% + 6px); left: 0; }
+    .reaction-picker { display: flex; gap: 4px; padding: 6px 8px; border: 1px solid #f0e9ed; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px #5c596022; position: fixed; z-index: 999; }
     .reaction-pick { width: 34px; height: 34px; border: 0; background: transparent; cursor: pointer; font-size: 1.2rem; border-radius: 8px; transition: transform 120ms ease; }
     .reaction-pick:hover, .reaction-pick.active { transform: scale(1.3); background: #f8f0fb; }
     .visitor-thread-comment p { margin: 5px 0 0; color: #625c66; font-size: .84rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -1416,6 +1416,9 @@
             <h1>Private threads</h1>
             <p class="page-description">Share a thought, a moment, or something you would like the owner to see.</p>
           </div>
+          <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+            <button class="visitor-share-btn secondary" id="refresh-threads-btn" type="button" style="min-height:36px;padding:7px 14px;font-size:.82rem;">↻ Refresh</button>
+          </div>
           <p class="visitor-thread-reminder">Share a thought, a photo, or a video. Everyone can see threads and join the conversation. You can edit or delete your own threads and comments.</p>
           <form id="visitor-thread-form" class="visitor-thread-form">
             <div class="field">
@@ -1690,18 +1693,9 @@
       siteApp.hidden = false;
       loadSiteContent();
       sendPageView("home");
-      // Show the persistent floating check-in bubble and auto-open the dialog once
+      // Show the persistent floating check-in bubble (no auto-popup)
       const bubble = document.getElementById("checkin-bubble");
       bubble.hidden = false;
-      if (!checkinAutoOpened) {
-        checkinAutoOpened = true;
-        window.setTimeout(() => {
-          if (!checkinDialog.open) {
-            resetCheckinDialog();
-            checkinDialog.showModal();
-          }
-        }, 600);
-      }
     }
 
     function renderContentLike(button, result, label) {
@@ -2431,6 +2425,9 @@
     });
 
     document.getElementById("media-viewer-close").addEventListener("click", () => mediaViewer.close());
+    document.getElementById("refresh-threads-btn").addEventListener("click", () => {
+      if (window.VisitorTools) window.VisitorTools.refreshThreads();
+    });
     mediaViewer.addEventListener("cancel", (event) => {
       event.preventDefault();
       mediaViewer.close();
