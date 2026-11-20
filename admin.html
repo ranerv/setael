@@ -177,7 +177,7 @@
     body.admin-chat-mode .main-shell { min-height:100dvh;margin-left:0; }
     body.admin-chat-mode .dashboard-main { width:100%;margin:0;padding:0; }
     body.admin-chat-mode .dashboard-main > :not(#chat-inbox) { display:none !important; }
-    body.admin-chat-mode #chat-inbox { position:fixed;z-index:40;inset:0;display:flex;flex-direction:column;height:100dvh;min-height:0;margin:0;padding:16px clamp(12px,3vw,32px) max(10px,env(safe-area-inset-bottom));overflow:hidden;border:0;border-radius:0; }
+    body.admin-chat-mode #chat-inbox { position:fixed;z-index:40;inset:var(--chat-viewport-top,0px) 0 auto;display:flex;flex-direction:column;height:var(--chat-viewport-height,100dvh);min-height:0;margin:0;padding:16px clamp(12px,3vw,32px) max(10px,env(safe-area-inset-bottom));overflow:hidden;border:0;border-radius:0; }
     body.admin-chat-mode #chat-inbox .panel-head { flex:0 0 auto;flex-direction:row;align-items:center;margin-bottom:12px; }
     body.admin-chat-mode #chat-inbox .panel-head p { display:none; }
     body.admin-chat-mode .admin-chat-box { height:auto;min-height:0;flex:1; }
@@ -2789,6 +2789,8 @@
       messages: [], reactions: {}, replyTo: null, pendingFile: null,
       activeReactionMsgId: null, editingId: null, sending: false,
       pollTimer: null, initialized: false, loading: false, refreshQueued: false, followLatest: true,
+      messagesSignature: null, reactionsSignature: null, seenSignature: null,
+      userScrollActive: false, userScrollDirection: 0, scrollInteractionTimer: null,
       seenCounts: {}, seenNames: {}
     };
     const ADMIN_CHAT_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
@@ -2820,6 +2822,61 @@
       container.style.scrollBehavior = 'auto';
       container.scrollTop = container.scrollHeight;
       requestAnimationFrame(() => { container.style.scrollBehavior = previousBehavior; });
+    }
+
+    function updateAdminChatViewport() {
+      if (!document.body.classList.contains('admin-chat-mode')) return;
+      const chatPanel = document.getElementById('chat-inbox');
+      const viewport = window.visualViewport;
+      chatPanel.style.setProperty('--chat-viewport-height', `${viewport ? viewport.height : window.innerHeight}px`);
+      chatPanel.style.setProperty('--chat-viewport-top', `${viewport ? viewport.offsetTop : 0}px`);
+      if (adminChatState.followLatest) scrollAdminChatToLatest(document.getElementById('admin-chat-messages'));
+    }
+
+    function trackAdminChatScroll(container) {
+      let touchY = null;
+      let previousScrollTop = container.scrollTop;
+      const interactionEnded = () => {
+        window.clearTimeout(adminChatState.scrollInteractionTimer);
+        adminChatState.scrollInteractionTimer = window.setTimeout(() => {
+          adminChatState.userScrollActive = false;
+          adminChatState.userScrollDirection = 0;
+        }, 180);
+      };
+      container.addEventListener('wheel', event => {
+        adminChatState.userScrollActive = true;
+        adminChatState.userScrollDirection = Math.sign(event.deltaY);
+        interactionEnded();
+      }, { passive: true });
+      container.addEventListener('touchstart', event => {
+        touchY = event.touches[0].clientY;
+        adminChatState.userScrollActive = true;
+      }, { passive: true });
+      container.addEventListener('touchmove', event => {
+        const nextY = event.touches[0].clientY;
+        if (touchY !== null && nextY !== touchY) adminChatState.userScrollDirection = nextY < touchY ? 1 : -1;
+        touchY = nextY;
+        interactionEnded();
+      }, { passive: true });
+      container.addEventListener('touchend', () => {
+        touchY = null;
+        interactionEnded();
+      }, { passive: true });
+      container.addEventListener('pointerdown', () => {
+        adminChatState.userScrollActive = true;
+        interactionEnded();
+      });
+      window.addEventListener('pointerup', interactionEnded);
+      container.addEventListener('scroll', () => {
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        if (adminChatState.userScrollActive) {
+          const direction = adminChatState.userScrollDirection || Math.sign(container.scrollTop - previousScrollTop);
+          if (direction < 0) adminChatState.followLatest = false;
+          else if (direction > 0) adminChatState.followLatest = distanceFromBottom < 80;
+          interactionEnded();
+        }
+        previousScrollTop = container.scrollTop;
+      }, { passive: true });
     }
 
     const adminChatMediaViewer = document.getElementById('admin-chat-media-viewer');
@@ -2902,12 +2959,19 @@
       try {
         const msgs = await adminChatRpc('get_group_chat_messages', {});
         if (!Array.isArray(msgs)) throw new Error('The shared conversation response was invalid.');
+        const messagesSignature = JSON.stringify(msgs);
+        const messagesChanged = messagesSignature !== adminChatState.messagesSignature;
         adminChatState.messages = msgs;
-        renderAdminChatMessages(preserveScroll);
+        if (messagesChanged) {
+          adminChatState.messagesSignature = messagesSignature;
+          renderAdminChatMessages(preserveScroll);
+        }
         let loadWarning = '';
         try {
           const reactions = await adminChatRpc('get_group_chat_reactions', { p_visitor_token: adminChatToken() });
           if (!Array.isArray(reactions)) throw new Error('The reactions response was invalid.');
+          const reactionsSignature = JSON.stringify(reactions);
+          const reactionsChanged = reactionsSignature !== adminChatState.reactionsSignature;
           const nextReactions = {};
           reactions.forEach(r => {
             if (!nextReactions[r.message_id]) nextReactions[r.message_id] = {};
@@ -2915,6 +2979,10 @@
             if (r.my_reaction) nextReactions[r.message_id].myReaction = r.my_reaction;
           });
           adminChatState.reactions = nextReactions;
+          if (reactionsChanged) {
+            adminChatState.reactionsSignature = reactionsSignature;
+            renderAdminChatMessages(true);
+          }
         } catch (e) {
           console.error('Could not refresh chat reactions.', e);
           loadWarning = 'Messages loaded, but reactions could not be refreshed.';
@@ -2922,6 +2990,8 @@
         try {
           const seenCounts = await adminChatRpc('get_group_chat_seen_counts', {});
           if (!Array.isArray(seenCounts)) throw new Error('The read receipts response was invalid.');
+          const seenSignature = JSON.stringify(seenCounts);
+          const seenChanged = seenSignature !== adminChatState.seenSignature;
           const nextSeenCounts = {};
           const nextSeenNames = {};
           seenCounts.forEach(r => {
@@ -2932,11 +3002,14 @@
           });
           adminChatState.seenCounts = nextSeenCounts;
           adminChatState.seenNames = nextSeenNames;
+          if (seenChanged) {
+            adminChatState.seenSignature = seenSignature;
+            renderAdminChatMessages(true);
+          }
         } catch (e) {
           console.error('Could not refresh chat read receipts.', e);
           loadWarning = loadWarning || 'Messages loaded, but read receipts could not be refreshed.';
         }
-        renderAdminChatMessages(preserveScroll);
         setStatus(status, loadWarning, Boolean(loadWarning));
       } catch (e) {
         console.error('Could not load the shared conversation.', e);
@@ -3079,9 +3152,13 @@
 
     function renderAdminChatMessages(preserveScroll) {
       const container = document.getElementById('admin-chat-messages');
-      const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
-      adminChatState.followLatest = !preserveScroll || wasAtBottom;
-      const scrollFromBottom = container.scrollHeight - container.scrollTop;
+      if (!preserveScroll) adminChatState.followLatest = true;
+      const anchor = !adminChatState.followLatest
+        ? Array.from(container.children).find(row => row.getBoundingClientRect().bottom > container.getBoundingClientRect().top)
+        : null;
+      const anchorId = anchor && anchor.dataset.msgId;
+      const anchorTop = anchor ? anchor.getBoundingClientRect().top - container.getBoundingClientRect().top : 0;
+      const previousScrollTop = container.scrollTop;
       container.replaceChildren();
       if (!adminChatState.messages.length) {
         const empty = document.createElement('p');
@@ -3092,8 +3169,15 @@
         return;
       }
       adminChatState.messages.forEach(msg => container.append(buildAdminChatBubble(msg)));
-      if (!preserveScroll || wasAtBottom) scrollAdminChatToLatest(container);
-      else container.scrollTop = container.scrollHeight - scrollFromBottom;
+      if (adminChatState.followLatest) scrollAdminChatToLatest(container);
+      else {
+        const nextAnchor = anchorId && container.querySelector(`[data-msg-id="${anchorId}"]`);
+        if (nextAnchor) {
+          container.scrollTop += nextAnchor.getBoundingClientRect().top - container.getBoundingClientRect().top - anchorTop;
+        } else {
+          container.scrollTop = previousScrollTop;
+        }
+      }
     }
 
     function setAdminChatReply(msg) {
@@ -3224,10 +3308,13 @@
       const picker = document.getElementById('admin-chat-reaction-picker');
       if (!adminChatState.initialized) {
         adminChatState.initialized = true;
-        document.getElementById('admin-chat-messages').addEventListener('scroll', () => {
-          const container = document.getElementById('admin-chat-messages');
-          adminChatState.followLatest = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
-        }, { passive: true });
+        trackAdminChatScroll(document.getElementById('admin-chat-messages'));
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', updateAdminChatViewport);
+          window.visualViewport.addEventListener('scroll', updateAdminChatViewport);
+        }
+        window.addEventListener('resize', updateAdminChatViewport);
+        updateAdminChatViewport();
         input.addEventListener('input', () => { input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; });
         input.addEventListener('keydown', event => {
           if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendAdminChatMessage(); }

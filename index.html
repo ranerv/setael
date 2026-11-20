@@ -1154,7 +1154,7 @@
     body.chat-page-open #checkin-bubble { display:none !important; }
     body.chat-page-open .main-shell { min-height:100dvh;margin-left:0; }
     body.chat-page-open .page-content { width:100%;height:100dvh;max-width:none;margin:0;padding:0; }
-    body.chat-page-open #page-chat { position:fixed;z-index:40;inset:0;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);background:#fbfafc; }
+    body.chat-page-open #page-chat { position:fixed;z-index:40;inset:var(--chat-viewport-top,0px) 0 auto;height:var(--chat-viewport-height,100dvh);display:flex;flex-direction:column;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);background:#fbfafc; }
     body.chat-page-open .chat-page { width:min(100%,720px);height:100%;max-height:none;min-height:0;flex:1;margin:0 auto; }
     body.chat-page-open .chat-header { flex:0 0 auto; }
     body.chat-page-open .chat-messages { width:min(100%,720px);align-self:center; }
@@ -1822,10 +1822,21 @@
         else link.removeAttribute("aria-current");
       });
       document.body.classList.toggle("chat-page-open", page === "chat");
+      const chatPage = document.getElementById("page-chat");
+      if (page === "chat") updateGcViewport();
+      else {
+        chatPage.style.removeProperty("--chat-viewport-height");
+        chatPage.style.removeProperty("--chat-viewport-top");
+      }
       if (page === "schedule" && window.VisitorTools) window.VisitorTools.refreshSchedule();
       if (page === "threads" && window.VisitorTools) window.VisitorTools.refreshThreads();
       closeMenu();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (page === "chat") {
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
       sendPageView(page);
     }
 
@@ -2890,6 +2901,8 @@
       messages: [], reactions: {}, replyTo: null,
       pendingFile: null, sending: false, editingId: null,
       pollTimer: null, initialized: false, loading: false, refreshQueued: false, followLatest: true,
+      messagesSignature: null, reactionsSignature: null, userScrollActive: false,
+      userScrollDirection: 0, scrollInteractionTimer: null,
       seenOwnerIds: new Set()
     };
     const GC_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
@@ -2929,6 +2942,60 @@
       container.style.scrollBehavior = 'auto';
       container.scrollTop = container.scrollHeight;
       requestAnimationFrame(() => { container.style.scrollBehavior = previousBehavior; });
+    }
+
+    function updateGcViewport() {
+      const chatPage = document.getElementById('page-chat');
+      const viewport = window.visualViewport;
+      chatPage.style.setProperty('--chat-viewport-height', `${viewport ? viewport.height : window.innerHeight}px`);
+      chatPage.style.setProperty('--chat-viewport-top', `${viewport ? viewport.offsetTop : 0}px`);
+      if (gcState.followLatest) scrollGcToLatest(document.getElementById('chat-messages'));
+    }
+
+    function trackGcScroll(container) {
+      let touchY = null;
+      let previousScrollTop = container.scrollTop;
+      const interactionEnded = () => {
+        window.clearTimeout(gcState.scrollInteractionTimer);
+        gcState.scrollInteractionTimer = window.setTimeout(() => {
+          gcState.userScrollActive = false;
+          gcState.userScrollDirection = 0;
+        }, 180);
+      };
+      container.addEventListener('wheel', event => {
+        gcState.userScrollActive = true;
+        gcState.userScrollDirection = Math.sign(event.deltaY);
+        interactionEnded();
+      }, { passive: true });
+      container.addEventListener('touchstart', event => {
+        touchY = event.touches[0].clientY;
+        gcState.userScrollActive = true;
+      }, { passive: true });
+      container.addEventListener('touchmove', event => {
+        const nextY = event.touches[0].clientY;
+        if (touchY !== null && nextY !== touchY) gcState.userScrollDirection = nextY < touchY ? 1 : -1;
+        touchY = nextY;
+        interactionEnded();
+      }, { passive: true });
+      container.addEventListener('touchend', () => {
+        touchY = null;
+        interactionEnded();
+      }, { passive: true });
+      container.addEventListener('pointerdown', () => {
+        gcState.userScrollActive = true;
+        interactionEnded();
+      });
+      window.addEventListener('pointerup', interactionEnded);
+      container.addEventListener('scroll', () => {
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        if (gcState.userScrollActive) {
+          const direction = gcState.userScrollDirection || Math.sign(container.scrollTop - previousScrollTop);
+          if (direction < 0) gcState.followLatest = false;
+          else if (direction > 0) gcState.followLatest = distanceFromBottom < 80;
+          interactionEnded();
+        }
+        previousScrollTop = container.scrollTop;
+      }, { passive: true });
     }
 
     function makeGcMediaInteractive(media, type, author) {
@@ -3070,9 +3137,13 @@
 
     function renderGcMessages(preserveScroll) {
       const container = document.getElementById('chat-messages');
-      const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
-      gcState.followLatest = !preserveScroll || wasAtBottom;
-      const prevScrollFromBottom = container.scrollHeight - container.scrollTop;
+      if (!preserveScroll) gcState.followLatest = true;
+      const anchor = !gcState.followLatest
+        ? Array.from(container.children).find(row => row.getBoundingClientRect().bottom > container.getBoundingClientRect().top)
+        : null;
+      const anchorId = anchor && anchor.dataset.msgId;
+      const anchorTop = anchor ? anchor.getBoundingClientRect().top - container.getBoundingClientRect().top : 0;
+      const previousScrollTop = container.scrollTop;
       container.replaceChildren();
 
       if (!gcState.messages.length) {
@@ -3086,10 +3157,15 @@
       }
       gcState.messages.forEach(msg => container.append(buildGcBubble(msg)));
 
-      if (!preserveScroll || wasAtBottom) {
+      if (gcState.followLatest) {
         scrollGcToLatest(container);
       } else {
-        container.scrollTop = container.scrollHeight - prevScrollFromBottom;
+        const nextAnchor = anchorId && container.querySelector(`[data-msg-id="${anchorId}"]`);
+        if (nextAnchor) {
+          container.scrollTop += nextAnchor.getBoundingClientRect().top - container.getBoundingClientRect().top - anchorTop;
+        } else {
+          container.scrollTop = previousScrollTop;
+        }
       }
     }
 
@@ -3105,12 +3181,19 @@
         const token = gcToken();
         const msgs = await gcRpc('get_group_chat_messages', {});
         if (!Array.isArray(msgs)) throw new Error('The shared conversation response was invalid.');
+        const messagesSignature = JSON.stringify(msgs);
+        const messagesChanged = messagesSignature !== gcState.messagesSignature;
         gcState.messages = msgs;
-        renderGcMessages(preserveScroll);
+        if (messagesChanged) {
+          gcState.messagesSignature = messagesSignature;
+          renderGcMessages(preserveScroll);
+        }
         let loadWarning = '';
         try {
           const reacts = await gcRpc('get_group_chat_reactions', { p_visitor_token: token });
           if (!Array.isArray(reacts)) throw new Error('The reactions response was invalid.');
+          const reactionsSignature = JSON.stringify(reacts);
+          const reactionsChanged = reactionsSignature !== gcState.reactionsSignature;
           const reactions = {};
           reacts.forEach(r => {
             if (!reactions[r.message_id]) reactions[r.message_id] = {};
@@ -3118,11 +3201,14 @@
             if (r.my_reaction) reactions[r.message_id].myReaction = r.my_reaction;
           });
           gcState.reactions = reactions;
+          if (reactionsChanged) {
+            gcState.reactionsSignature = reactionsSignature;
+            renderGcMessages(true);
+          }
         } catch (e) {
           console.error('Could not refresh chat reactions.', e);
           loadWarning = 'Messages loaded, but reactions could not be refreshed.';
         }
-        renderGcMessages(preserveScroll);
         const ownerMessageIds = msgs
           .filter(message => message.is_owner && !message.is_deleted && !gcState.seenOwnerIds.has(String(message.id)))
           .map(message => message.id);
@@ -3298,10 +3384,12 @@
       const fileInput = document.getElementById('chat-file-input');
       const picker = document.getElementById('chat-reaction-picker');
 
-      document.getElementById('chat-messages').addEventListener('scroll', () => {
-        const container = document.getElementById('chat-messages');
-        gcState.followLatest = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
-      }, { passive: true });
+      trackGcScroll(document.getElementById('chat-messages'));
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updateGcViewport);
+        window.visualViewport.addEventListener('scroll', updateGcViewport);
+      }
+      window.addEventListener('resize', updateGcViewport);
       nameInput.value = localStorage.getItem('sachel-visitor-chat-name') || '';
       nameInput.addEventListener('input', () => {
         const name = nameInput.value.trim();
