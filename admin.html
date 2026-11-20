@@ -157,6 +157,20 @@
     .admin-chat-box { display:flex;flex-direction:column;height:min(68vh,680px);min-height:430px;border:1px solid #f0e9ed;border-radius:16px;overflow:hidden; }
     .admin-chat-column { display:flex;flex:1;min-height:0;flex-direction:column; }
     .admin-chat-messages { flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain; }
+    .chat-panel-actions { display:flex;flex:0 0 auto;gap:8px; }
+    body.admin-chat-mode { overflow:hidden; }
+    body.admin-chat-mode .admin-sidebar,
+    body.admin-chat-mode .topbar,
+    body.admin-chat-mode .admin-bottom-nav,
+    body.admin-chat-mode .drawer-scrim,
+    body.admin-chat-mode .dashboard-footer { display:none !important; }
+    body.admin-chat-mode .main-shell { min-height:100dvh;margin-left:0; }
+    body.admin-chat-mode .dashboard-main { width:100%;margin:0;padding:0; }
+    body.admin-chat-mode .dashboard-main > :not(#chat-inbox) { display:none !important; }
+    body.admin-chat-mode #chat-inbox { position:fixed;z-index:40;inset:0;display:flex;flex-direction:column;height:100dvh;min-height:0;margin:0;padding:16px clamp(12px,3vw,32px) max(10px,env(safe-area-inset-bottom));overflow:hidden;border:0;border-radius:0; }
+    body.admin-chat-mode #chat-inbox .panel-head { flex:0 0 auto;flex-direction:row;align-items:center;margin-bottom:12px; }
+    body.admin-chat-mode #chat-inbox .panel-head p { display:none; }
+    body.admin-chat-mode .admin-chat-box { height:auto;min-height:0;flex:1; }
     .chat-bubble-action { width:26px;height:26px;border:0;background:transparent;cursor:pointer;font-size:.82rem;border-radius:50%;display:grid;place-items:center; }
     .chat-bubble-action:hover { background:#f0e9ed; }
     @media (hover:none) {
@@ -465,6 +479,9 @@
       .admin-bottom-nav .admin-nav-link { min-width: 62px; min-height: 54px; flex: 0 0 auto; flex-direction: column; justify-content: center; gap: 3px; padding: 5px 4px; font-size: .62rem; text-align: center; white-space: nowrap; }
       .admin-bottom-nav .admin-nav-link span { font-size: 1.08rem; }
       .admin-chat-box { height:min(62vh,600px);min-height:420px; }
+      .chat-panel-actions { align-self:stretch;justify-content:flex-end; }
+      body.admin-chat-mode #chat-inbox { padding:10px 12px max(8px,env(safe-area-inset-bottom)); }
+      body.admin-chat-mode #chat-inbox .panel-head { align-items:center; }
       body.admin-menu-open .admin-bottom-nav { pointer-events: none; }
       .dashboard-footer { padding-bottom: 16px; }
     }
@@ -673,7 +690,10 @@
             <h2 id="chat-inbox-heading">Messages</h2>
             <p class="subtle">One shared conversation. Every visitor sees the same messages and replies.</p>
           </div>
-          <button class="button secondary" id="refresh-chat-inbox" type="button">Refresh</button>
+          <div class="chat-panel-actions">
+            <button class="button secondary" id="chat-back-dashboard" type="button">Back</button>
+            <button class="button secondary" id="refresh-chat-inbox" type="button">Refresh</button>
+          </div>
         </div>
         <div class="admin-chat-box">
           <div class="admin-chat-column">
@@ -1002,6 +1022,7 @@
 
     function updateAdminNavigation() {
       const currentHash = window.location.hash || "#entries";
+      document.body.classList.toggle("admin-chat-mode", currentHash === "#chat-inbox");
       adminNavLinks.forEach((link) => {
         if (link.getAttribute("href") === currentHash) link.setAttribute("aria-current", "page");
         else link.removeAttribute("aria-current");
@@ -2746,7 +2767,8 @@
     const adminChatState = {
       messages: [], reactions: {}, replyTo: null, pendingFile: null,
       activeReactionMsgId: null, editingId: null, sending: false,
-      pollTimer: null, initialized: false, loading: false, seenCounts: {}
+      pollTimer: null, initialized: false, loading: false, refreshQueued: false,
+      seenCounts: {}
     };
     const ADMIN_CHAT_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -2782,33 +2804,52 @@
 
     async function loadAdminChatInbox(preserveScroll) {
       const status = document.getElementById('admin-chat-status');
-      if (adminChatState.loading) return;
+      if (adminChatState.loading) {
+        adminChatState.refreshQueued = true;
+        return;
+      }
       adminChatState.loading = true;
       try {
         const msgs = await adminChatRpc('get_group_chat_messages', {});
         if (!Array.isArray(msgs)) throw new Error('The shared conversation response was invalid.');
         adminChatState.messages = msgs;
-        const reactions = await adminChatRpc('get_group_chat_reactions', { p_visitor_token: adminChatToken() });
-        adminChatState.reactions = {};
-        if (Array.isArray(reactions)) {
+        renderAdminChatMessages(preserveScroll);
+        let loadWarning = '';
+        try {
+          const reactions = await adminChatRpc('get_group_chat_reactions', { p_visitor_token: adminChatToken() });
+          if (!Array.isArray(reactions)) throw new Error('The reactions response was invalid.');
+          const nextReactions = {};
           reactions.forEach(r => {
-            if (!adminChatState.reactions[r.message_id]) adminChatState.reactions[r.message_id] = {};
-            adminChatState.reactions[r.message_id][r.emoji] = Number(r.reaction_count);
-            if (r.my_reaction) adminChatState.reactions[r.message_id].myReaction = r.my_reaction;
+            if (!nextReactions[r.message_id]) nextReactions[r.message_id] = {};
+            nextReactions[r.message_id][r.emoji] = Number(r.reaction_count);
+            if (r.my_reaction) nextReactions[r.message_id].myReaction = r.my_reaction;
           });
+          adminChatState.reactions = nextReactions;
+        } catch (e) {
+          console.error('Could not refresh chat reactions.', e);
+          loadWarning = 'Messages loaded, but reactions could not be refreshed.';
         }
-        const seenCounts = await adminChatRpc('get_group_chat_seen_counts', {});
-        adminChatState.seenCounts = {};
-        if (Array.isArray(seenCounts)) {
-          seenCounts.forEach(r => { adminChatState.seenCounts[r.message_id] = Number(r.reader_count); });
+        try {
+          const seenCounts = await adminChatRpc('get_group_chat_seen_counts', {});
+          if (!Array.isArray(seenCounts)) throw new Error('The read receipts response was invalid.');
+          const nextSeenCounts = {};
+          seenCounts.forEach(r => { nextSeenCounts[r.message_id] = Number(r.reader_count); });
+          adminChatState.seenCounts = nextSeenCounts;
+        } catch (e) {
+          console.error('Could not refresh chat read receipts.', e);
+          loadWarning = loadWarning || 'Messages loaded, but read receipts could not be refreshed.';
         }
         renderAdminChatMessages(preserveScroll);
-        setStatus(status, '', false);
+        setStatus(status, loadWarning, Boolean(loadWarning));
       } catch (e) {
         console.error('Could not load the shared conversation.', e);
         setStatus(status, e.message || 'Could not load the shared conversation.', true);
       } finally {
         adminChatState.loading = false;
+        if (adminChatState.refreshQueued) {
+          adminChatState.refreshQueued = false;
+          loadAdminChatInbox(true);
+        }
       }
     }
 
@@ -3096,6 +3137,7 @@
           fileInput.value = '';
         });
         document.getElementById('admin-cancel-reply').addEventListener('click', clearAdminChatReply);
+        document.getElementById('chat-back-dashboard').addEventListener('click', () => { window.location.hash = '#entries'; });
         document.getElementById('refresh-chat-inbox').addEventListener('click', () => loadAdminChatInbox(true));
         picker.addEventListener('click', async event => {
           const button = event.target.closest('[data-emoji]');

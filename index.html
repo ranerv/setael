@@ -1077,6 +1077,7 @@
     /* ── Chat / DM page ── */
     .chat-page { display: flex; flex-direction: column; height: calc(100vh - 78px); max-height: 900px; }
     .chat-header { display: flex; align-items: center; gap: 12px; padding: 14px 0 12px; border-bottom: 1px solid #f0e9ed; }
+    .chat-header-back { width:36px;height:36px;flex:0 0 auto;border:1px solid #f0e9ed;border-radius:50%;background:#fff;color:#70656d;cursor:pointer;font-size:1.1rem; }
     .chat-header-avatar { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #f8e6ec; color: #e48da8; font-family: Georgia, serif; font-size: 1.1rem; }
     .chat-header-name { font-weight: 750; color: #55535b; font-size: .94rem; }
     .chat-header-sub { margin: 2px 0 0; color: #98939a; font-size: .74rem; }
@@ -1139,9 +1140,24 @@
     .chat-reaction-pick { width: 32px; height: 32px; border: 0; background: transparent; cursor: pointer; font-size: 1.1rem; border-radius: 8px; }
     .chat-reaction-pick:hover { background: #f8f0fb; }
     .chat-empty { flex: 1; display: grid; place-items: center; color: #b0a8b0; font-size: .88rem; text-align: center; padding: 24px; }
+    body.chat-page-open { overflow:hidden; }
+    body.chat-page-open .sidebar,
+    body.chat-page-open .topbar,
+    body.chat-page-open .bottom-nav,
+    body.chat-page-open .drawer-scrim,
+    body.chat-page-open .right-rail,
+    body.chat-page-open #checkin-bubble { display:none !important; }
+    body.chat-page-open .main-shell { min-height:100dvh;margin-left:0; }
+    body.chat-page-open .page-content { width:100%;height:100dvh;max-width:none;margin:0;padding:0; }
+    body.chat-page-open #page-chat { position:fixed;z-index:40;inset:0;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);background:#fbfafc; }
+    body.chat-page-open .chat-page { width:min(100%,720px);height:100%;max-height:none;min-height:0;flex:1;margin:0 auto; }
+    body.chat-page-open .chat-header { flex:0 0 auto; }
+    body.chat-page-open .chat-messages { width:min(100%,720px);align-self:center; }
+    body.chat-page-open .chat-compose { width:min(100%,720px);flex:0 0 auto;align-self:center;padding-bottom:8px; }
     @media (max-width: 720px) {
       .chat-page { height: calc(100dvh - 64px - 54px); }
       .chat-bubble-wrap { max-width: 85%; }
+      body.chat-page-open #page-chat { padding-right:12px;padding-left:12px; }
     }
     .schedule-guide .button, .schedule-personal .button {
       min-height: 42px;
@@ -1517,7 +1533,8 @@
         <section id="page-chat" data-page-section="chat" hidden>
           <div class="chat-page">
             <div class="chat-header">
-              <span class="chat-header-avatar" aria-hidden="true">R</span>
+              <button class="chat-header-back" id="chat-back" type="button" aria-label="Back to the site">‹</button>
+              <span class="chat-header-avatar" aria-hidden="true">V</span>
               <div>
                 <p class="chat-header-name">Vren</p>
                 <p class="chat-header-sub">Shared conversation — everyone can join</p>
@@ -1790,6 +1807,7 @@
         if (link.dataset.page === page) link.setAttribute("aria-current", "page");
         else link.removeAttribute("aria-current");
       });
+      document.body.classList.toggle("chat-page-open", page === "chat");
       if (page === "schedule" && window.VisitorTools) window.VisitorTools.refreshSchedule();
       if (page === "threads" && window.VisitorTools) window.VisitorTools.refreshThreads();
       closeMenu();
@@ -2853,7 +2871,8 @@
     const gcState = {
       messages: [], reactions: {}, replyTo: null,
       pendingFile: null, sending: false, editingId: null,
-      pollTimer: null, initialized: false, loading: false, seenOwnerIds: new Set()
+      pollTimer: null, initialized: false, loading: false, refreshQueued: false,
+      seenOwnerIds: new Set()
     };
     const GC_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -3013,7 +3032,10 @@
 
     async function loadGcMessages(preserveScroll) {
       const status = document.getElementById('chat-status');
-      if (gcState.loading) return;
+      if (gcState.loading) {
+        gcState.refreshQueued = true;
+        return;
+      }
       gcState.loading = true;
       try {
         if (!supabaseUrl || !publishableKey) throw new Error('Chat is not configured yet.');
@@ -3021,18 +3043,23 @@
         const msgs = await gcRpc('get_group_chat_messages', {});
         if (!Array.isArray(msgs)) throw new Error('The shared conversation response was invalid.');
         gcState.messages = msgs;
-        const reacts = await gcRpc('get_group_chat_reactions', { p_visitor_token: token });
-        gcState.reactions = {};
-        if (Array.isArray(reacts)) {
+        renderGcMessages(preserveScroll);
+        let loadWarning = '';
+        try {
+          const reacts = await gcRpc('get_group_chat_reactions', { p_visitor_token: token });
+          if (!Array.isArray(reacts)) throw new Error('The reactions response was invalid.');
+          const reactions = {};
           reacts.forEach(r => {
-            if (!gcState.reactions[r.message_id]) gcState.reactions[r.message_id] = {};
-            gcState.reactions[r.message_id][r.emoji] = Number(r.reaction_count);
-            if (r.my_reaction) gcState.reactions[r.message_id].myReaction = r.my_reaction;
+            if (!reactions[r.message_id]) reactions[r.message_id] = {};
+            reactions[r.message_id][r.emoji] = Number(r.reaction_count);
+            if (r.my_reaction) reactions[r.message_id].myReaction = r.my_reaction;
           });
+          gcState.reactions = reactions;
+        } catch (e) {
+          console.error('Could not refresh chat reactions.', e);
+          loadWarning = 'Messages loaded, but reactions could not be refreshed.';
         }
         renderGcMessages(preserveScroll);
-        status.textContent = '';
-        delete status.dataset.error;
         const ownerMessageIds = msgs
           .filter(message => message.is_owner && !message.is_deleted && !gcState.seenOwnerIds.has(String(message.id)))
           .map(message => message.id);
@@ -3045,16 +3072,22 @@
             ownerMessageIds.forEach(id => gcState.seenOwnerIds.add(String(id)));
           } catch (e) {
             console.error('Could not record chat read receipts.', e);
-            status.textContent = 'Messages loaded, but read receipts could not be recorded.';
-            status.dataset.error = 'true';
+            loadWarning = loadWarning || 'Messages loaded, but read receipts could not be recorded.';
           }
         }
+        status.textContent = loadWarning;
+        if (loadWarning) status.dataset.error = 'true';
+        else delete status.dataset.error;
       } catch(e) {
         console.error('Could not load group chat.', e);
         status.textContent = e.message || 'Could not load the conversation.';
         status.dataset.error = 'true';
       } finally {
         gcState.loading = false;
+        if (gcState.refreshQueued) {
+          gcState.refreshQueued = false;
+          loadGcMessages(true);
+        }
       }
     }
 
@@ -3220,6 +3253,7 @@
         fileInput.value = '';
       });
       document.getElementById('chat-cancel-reply').addEventListener('click', clearGcReply);
+      document.getElementById('chat-back').addEventListener('click', () => showPage('home'));
 
       picker.addEventListener('click', async (e) => {
         const btn = e.target.closest('[data-emoji]'); if (!btn) return;
