@@ -1243,6 +1243,7 @@ notify pgrst, 'reload schema';
 -- ── Public threads: all visitors see all threads & comments ──────────────────
 
 -- 1. Return ALL threads (not filtered by token) so every visitor sees everyone's posts
+drop function if exists public.get_all_visitor_threads();
 create or replace function public.get_all_visitor_threads()
 returns table (
   id bigint,
@@ -1265,6 +1266,7 @@ as $$
 $$;
 
 -- 2. Return ALL comments for a thread (not filtered by token)
+drop function if exists public.get_all_thread_comments(bigint);
 create or replace function public.get_all_thread_comments(p_thread_id bigint)
 returns table (
   id bigint,
@@ -1379,6 +1381,7 @@ grant execute on function public.delete_visitor_thread_comment(uuid, bigint) to 
 notify pgrst, 'reload schema';
 
 -- ── Update get_all_thread_comments to include visitor_token for ownership check ──
+drop function if exists public.get_all_thread_comments(bigint);
 create or replace function public.get_all_thread_comments(p_thread_id bigint)
 returns table (
   id bigint,
@@ -1640,6 +1643,7 @@ using (
 grant update (content, updated_at) on public.visitor_thread_comments to authenticated;
 
 -- 6. get_all_visitor_threads — now includes media_path, media_type, is_owner_post
+drop function if exists public.get_all_visitor_threads();
 create or replace function public.get_all_visitor_threads()
 returns table (
   id bigint,
@@ -1666,6 +1670,7 @@ as $$
 $$;
 
 -- 7. get_all_thread_comments — now includes media_path, media_type
+drop function if exists public.get_all_thread_comments(bigint);
 create or replace function public.get_all_thread_comments(p_thread_id bigint)
 returns table (
   id bigint,
@@ -2252,6 +2257,7 @@ create index if not exists visitor_thread_comments_parent_idx
   where parent_comment_id is not null;
 
 -- Update get_all_thread_comments to include parent_comment_id
+drop function if exists public.get_all_thread_comments(bigint);
 create or replace function public.get_all_thread_comments(p_thread_id bigint)
 returns table (
   id bigint,
