@@ -1735,7 +1735,7 @@
         const header = document.createElement("div");
         header.className = "admin-thread-head";
         const author = document.createElement("strong");
-        author.textContent = (thread.is_owner_post ? "Raneb: " : "") + (thread.display_name || "Visitor");
+        author.textContent = (thread.is_owner_post ? "Vren: " : "") + (thread.display_name || "Visitor");
         const date = document.createElement("time");
         date.textContent = formatThreadTimestamp(thread.created_at);
         header.append(author, date);
@@ -1760,7 +1760,7 @@
           const item = document.createElement("article");
           item.className = "admin-thread-comment" + (comment.sender === "owner" ? " owner" : "");
           const label = document.createElement("strong");
-          label.textContent = comment.sender_label || (comment.sender === "owner" ? "Raneb" : "Visitor");
+          label.textContent = comment.sender_label || (comment.sender === "owner" ? "Vren" : "Visitor");
           const timestamp = document.createElement("time");
           timestamp.textContent = formatThreadTimestamp(comment.created_at);
           const body = document.createElement("p");
@@ -1795,7 +1795,7 @@
             replyItem.className = "admin-thread-comment" + (reply.sender === "owner" ? " owner" : "");
             replyItem.style.cssText = "margin-left:20px;border-left:3px solid #f0e9ed;padding-left:10px;";
             const rLabel = document.createElement("strong");
-            rLabel.textContent = reply.sender_label || (reply.sender === "owner" ? "Raneb" : "Visitor");
+            rLabel.textContent = reply.sender_label || (reply.sender === "owner" ? "Vren" : "Visitor");
             const rTime = document.createElement("time");
             rTime.textContent = formatThreadTimestamp(reply.created_at);
             const rBody = document.createElement("p");
@@ -1906,7 +1906,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            p_display_name: "Raneb",
+            p_display_name: "Vren",
             p_content: content,
             p_media_path: mediaPath,
             p_media_type: mediaType
@@ -2804,7 +2804,7 @@
 
     function buildAdminChatBubble(msg) {
       const isOwner = Boolean(msg.is_owner);
-      const author = isOwner ? 'Raneb' : (msg.display_name || 'Visitor');
+      const author = isOwner ? 'Vren' : (msg.display_name || 'Visitor');
       const row = document.createElement('div');
       row.className = 'chat-bubble-row' + (isOwner ? ' mine' : '');
       row.dataset.msgId = String(msg.id);
@@ -2830,7 +2830,7 @@
         quote.className = 'chat-reply-quote';
         const replyMsg = adminChatState.messages.find(m => m.id === msg.reply_to_id);
         const rName = document.createElement('strong');
-        rName.textContent = replyMsg ? (replyMsg.is_owner ? 'Raneb' : (replyMsg.display_name || 'Visitor')) : (msg.reply_author || 'Reply');
+        rName.textContent = replyMsg ? (replyMsg.is_owner ? 'Vren' : (replyMsg.display_name || 'Visitor')) : (msg.reply_author || 'Reply');
         const rText = document.createElement('span');
         rText.textContent = msg.reply_preview;
         quote.append(rName, rText);
@@ -2934,7 +2934,7 @@
     }
 
     function setAdminChatReply(msg) {
-      const author = msg.is_owner ? 'Raneb' : (msg.display_name || 'Visitor');
+      const author = msg.is_owner ? 'Vren' : (msg.display_name || 'Visitor');
       adminChatState.replyTo = { id: msg.id, text: msg.message || '(media)', author };
       document.getElementById('admin-chat-reply-label').textContent = `Replying to ${author}: ${adminChatState.replyTo.text.slice(0,60)}`;
       document.getElementById('admin-chat-reply-banner').hidden = false;
@@ -3024,7 +3024,7 @@
           }
           await adminChatRpc('post_group_chat_message', {
             p_visitor_token: token,
-            p_display_name: 'Raneb',
+            p_display_name: 'Vren',
             p_message: text,
             p_is_owner: true,
             p_media_path: mediaPath,
