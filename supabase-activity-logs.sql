@@ -2717,11 +2717,18 @@ returns table (
 )
 language sql stable security definer set search_path = ''
 as $$
-  select id, visitor_token, display_name, is_owner, message, media_path, media_type,
-         reply_to_id, reply_preview, reply_author, is_deleted, created_at, updated_at
-  from public.group_chat_messages
-  order by created_at, id
-  limit 200;
+  select recent.id, recent.visitor_token, recent.display_name, recent.is_owner,
+         recent.message, recent.media_path, recent.media_type,
+         recent.reply_to_id, recent.reply_preview, recent.reply_author,
+         recent.is_deleted, recent.created_at, recent.updated_at
+  from (
+    select id, visitor_token, display_name, is_owner, message, media_path, media_type,
+           reply_to_id, reply_preview, reply_author, is_deleted, created_at, updated_at
+    from public.group_chat_messages
+    order by created_at desc, id desc
+    limit 200
+  ) as recent
+  order by recent.created_at, recent.id;
 $$;
 
 -- RPC: edit own message

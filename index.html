@@ -2889,7 +2889,7 @@
     const gcState = {
       messages: [], reactions: {}, replyTo: null,
       pendingFile: null, sending: false, editingId: null,
-      pollTimer: null, initialized: false, loading: false, refreshQueued: false,
+      pollTimer: null, initialized: false, loading: false, refreshQueued: false, followLatest: true,
       seenOwnerIds: new Set()
     };
     const GC_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
@@ -2924,6 +2924,13 @@
       return supabaseUrl + '/storage/v1/object/public/chat-media/' + path.split('/').map(encodeURIComponent).join('/');
     }
 
+    function scrollGcToLatest(container) {
+      const previousBehavior = container.style.scrollBehavior;
+      container.style.scrollBehavior = 'auto';
+      container.scrollTop = container.scrollHeight;
+      requestAnimationFrame(() => { container.style.scrollBehavior = previousBehavior; });
+    }
+
     function makeGcMediaInteractive(media, type, author) {
       const description = `${type === 'video' ? 'Video' : 'Photo'} from ${author}`;
       media.classList.add('chat-media-clickable');
@@ -2946,6 +2953,12 @@
           open(event);
         }
       });
+      const container = document.getElementById('chat-messages');
+      const keepLatestInView = () => {
+        if (gcState.followLatest) scrollGcToLatest(container);
+      };
+      media.addEventListener(type === 'video' ? 'loadedmetadata' : 'load', keepLatestInView);
+      if (type === 'video') media.addEventListener('loadeddata', keepLatestInView);
     }
 
     function buildGcBubble(msg) {
@@ -3058,6 +3071,7 @@
     function renderGcMessages(preserveScroll) {
       const container = document.getElementById('chat-messages');
       const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+      gcState.followLatest = !preserveScroll || wasAtBottom;
       const prevScrollFromBottom = container.scrollHeight - container.scrollTop;
       container.replaceChildren();
 
@@ -3067,12 +3081,13 @@
         empty.id = 'chat-empty';
         empty.textContent = 'Start the conversation — say hi! 👋';
         container.append(empty);
+        gcState.followLatest = true;
         return;
       }
       gcState.messages.forEach(msg => container.append(buildGcBubble(msg)));
 
       if (!preserveScroll || wasAtBottom) {
-        container.scrollTop = container.scrollHeight;
+        scrollGcToLatest(container);
       } else {
         container.scrollTop = container.scrollHeight - prevScrollFromBottom;
       }
@@ -3283,6 +3298,10 @@
       const fileInput = document.getElementById('chat-file-input');
       const picker = document.getElementById('chat-reaction-picker');
 
+      document.getElementById('chat-messages').addEventListener('scroll', () => {
+        const container = document.getElementById('chat-messages');
+        gcState.followLatest = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+      }, { passive: true });
       nameInput.value = localStorage.getItem('sachel-visitor-chat-name') || '';
       nameInput.addEventListener('input', () => {
         const name = nameInput.value.trim();
