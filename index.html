@@ -1108,6 +1108,8 @@
     .chat-bubble-row:not(.mine) .chat-bubble { border-bottom-left-radius: 4px; }
     .chat-bubble img { display: block; max-width: 100%; max-height: 280px; border-radius: 12px; margin-top: 6px; object-fit: contain; }
     .chat-bubble video { display: block; max-width: 100%; max-height: 280px; border-radius: 12px; margin-top: 6px; }
+    .chat-media-clickable { cursor: zoom-in; }
+    .chat-media-clickable:focus-visible { outline: 3px solid #f3a9c0; outline-offset: 3px; }
     .chat-bubble-deleted { color: #b0a8b0; font-style: italic; font-size: .82rem; }
     .chat-bubble-time { font-size: .65rem; color: #b0a8b0; margin: 0 4px; }
     .chat-bubble-row.mine .chat-bubble-time { text-align: right; }
@@ -2295,6 +2297,10 @@
       const item = mediaItems[index];
       if (!item) return;
 
+      showMediaViewerItem(item, `${item.type === "video" ? "Video" : "Photo"} ${index + 1} of ${mediaItems.length}`);
+    }
+
+    function showMediaViewerItem(item, fallbackCaption) {
       mediaViewerVideo.pause();
       mediaViewerVideo.removeAttribute("src");
       mediaViewerVideo.load();
@@ -2306,11 +2312,11 @@
         mediaViewerVideo.src = item.src;
         mediaViewerVideo.load();
       } else {
-        mediaViewerImage.alt = item.alt || `Photo ${index + 1}`;
+        mediaViewerImage.alt = item.alt || fallbackCaption || "Photo";
         mediaViewerImage.src = item.src;
       }
 
-      mediaViewerCaption.textContent = item.alt || `${item.type === "video" ? "Video" : "Photo"} ${index + 1} of ${mediaItems.length}`;
+      mediaViewerCaption.textContent = item.alt || fallbackCaption;
       mediaViewer.showModal();
     }
 
@@ -2918,6 +2924,30 @@
       return supabaseUrl + '/storage/v1/object/public/chat-media/' + path.split('/').map(encodeURIComponent).join('/');
     }
 
+    function makeGcMediaInteractive(media, type, author) {
+      const description = `${type === 'video' ? 'Video' : 'Photo'} from ${author}`;
+      media.classList.add('chat-media-clickable');
+      media.tabIndex = 0;
+      media.setAttribute('role', 'button');
+      media.setAttribute('aria-label', `View ${description} full screen`);
+      media.title = 'Open full screen';
+      const open = event => {
+        event.stopPropagation();
+        showMediaViewerItem({
+          type,
+          src: media.currentSrc || media.src,
+          alt: description
+        }, description);
+      };
+      media.addEventListener('click', open);
+      media.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          open(event);
+        }
+      });
+    }
+
     function buildGcBubble(msg) {
       const myToken = gcToken();
       const isMe = msg.visitor_token && String(msg.visitor_token) === myToken;
@@ -2970,10 +3000,12 @@
           if (msg.media_type === 'video') {
             const v = document.createElement('video');
             v.src = gcMediaUrl(msg.media_path); v.controls = true; v.playsInline = true; v.preload = 'metadata';
+            makeGcMediaInteractive(v, 'video', isOwner ? 'Vren' : (msg.display_name || 'Visitor'));
             bubble.append(v);
           } else {
             const i = document.createElement('img');
             i.src = gcMediaUrl(msg.media_path); i.alt = 'Attached image'; i.loading = 'lazy';
+            makeGcMediaInteractive(i, 'image', isOwner ? 'Vren' : (msg.display_name || 'Visitor'));
             bubble.append(i);
           }
         }

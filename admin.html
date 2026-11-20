@@ -147,6 +147,16 @@
     .chat-bubble-row:not(.mine) .chat-bubble { border-bottom-left-radius:4px; }
     .chat-bubble img { display:block;max-width:100%;max-height:280px;border-radius:12px;margin-top:6px;object-fit:contain; }
     .chat-bubble video { display:block;max-width:100%;max-height:280px;border-radius:12px;margin-top:6px; }
+    .chat-media-clickable { cursor:zoom-in; }
+    .chat-media-clickable:focus-visible { outline:3px solid #f3a9c0;outline-offset:3px; }
+    .admin-chat-media-viewer { position:fixed;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;padding:58px 18px 18px;overflow:hidden;border:0;background:#211e23;color:#fff; }
+    .admin-chat-media-viewer[open] { display:grid;grid-template-rows:minmax(0,1fr) auto;place-items:center;gap:12px; }
+    .admin-chat-media-viewer::backdrop { background:#17151bdc;backdrop-filter:blur(7px); }
+    .admin-chat-media-content { display:grid;width:100%;height:100%;min-height:0;place-items:center; }
+    .admin-chat-media-viewer img,.admin-chat-media-viewer video { display:block;width:auto;height:auto;max-width:100%;max-height:calc(100dvh - 100px);object-fit:contain; }
+    .admin-chat-media-viewer video { width:min(100%,1200px); }
+    .admin-chat-media-close { position:absolute;z-index:1;top:12px;right:16px;display:grid;width:44px;height:44px;place-items:center;border:1px solid #ffffff55;border-radius:50%;background:#ffffff20;color:#fff;cursor:pointer;font-size:1.75rem; }
+    .admin-chat-media-caption { margin:0;color:#f6edf1;font-size:.88rem;text-align:center; }
     .chat-bubble-deleted { color:#b0a8b0;font-style:italic;font-size:.82rem; }
     .chat-bubble-time { font-size:.65rem;color:#b0a8b0;margin:0 4px; }
     .chat-bubble-row.mine .chat-bubble-time { text-align:right; }
@@ -482,6 +492,9 @@
       .chat-panel-actions { align-self:stretch;justify-content:flex-end; }
       body.admin-chat-mode #chat-inbox { padding:10px 12px max(8px,env(safe-area-inset-bottom)); }
       body.admin-chat-mode #chat-inbox .panel-head { align-items:center; }
+      .admin-chat-media-viewer { padding:56px 10px 12px; }
+      .admin-chat-media-viewer img,.admin-chat-media-viewer video { max-height:calc(100dvh - 88px); }
+      .admin-chat-media-close { top:8px;right:10px; }
       body.admin-menu-open .admin-bottom-nav { pointer-events: none; }
       .dashboard-footer { padding-bottom: 16px; }
     }
@@ -909,6 +922,14 @@
       </nav>
     </div>
   </div>
+  <dialog class="admin-chat-media-viewer" id="admin-chat-media-viewer" aria-label="Photo or video viewer">
+    <button class="admin-chat-media-close" id="admin-chat-media-close" type="button" aria-label="Close media viewer">×</button>
+    <div class="admin-chat-media-content" id="admin-chat-media-content">
+      <img id="admin-chat-media-image" alt="" hidden>
+      <video id="admin-chat-media-video" controls playsinline preload="metadata" hidden></video>
+    </div>
+    <p class="admin-chat-media-caption" id="admin-chat-media-caption"></p>
+  </dialog>
 
   <script src="activity-log-config.js"></script>
   <script>
@@ -2794,6 +2815,62 @@
       return `${supabaseUrl}/storage/v1/object/public/chat-media/${path.split('/').map(encodeURIComponent).join('/')}`;
     }
 
+    const adminChatMediaViewer = document.getElementById('admin-chat-media-viewer');
+    const adminChatMediaContent = document.getElementById('admin-chat-media-content');
+    const adminChatMediaImage = document.getElementById('admin-chat-media-image');
+    const adminChatMediaVideo = document.getElementById('admin-chat-media-video');
+    const adminChatMediaCaption = document.getElementById('admin-chat-media-caption');
+
+    function openAdminChatMediaViewer(path, type, author) {
+      adminChatMediaVideo.pause();
+      adminChatMediaVideo.removeAttribute('src');
+      adminChatMediaVideo.load();
+      adminChatMediaImage.removeAttribute('src');
+      adminChatMediaImage.hidden = type === 'video';
+      adminChatMediaVideo.hidden = type !== 'video';
+      const src = adminChatMediaUrl(path);
+      const description = `${type === 'video' ? 'Video' : 'Photo'} from ${author}`;
+      if (type === 'video') {
+        adminChatMediaVideo.src = src;
+        adminChatMediaVideo.load();
+      } else {
+        adminChatMediaImage.src = src;
+        adminChatMediaImage.alt = description;
+      }
+      adminChatMediaCaption.textContent = description;
+      adminChatMediaViewer.showModal();
+    }
+
+    document.getElementById('admin-chat-media-close').addEventListener('click', () => adminChatMediaViewer.close());
+    adminChatMediaViewer.addEventListener('click', event => {
+      if (event.target === adminChatMediaViewer || event.target === adminChatMediaContent) adminChatMediaViewer.close();
+    });
+    adminChatMediaViewer.addEventListener('close', () => {
+      adminChatMediaVideo.pause();
+      adminChatMediaVideo.removeAttribute('src');
+      adminChatMediaVideo.load();
+      adminChatMediaImage.removeAttribute('src');
+      adminChatMediaCaption.textContent = '';
+    });
+
+    function makeAdminChatMediaInteractive(media, path, type, author) {
+      media.classList.add('chat-media-clickable');
+      media.tabIndex = 0;
+      media.setAttribute('role', 'button');
+      media.setAttribute('aria-label', `View ${type === 'video' ? 'video' : 'photo'} from ${author} full screen`);
+      media.title = 'Open full screen';
+      media.addEventListener('click', event => {
+        event.stopPropagation();
+        openAdminChatMediaViewer(path, type, author);
+      });
+      media.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openAdminChatMediaViewer(path, type, author);
+        }
+      });
+    }
+
     async function adminChatRpc(name, payload) {
       return api(`/rest/v1/rpc/${name}`, {
         method: 'POST',
@@ -2907,18 +2984,21 @@
           bubble.append(text);
         }
         if (msg.media_path) {
+          const mediaAuthor = isOwner ? 'Vren' : author;
           if (msg.media_type === 'video') {
             const video = document.createElement('video');
             video.src = adminChatMediaUrl(msg.media_path);
             video.controls = true;
             video.playsInline = true;
             video.preload = 'metadata';
+            makeAdminChatMediaInteractive(video, msg.media_path, 'video', mediaAuthor);
             bubble.append(video);
           } else {
             const image = document.createElement('img');
             image.src = adminChatMediaUrl(msg.media_path);
             image.alt = 'Attached image';
             image.loading = 'lazy';
+            makeAdminChatMediaInteractive(image, msg.media_path, 'image', mediaAuthor);
             bubble.append(image);
           }
         }
