@@ -150,7 +150,7 @@
     .chat-bubble-deleted { color:#b0a8b0;font-style:italic;font-size:.82rem; }
     .chat-bubble-time { font-size:.65rem;color:#b0a8b0;margin:0 4px; }
     .chat-bubble-row.mine .chat-bubble-time { text-align:right; }
-    .chat-seen-status { color:#8d8991;font-size:.68rem;margin:0 4px; }
+    .chat-seen-status { color:#8d8991;font-size:.68rem;margin:0 4px;overflow-wrap:anywhere; }
     .chat-bubble-actions { display:none;position:absolute;top:-28px;right:0;flex-direction:row;gap:2px;padding:3px 6px;border-radius:999px;background:#fff;box-shadow:0 2px 8px #0002; }
     .chat-bubble-row.mine .chat-bubble-actions { right:auto;left:0; }
     .chat-bubble:hover .chat-bubble-actions { display:flex; }
@@ -2768,7 +2768,7 @@
       messages: [], reactions: {}, replyTo: null, pendingFile: null,
       activeReactionMsgId: null, editingId: null, sending: false,
       pollTimer: null, initialized: false, loading: false, refreshQueued: false,
-      seenCounts: {}
+      seenCounts: {}, seenNames: {}
     };
     const ADMIN_CHAT_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -2833,8 +2833,15 @@
           const seenCounts = await adminChatRpc('get_group_chat_seen_counts', {});
           if (!Array.isArray(seenCounts)) throw new Error('The read receipts response was invalid.');
           const nextSeenCounts = {};
-          seenCounts.forEach(r => { nextSeenCounts[r.message_id] = Number(r.reader_count); });
+          const nextSeenNames = {};
+          seenCounts.forEach(r => {
+            nextSeenCounts[r.message_id] = Number(r.reader_count);
+            nextSeenNames[r.message_id] = Array.isArray(r.visitor_names)
+              ? r.visitor_names.filter(name => typeof name === 'string' && name.trim())
+              : [];
+          });
           adminChatState.seenCounts = nextSeenCounts;
+          adminChatState.seenNames = nextSeenNames;
         } catch (e) {
           console.error('Could not refresh chat read receipts.', e);
           loadWarning = loadWarning || 'Messages loaded, but read receipts could not be refreshed.';
@@ -2967,7 +2974,10 @@
       if (seenCount > 0) {
         const seen = document.createElement('p');
         seen.className = 'chat-seen-status';
-        seen.textContent = `Seen by ${seenCount} visitor${seenCount === 1 ? '' : 's'}`;
+        const seenNames = adminChatState.seenNames[msg.id] || [];
+        seen.textContent = seenNames.length
+          ? `Seen by ${seenNames.join(', ')}`
+          : `Seen by ${seenCount} visitor${seenCount === 1 ? '' : 's'}`;
         wrap.append(seen);
       }
       row.append(av, wrap);

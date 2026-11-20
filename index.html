@@ -1081,6 +1081,9 @@
     .chat-header-avatar { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #f8e6ec; color: #e48da8; font-family: Georgia, serif; font-size: 1.1rem; }
     .chat-header-name { font-weight: 750; color: #55535b; font-size: .94rem; }
     .chat-header-sub { margin: 2px 0 0; color: #98939a; font-size: .74rem; }
+    .chat-identity-field { display:flex;align-items:center;gap:7px;margin-left:auto;color:#817a84;font-size:.72rem; }
+    .chat-identity-field input { width:170px;max-width:28vw;min-width:0;height:34px;padding:6px 9px;border:1px solid #e7dfe4;border-radius:9px;background:#fff;color:#56555d;font:inherit; }
+    .chat-identity-field input:focus-visible { outline:3px solid #f3b4c8;outline-offset:2px; }
     .chat-messages { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 0; display: flex; flex-direction: column; gap: 4px; scroll-behavior: smooth; }
     .chat-bubble-row { display: flex; align-items: flex-end; gap: 8px; }
     .chat-bubble-row.mine { flex-direction: row-reverse; }
@@ -1158,6 +1161,11 @@
       .chat-page { height: calc(100dvh - 64px - 54px); }
       .chat-bubble-wrap { max-width: 85%; }
       body.chat-page-open #page-chat { padding-right:12px;padding-left:12px; }
+    }
+    @media (max-width: 560px) {
+      .chat-header { flex-wrap:wrap; }
+      .chat-identity-field { flex:1 1 calc(100% - 48px);margin-left:48px; }
+      .chat-identity-field input { width:auto;max-width:none;flex:1; }
     }
     .schedule-guide .button, .schedule-personal .button {
       min-height: 42px;
@@ -1539,6 +1547,10 @@
                 <p class="chat-header-name">Vren</p>
                 <p class="chat-header-sub">Shared conversation — everyone can join</p>
               </div>
+              <label class="chat-identity-field" for="chat-visitor-name">
+                <span>Name shown to everyone</span>
+                <input id="chat-visitor-name" type="text" maxlength="60" autocomplete="nickname" placeholder="Your name">
+              </label>
             </div>
             <div class="chat-messages" id="chat-messages" aria-live="polite" aria-label="Conversation messages">
               <div class="chat-empty" id="chat-empty">Start the conversation — say hi! 👋</div>
@@ -2877,7 +2889,11 @@
     const GC_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
     function gcToken() { return window.VisitorTools ? window.VisitorTools.getToken() : null; }
-    function gcName() { return localStorage.getItem('sachel-visitor-chat-name') || 'Visitor'; }
+    function gcDisplayName() {
+      const input = document.getElementById('chat-visitor-name');
+      return input ? input.value.trim() || null : null;
+    }
+    function gcName() { return gcDisplayName() || 'Visitor'; }
 
     async function gcRpc(name, payload) {
       const response = await fetch(supabaseUrl + '/rest/v1/rpc/' + name, {
@@ -3067,6 +3083,7 @@
           try {
             await gcRpc('mark_group_chat_seen', {
               p_visitor_token: token,
+              p_display_name: gcDisplayName(),
               p_message_ids: ownerMessageIds
             });
             ownerMessageIds.forEach(id => gcState.seenOwnerIds.add(String(id)));
@@ -3229,10 +3246,33 @@
       gcState.initialized = true;
 
       const input = document.getElementById('chat-input');
+      const nameInput = document.getElementById('chat-visitor-name');
       const sendBtn = document.getElementById('chat-send');
       const fileInput = document.getElementById('chat-file-input');
       const picker = document.getElementById('chat-reaction-picker');
 
+      nameInput.value = localStorage.getItem('sachel-visitor-chat-name') || '';
+      nameInput.addEventListener('input', () => {
+        const name = nameInput.value.trim();
+        if (name) localStorage.setItem('sachel-visitor-chat-name', name);
+        else localStorage.removeItem('sachel-visitor-chat-name');
+      });
+      nameInput.addEventListener('change', () => {
+        const ownerMessageIds = gcState.messages
+          .filter(message => message.is_owner && !message.is_deleted)
+          .map(message => message.id);
+        if (!ownerMessageIds.length) return;
+        gcRpc('mark_group_chat_seen', {
+          p_visitor_token: gcToken(),
+          p_display_name: gcDisplayName(),
+          p_message_ids: ownerMessageIds
+        }).catch(e => {
+          console.error('Could not update chat read receipt names.', e);
+          const status = document.getElementById('chat-status');
+          status.textContent = 'Could not update your name on read receipts.';
+          status.dataset.error = 'true';
+        });
+      });
       input.addEventListener('input', () => {
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 120) + 'px';
