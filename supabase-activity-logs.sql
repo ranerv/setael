@@ -2608,3 +2608,179 @@ with check ((select public.is_log_admin()));
 grant select on public.chat_message_reactions to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ── Shared group chat (everyone sees all messages) ───────────────────────────
+
+create table if not exists public.group_chat_messages (
+  id bigint generated always as identity primary key,
+  visitor_token uuid not null,
+  display_name text not null default 'Visitor'
+    check (char_length(display_name) between 1 and 60),
+  is_owner boolean not null default false,
+  message text not null default ''
+    check (char_length(message) <= 100000),
+  media_path text check (media_path is null or char_length(media_path) <= 255),
+  media_type text check (media_type is null or media_type in ('image','video')),
+  reply_to_id bigint references public.group_chat_messages(id) on delete set null,
+  reply_preview text check (reply_preview is null or char_length(reply_preview) <= 200),
+  reply_author text check (reply_author is null or char_length(reply_author) <= 60),
+  is_deleted boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  check (char_length(btrim(message)) > 0 or media_path is not null)
+);
+
+create index if not exists group_chat_messages_created_idx
+  on public.group_chat_messages (created_at, id);
+
+-- Reactions on group chat
+create table if not exists public.group_chat_reactions (
+  id bigint generated always as identity primary key,
+  message_id bigint not null references public.group_chat_messages(id) on delete cascade,
+  visitor_token uuid not null,
+  emoji text not null check (emoji in ('like','love','haha','wow','sad')),
+  created_at timestamptz not null default now(),
+  unique (message_id, visitor_token)
+);
+create index if not exists group_chat_reactions_msg_idx
+  on public.group_chat_reactions (message_id);
+
+alter table public.group_chat_messages enable row level security;
+alter table public.group_chat_reactions enable row level security;
+revoke all on public.group_chat_messages from anon, authenticated;
+revoke all on public.group_chat_reactions from anon, authenticated;
+grant usage, select on sequence public.group_chat_messages_id_seq to anon, authenticated;
+grant usage, select on sequence public.group_chat_reactions_id_seq to anon, authenticated;
+
+-- Everyone can read all messages and reactions
+drop policy if exists "Anyone can view group chat messages" on public.group_chat_messages;
+create policy "Anyone can view group chat messages"
+on public.group_chat_messages for select to anon, authenticated using (true);
+
+drop policy if exists "Anyone can view group chat reactions" on public.group_chat_reactions;
+create policy "Anyone can view group chat reactions"
+on public.group_chat_reactions for select to anon, authenticated using (true);
+
+grant insert, update, delete on public.group_chat_reactions to anon, authenticated;
+
+-- Storage for group chat media (reuse chat-media bucket already created)
+
+-- RPC: post a message
+create or replace function public.post_group_chat_message(
+  p_visitor_token uuid,
+  p_display_name text,
+  p_message text,
+  p_is_owner boolean default false,
+  p_media_path text default null,
+  p_media_type text default null,
+  p_reply_to_id bigint default null,
+  p_reply_preview text default null,
+  p_reply_author text default null
+)
+returns bigint language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_name text; v_msg text; v_id bigint; v_last timestamptz;
+begin
+  if p_visitor_token is null then raise exception 'A session token is required.'; end if;
+  v_name := coalesce(nullif(btrim(p_display_name),''),'Visitor');
+  v_msg := btrim(coalesce(p_message,''));
+  if char_length(v_name) > 60 then raise exception 'Name must be 60 characters or fewer.'; end if;
+  if v_msg = '' and p_media_path is null then raise exception 'Write something or add media.'; end if;
+  -- Rate limit: 2 seconds
+  select max(created_at) into v_last from public.group_chat_messages where visitor_token = p_visitor_token;
+  if v_last > now() - interval '2 seconds' then raise exception 'Please wait before sending again.'; end if;
+  insert into public.group_chat_messages
+    (visitor_token, display_name, is_owner, message, media_path, media_type, reply_to_id, reply_preview, reply_author)
+  values
+    (p_visitor_token, v_name, coalesce(p_is_owner, false), v_msg, p_media_path, p_media_type, p_reply_to_id, p_reply_preview, p_reply_author)
+  returning id into v_id;
+  return v_id;
+end;$$;
+
+-- RPC: get all messages (last 200)
+create or replace function public.get_group_chat_messages()
+returns table (
+  id bigint, visitor_token uuid, display_name text, is_owner boolean,
+  message text, media_path text, media_type text,
+  reply_to_id bigint, reply_preview text, reply_author text,
+  is_deleted boolean, created_at timestamptz, updated_at timestamptz
+)
+language sql stable security definer set search_path = ''
+as $$
+  select id, visitor_token, display_name, is_owner, message, media_path, media_type,
+         reply_to_id, reply_preview, reply_author, is_deleted, created_at, updated_at
+  from public.group_chat_messages
+  order by created_at, id
+  limit 200;
+$$;
+
+-- RPC: edit own message
+create or replace function public.edit_group_chat_message(p_visitor_token uuid, p_message_id bigint, p_new_message text)
+returns boolean language plpgsql security definer set search_path = ''
+as $$
+declare v_msg text;
+begin
+  v_msg := btrim(coalesce(p_new_message,''));
+  if char_length(v_msg) = 0 then raise exception 'Message cannot be empty.'; end if;
+  update public.group_chat_messages set message = v_msg, updated_at = now()
+  where id = p_message_id and visitor_token = p_visitor_token;
+  if not found then raise exception 'Message not found for your session.'; end if;
+  return true;
+end;$$;
+
+-- RPC: soft-delete own message
+create or replace function public.delete_group_chat_message(p_visitor_token uuid, p_message_id bigint)
+returns boolean language plpgsql security definer set search_path = ''
+as $$
+begin
+  update public.group_chat_messages set is_deleted = true, message = '', updated_at = now()
+  where id = p_message_id and visitor_token = p_visitor_token;
+  if not found then raise exception 'Message not found for your session.'; end if;
+  return true;
+end;$$;
+
+-- RPC: toggle reaction
+create or replace function public.toggle_group_chat_reaction(p_visitor_token uuid, p_message_id bigint, p_emoji text)
+returns void language plpgsql security definer set search_path = ''
+as $$
+declare v_existing text;
+begin
+  if p_emoji not in ('like','love','haha','wow','sad') then raise exception 'Invalid emoji.'; end if;
+  select emoji into v_existing from public.group_chat_reactions
+  where message_id = p_message_id and visitor_token = p_visitor_token;
+  if v_existing is null then
+    insert into public.group_chat_reactions(message_id, visitor_token, emoji) values(p_message_id, p_visitor_token, p_emoji);
+  elsif v_existing = p_emoji then
+    delete from public.group_chat_reactions where message_id = p_message_id and visitor_token = p_visitor_token;
+  else
+    update public.group_chat_reactions set emoji = p_emoji where message_id = p_message_id and visitor_token = p_visitor_token;
+  end if;
+end;$$;
+
+-- RPC: get reactions
+create or replace function public.get_group_chat_reactions(p_visitor_token uuid)
+returns table (message_id bigint, emoji text, reaction_count bigint, my_reaction text)
+language sql stable security definer set search_path = ''
+as $$
+  select r.message_id, r.emoji, count(*) as reaction_count,
+         max(case when r.visitor_token = p_visitor_token then r.emoji end) as my_reaction
+  from public.group_chat_reactions r
+  group by r.message_id, r.emoji;
+$$;
+
+revoke all on function public.post_group_chat_message(uuid,text,text,boolean,text,text,bigint,text,text) from public, anon, authenticated;
+revoke all on function public.get_group_chat_messages() from public, anon, authenticated;
+revoke all on function public.edit_group_chat_message(uuid,bigint,text) from public, anon, authenticated;
+revoke all on function public.delete_group_chat_message(uuid,bigint) from public, anon, authenticated;
+revoke all on function public.toggle_group_chat_reaction(uuid,bigint,text) from public, anon, authenticated;
+revoke all on function public.get_group_chat_reactions(uuid) from public, anon, authenticated;
+
+grant execute on function public.post_group_chat_message(uuid,text,text,boolean,text,text,bigint,text,text) to anon, authenticated;
+grant execute on function public.get_group_chat_messages() to anon, authenticated;
+grant execute on function public.edit_group_chat_message(uuid,bigint,text) to anon, authenticated;
+grant execute on function public.delete_group_chat_message(uuid,bigint) to anon, authenticated;
+grant execute on function public.toggle_group_chat_reaction(uuid,bigint,text) to anon, authenticated;
+grant execute on function public.get_group_chat_reactions(uuid) to anon, authenticated;
+
+notify pgrst, 'reload schema';

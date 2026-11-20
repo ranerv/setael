@@ -2846,57 +2846,52 @@
       initChat();
     };
 
-    // ── Chat / DM ────────────────────────────────────────────────────────────
-    const chatState = {
-      messages: [],
-      reactions: {},
-      replyTo: null,      // { id, text, sender }
-      pendingFile: null,
-      pendingFilePath: null,
-      pendingFileType: null,
-      sending: false,
-      initialized: false,
-      activeReactionMsgId: null
+    // ── Group Chat ───────────────────────────────────────────────────────────
+    const gcState = {
+      messages: [], reactions: {}, replyTo: null,
+      pendingFile: null, sending: false, editingId: null,
+      pollTimer: null
     };
-    const CHAT_EMOJIS = ['like','love','haha','wow','sad'];
-    const CHAT_EMOJI_ICONS = { like:'👍', love:'❤️', haha:'😂', wow:'😮', sad:'😢' };
+    const GC_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
-    function chatToken() {
-      return window.VisitorTools ? window.VisitorTools.getToken() : null;
-    }
+    function gcToken() { return window.VisitorTools ? window.VisitorTools.getToken() : null; }
+    function gcName() { return localStorage.getItem('sachel-visitor-chat-name') || 'Visitor'; }
 
-    async function chatRpc(name, payload) {
-      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${name}`, {
+    async function gcRpc(name, payload) {
+      const response = await fetch(supabaseUrl + '/rest/v1/rpc/' + name, {
         method: 'POST',
         headers: { apikey: publishableKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload || {})
       });
       const text = await response.text();
       let result;
       try { result = text ? JSON.parse(text) : null; } catch(e) { result = null; }
-      if (!response.ok) throw new Error((result && (result.message || result.msg)) || `Request failed (${response.status}).`);
+      if (!response.ok) throw new Error((result && (result.message || result.msg)) || 'Request failed (' + response.status + ').');
       return result;
     }
 
-    function chatDateLabel(value) {
+    function gcTimeLabel(value) {
       const d = new Date(value);
       if (isNaN(d)) return '';
-      return new Intl.DateTimeFormat('en-PH', { timeZone:'Asia/Manila', hour:'numeric', minute:'2-digit' }).format(d);
+      return new Intl.DateTimeFormat('en-PH', {timeZone:'Asia/Manila',hour:'numeric',minute:'2-digit'}).format(d);
     }
 
-    function chatMediaUrl(path) {
-      return `${supabaseUrl}/storage/v1/object/public/chat-media/${path.split('/').map(encodeURIComponent).join('/')}`;
+    function gcMediaUrl(path) {
+      return supabaseUrl + '/storage/v1/object/public/chat-media/' + path.split('/').map(encodeURIComponent).join('/');
     }
 
-    function buildChatBubble(msg, isMe) {
+    function buildGcBubble(msg) {
+      const myToken = gcToken();
+      const isMe = msg.visitor_token && String(msg.visitor_token) === myToken;
+      const isOwner = msg.is_owner;
       const row = document.createElement('div');
       row.className = 'chat-bubble-row' + (isMe ? ' mine' : '');
       row.dataset.msgId = String(msg.id);
 
-      const avatar = document.createElement('div');
-      avatar.className = 'chat-avatar';
-      avatar.textContent = isMe ? (msg.sender_label?.[0] || 'V') : 'R';
-      avatar.setAttribute('aria-hidden','true');
+      const av = document.createElement('div');
+      av.className = 'chat-avatar';
+      av.textContent = isOwner ? 'R' : (msg.display_name ? msg.display_name[0].toUpperCase() : 'V');
+      av.setAttribute('aria-hidden', 'true');
 
       const wrap = document.createElement('div');
       wrap.className = 'chat-bubble-wrap';
@@ -2904,103 +2899,78 @@
       if (!isMe) {
         const name = document.createElement('p');
         name.className = 'chat-bubble-name';
-        name.textContent = msg.sender_label || 'Visitor';
+        name.textContent = isOwner ? 'Raneb' : (msg.display_name || 'Visitor');
         wrap.append(name);
       }
 
       const bubble = document.createElement('div');
       bubble.className = 'chat-bubble';
 
-      // Reply quote
       if (msg.reply_to_id && msg.reply_preview) {
         const quote = document.createElement('div');
         quote.className = 'chat-reply-quote';
-        const replyMsg = chatState.messages.find(m => m.id === msg.reply_to_id);
-        const replyName = document.createElement('strong');
-        replyName.textContent = replyMsg ? (replyMsg.sender_label || 'Visitor') : 'Reply';
-        const replyText = document.createElement('span');
-        replyText.textContent = msg.reply_preview;
-        quote.append(replyName, replyText);
+        const qName = document.createElement('strong');
+        qName.textContent = msg.reply_author || 'Visitor';
+        const qText = document.createElement('span');
+        qText.textContent = msg.reply_preview;
+        quote.append(qName, qText);
         bubble.append(quote);
       }
 
       if (msg.is_deleted) {
         const del = document.createElement('span');
         del.className = 'chat-bubble-deleted';
-        del.textContent = 'This message was deleted';
+        del.textContent = 'This message was deleted.';
         bubble.append(del);
       } else {
         if (msg.message) {
-          const text = document.createElement('span');
-          text.textContent = msg.message;
-          bubble.append(text);
+          const t = document.createElement('span');
+          t.textContent = msg.message;
+          bubble.append(t);
         }
         if (msg.media_path) {
           if (msg.media_type === 'video') {
-            const vid = document.createElement('video');
-            vid.src = chatMediaUrl(msg.media_path);
-            vid.controls = true; vid.playsInline = true; vid.preload = 'metadata';
-            bubble.append(vid);
+            const v = document.createElement('video');
+            v.src = gcMediaUrl(msg.media_path); v.controls = true; v.playsInline = true; v.preload = 'metadata';
+            bubble.append(v);
           } else {
-            const img = document.createElement('img');
-            img.src = chatMediaUrl(msg.media_path);
-            img.alt = 'Attached image'; img.loading = 'lazy';
-            bubble.append(img);
+            const i = document.createElement('img');
+            i.src = gcMediaUrl(msg.media_path); i.alt = 'Attached image'; i.loading = 'lazy';
+            bubble.append(i);
           }
         }
-        if (!msg.is_deleted) {
-          // Action buttons (shown on hover)
-          const actions = document.createElement('div');
-          actions.className = 'chat-bubble-actions';
-          // React
-          const reactAct = document.createElement('button');
-          reactAct.className = 'chat-bubble-action'; reactAct.title = 'React'; reactAct.textContent = '😊';
-          reactAct.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openChatReactionPicker(msg.id, reactAct);
-          });
-          actions.append(reactAct);
-          // Reply
-          const replyAct = document.createElement('button');
-          replyAct.className = 'chat-bubble-action'; replyAct.title = 'Reply'; replyAct.textContent = '↩';
-          replyAct.addEventListener('click', (e) => {
-            e.stopPropagation();
-            setChatReply(msg);
-          });
-          actions.append(replyAct);
-          // Edit/Delete (own messages only)
-          if (isMe && !msg.is_deleted) {
-            const editAct = document.createElement('button');
-            editAct.className = 'chat-bubble-action'; editAct.title = 'Edit'; editAct.textContent = '✏️';
-            editAct.addEventListener('click', (e) => {
-              e.stopPropagation();
-              startEditChatMessage(msg);
-            });
-            const delAct = document.createElement('button');
-            delAct.className = 'chat-bubble-action'; delAct.title = 'Delete'; delAct.textContent = '🗑';
-            delAct.addEventListener('click', async (e) => {
-              e.stopPropagation();
-              await deleteChatMessage(msg.id);
-            });
-            actions.append(editAct, delAct);
-          }
-          bubble.append(actions);
+        const actions = document.createElement('div');
+        actions.className = 'chat-bubble-actions';
+        const reactA = document.createElement('button');
+        reactA.className = 'chat-bubble-action'; reactA.title = 'React'; reactA.textContent = '😊';
+        reactA.addEventListener('click', (e) => { e.stopPropagation(); openGcPicker(msg.id, reactA); });
+        const replyA = document.createElement('button');
+        replyA.className = 'chat-bubble-action'; replyA.title = 'Reply'; replyA.textContent = '↩';
+        replyA.addEventListener('click', (e) => { e.stopPropagation(); setGcReply(msg); });
+        actions.append(reactA, replyA);
+        if (isMe) {
+          const editA = document.createElement('button');
+          editA.className = 'chat-bubble-action'; editA.title = 'Edit'; editA.textContent = '✏️';
+          editA.addEventListener('click', (e) => { e.stopPropagation(); startGcEdit(msg); });
+          const delA = document.createElement('button');
+          delA.className = 'chat-bubble-action'; delA.title = 'Delete'; delA.textContent = '🗑';
+          delA.addEventListener('click', async (e) => { e.stopPropagation(); await deleteGcMsg(msg.id); });
+          actions.append(editA, delA);
         }
+        bubble.append(actions);
       }
       wrap.append(bubble);
 
-      // Reactions row
       const reactRow = document.createElement('div');
       reactRow.className = 'chat-reaction-row';
-      reactRow.id = `chat-react-row-${msg.id}`;
-      const msgReacts = chatState.reactions[msg.id] || {};
-      CHAT_EMOJIS.forEach(ek => {
+      const msgReacts = gcState.reactions[msg.id] || {};
+      Object.entries(GC_EMOJIS).forEach(([ek, icon]) => {
         const count = msgReacts[ek] || 0;
         if (count > 0) {
           const badge = document.createElement('button');
           badge.className = 'chat-reaction-badge' + (msgReacts.myReaction === ek ? ' mine' : '');
-          badge.textContent = `${CHAT_EMOJI_ICONS[ek]} ${count}`;
-          badge.addEventListener('click', () => toggleChatReaction(msg.id, ek));
+          badge.textContent = icon + ' ' + count;
+          badge.addEventListener('click', () => toggleGcReaction(msg.id, ek));
           reactRow.append(badge);
         }
       });
@@ -3008,181 +2978,167 @@
 
       const time = document.createElement('p');
       time.className = 'chat-bubble-time';
-      time.textContent = chatDateLabel(msg.created_at) + (msg.updated_at ? ' · edited' : '');
+      time.textContent = gcTimeLabel(msg.created_at) + (msg.updated_at ? ' · edited' : '');
       wrap.append(time);
 
-      row.append(avatar, wrap);
+      row.append(av, wrap);
       return row;
     }
 
-    function renderChatMessages() {
+    function renderGcMessages(preserveScroll) {
       const container = document.getElementById('chat-messages');
-      const empty = document.getElementById('chat-empty');
-      if (!chatState.messages.length) {
-        container.replaceChildren(empty);
+      const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+      const prevScrollFromBottom = container.scrollHeight - container.scrollTop;
+      container.replaceChildren();
+
+      if (!gcState.messages.length) {
+        const empty = document.getElementById('chat-empty');
         empty.hidden = false;
+        container.append(empty);
         return;
       }
-      empty.hidden = true;
-      const scrolledToBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
-      container.replaceChildren();
-      const token = chatToken();
-      chatState.messages.forEach(msg => {
-        const isMe = msg.sender === 'visitor';
-        container.append(buildChatBubble(msg, isMe));
-      });
-      if (scrolledToBottom) container.scrollTop = container.scrollHeight;
-    }
+      document.getElementById('chat-empty').hidden = true;
+      gcState.messages.forEach(msg => container.append(buildGcBubble(msg)));
 
-    async function loadChatMessages() {
-      const token = chatToken();
-      if (!token || !supabaseUrl || !publishableKey) return;
-      try {
-        const msgs = await chatRpc('get_chat_messages', { p_visitor_token: token });
-        if (!Array.isArray(msgs)) return;
-        chatState.messages = msgs;
-        // Load reactions
-        const ids = msgs.map(m => m.id);
-        if (ids.length) {
-          const reacts = await chatRpc('get_chat_reactions', { p_visitor_token: token, p_message_ids: ids });
-          if (Array.isArray(reacts)) {
-            chatState.reactions = {};
-            reacts.forEach(r => {
-              if (!chatState.reactions[r.message_id]) chatState.reactions[r.message_id] = {};
-              chatState.reactions[r.message_id][r.emoji] = Number(r.reaction_count);
-              if (r.my_reaction) chatState.reactions[r.message_id].myReaction = r.my_reaction;
-            });
-          }
-        }
-        renderChatMessages();
-      } catch (error) {
-        console.error('Could not load chat messages.', error);
+      if (!preserveScroll || wasAtBottom) {
+        container.scrollTop = container.scrollHeight;
+      } else {
+        container.scrollTop = container.scrollHeight - prevScrollFromBottom;
       }
     }
 
-    function setChatReply(msg) {
-      chatState.replyTo = { id: msg.id, text: msg.message || '(media)', sender: msg.sender_label || 'Visitor' };
-      const banner = document.getElementById('chat-reply-banner');
-      document.getElementById('chat-reply-label').textContent = `Replying to ${chatState.replyTo.sender}: ${chatState.replyTo.text.slice(0, 60)}`;
-      banner.hidden = false;
+    async function loadGcMessages(preserveScroll) {
+      const token = gcToken();
+      if (!token || !supabaseUrl || !publishableKey) return;
+      try {
+        const msgs = await gcRpc('get_group_chat_messages', {});
+        if (!Array.isArray(msgs)) return;
+        gcState.messages = msgs;
+        const reacts = await gcRpc('get_group_chat_reactions', { p_visitor_token: token });
+        gcState.reactions = {};
+        if (Array.isArray(reacts)) {
+          reacts.forEach(r => {
+            if (!gcState.reactions[r.message_id]) gcState.reactions[r.message_id] = {};
+            gcState.reactions[r.message_id][r.emoji] = Number(r.reaction_count);
+            if (r.my_reaction) gcState.reactions[r.message_id].myReaction = r.my_reaction;
+          });
+        }
+        renderGcMessages(preserveScroll);
+      } catch(e) { console.error('Could not load group chat.', e); }
+    }
+
+    function setGcReply(msg) {
+      gcState.replyTo = { id: msg.id, preview: msg.message || '(media)', author: msg.is_owner ? 'Raneb' : (msg.display_name || 'Visitor') };
+      document.getElementById('chat-reply-label').textContent = 'Replying to ' + gcState.replyTo.author + ': ' + gcState.replyTo.preview.slice(0, 60);
+      document.getElementById('chat-reply-banner').hidden = false;
       document.getElementById('chat-input').focus();
     }
 
-    function clearChatReply() {
-      chatState.replyTo = null;
+    function clearGcReply() {
+      gcState.replyTo = null;
       document.getElementById('chat-reply-banner').hidden = true;
     }
 
-    function openChatReactionPicker(msgId, anchorEl) {
+    function startGcEdit(msg) {
+      const input = document.getElementById('chat-input');
+      input.value = msg.message;
+      gcState.editingId = msg.id;
+      document.getElementById('chat-send').textContent = '✓';
+      input.focus();
+    }
+
+    function resetGcCompose() {
+      const input = document.getElementById('chat-input');
+      input.value = '';
+      input.style.height = 'auto';
+      gcState.editingId = null;
+      gcState.pendingFile = null;
+      document.getElementById('chat-send').textContent = '➤';
+      document.getElementById('chat-media-preview').hidden = true;
+      document.getElementById('chat-file-input').value = '';
+      clearGcReply();
+    }
+
+    function openGcPicker(msgId, anchor) {
       const picker = document.getElementById('chat-reaction-picker');
-      chatState.activeReactionMsgId = msgId;
+      picker.dataset.msgId = String(msgId);
       picker.classList.add('open');
-      const rect = anchorEl.getBoundingClientRect();
+      const rect = anchor.getBoundingClientRect();
       picker.style.top = (rect.top - 48) + 'px';
       picker.style.left = rect.left + 'px';
     }
 
-    async function toggleChatReaction(msgId, emoji) {
-      const token = chatToken();
+    async function toggleGcReaction(msgId, emoji) {
+      const token = gcToken();
       if (!token) return;
       try {
-        await chatRpc('toggle_chat_reaction', { p_visitor_token: token, p_message_id: msgId, p_emoji: emoji });
-        await loadChatMessages();
-      } catch (e) { console.error('Reaction failed', e); }
+        await gcRpc('toggle_group_chat_reaction', { p_visitor_token: token, p_message_id: msgId, p_emoji: emoji });
+        await loadGcMessages(true);
+      } catch(e) { console.error('Reaction error', e); }
     }
 
-    async function deleteChatMessage(msgId) {
-      const token = chatToken();
+    async function deleteGcMsg(msgId) {
+      const token = gcToken();
       if (!token) return;
       try {
-        await chatRpc('delete_chat_message', { p_visitor_token: token, p_message_id: msgId });
-        await loadChatMessages();
-      } catch (e) { console.error('Delete failed', e); }
+        await gcRpc('delete_group_chat_message', { p_visitor_token: token, p_message_id: msgId });
+        await loadGcMessages(true);
+      } catch(e) { console.error('Delete error', e); }
     }
 
-    function startEditChatMessage(msg) {
-      const input = document.getElementById('chat-input');
-      input.value = msg.message;
-      input.dataset.editingId = String(msg.id);
-      input.focus();
-      document.getElementById('chat-send').textContent = '✓';
-    }
-
-    function resetChatCompose() {
-      const input = document.getElementById('chat-input');
-      input.value = '';
-      delete input.dataset.editingId;
-      document.getElementById('chat-send').textContent = '➤';
-      clearChatReply();
-      chatState.pendingFile = null;
-      chatState.pendingFilePath = null;
-      chatState.pendingFileType = null;
-      document.getElementById('chat-media-preview').hidden = true;
-      document.getElementById('chat-file-input').value = '';
-    }
-
-    async function uploadChatFile(file, token) {
-      const exts = { 'image/jpeg':'jpg','image/png':'png','image/gif':'gif','image/webp':'webp','image/avif':'avif','video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov' };
-      if (!exts[file.type]) throw new Error('Unsupported file type.');
-      const isVideo = file.type.startsWith('video/');
-      if (file.size > (isVideo ? 100 : 10) * 1024 * 1024) throw new Error(isVideo ? 'Video must be 100 MB or smaller.' : 'Image must be 10 MB or smaller.');
-      const path = `${token}/${crypto.randomUUID()}.${exts[file.type]}`;
-      const safePath = path.split('/').map(encodeURIComponent).join('/');
-      const response = await fetch(`${supabaseUrl}/storage/v1/object/chat-media/${safePath}`, {
-        method: 'POST',
-        headers: { apikey: publishableKey, Authorization: `Bearer ${publishableKey}`, 'Content-Type': file.type, 'x-upsert': 'false' },
-        body: file
-      });
-      if (!response.ok) throw new Error(`Upload failed (${response.status}).`);
-      return { path, mediaType: isVideo ? 'video' : 'image' };
-    }
-
-    async function sendChatMessage() {
-      if (chatState.sending) return;
+    async function sendGcMessage() {
+      if (gcState.sending) return;
       const input = document.getElementById('chat-input');
       const text = input.value.trim();
-      const editingId = input.dataset.editingId;
-      const token = chatToken();
+      const token = gcToken();
       if (!token) return;
-      if (!text && !chatState.pendingFile && !editingId) return;
-      chatState.sending = true;
+      if (!text && !gcState.pendingFile && !gcState.editingId) return;
+
+      gcState.sending = true;
       const sendBtn = document.getElementById('chat-send');
       sendBtn.disabled = true;
+
       try {
-        if (editingId) {
-          await chatRpc('edit_chat_message', { p_visitor_token: token, p_message_id: Number(editingId), p_new_message: text });
+        if (gcState.editingId) {
+          await gcRpc('edit_group_chat_message', { p_visitor_token: token, p_message_id: gcState.editingId, p_new_message: text });
         } else {
-          let mediaPath = chatState.pendingFilePath;
-          let mediaType = chatState.pendingFileType;
-          if (chatState.pendingFile && !mediaPath) {
-            const uploaded = await uploadChatFile(chatState.pendingFile, token);
-            mediaPath = uploaded.path; mediaType = uploaded.mediaType;
+          let mediaPath = null, mediaType = null;
+          if (gcState.pendingFile) {
+            const f = gcState.pendingFile;
+            const exts = {'image/jpeg':'jpg','image/png':'png','image/gif':'gif','image/webp':'webp','image/avif':'avif','video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov'};
+            const ext = exts[f.type] || 'bin';
+            const path = token + '/' + crypto.randomUUID() + '.' + ext;
+            const safePath = path.split('/').map(encodeURIComponent).join('/');
+            const up = await fetch(supabaseUrl + '/storage/v1/object/chat-media/' + safePath, {
+              method: 'POST',
+              headers: { apikey: publishableKey, Authorization: 'Bearer ' + publishableKey, 'Content-Type': f.type, 'x-upsert': 'false' },
+              body: f
+            });
+            if (up.ok) { mediaPath = path; mediaType = f.type.startsWith('video/') ? 'video' : 'image'; }
           }
-          const name = localStorage.getItem('sachel-visitor-chat-name') || 'Visitor';
-          await chatRpc('send_chat_message', {
+          await gcRpc('post_group_chat_message', {
             p_visitor_token: token,
-            p_display_name: name,
+            p_display_name: gcName(),
             p_message: text,
-            p_media_path: mediaPath || null,
-            p_media_type: mediaType || null,
-            p_reply_to_id: chatState.replyTo ? chatState.replyTo.id : null,
-            p_reply_preview: chatState.replyTo ? chatState.replyTo.text.slice(0, 200) : null
+            p_is_owner: false,
+            p_media_path: mediaPath,
+            p_media_type: mediaType,
+            p_reply_to_id: gcState.replyTo ? gcState.replyTo.id : null,
+            p_reply_preview: gcState.replyTo ? gcState.replyTo.preview.slice(0,200) : null,
+            p_reply_author: gcState.replyTo ? gcState.replyTo.author : null
           });
         }
-        resetChatCompose();
-        await loadChatMessages();
-        document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
-      } catch (error) {
-        console.error('Could not send message.', error);
+        resetGcCompose();
+        await loadGcMessages(false);
+      } catch(e) {
+        console.error('Send failed', e);
       } finally {
-        chatState.sending = false;
+        gcState.sending = false;
         sendBtn.disabled = false;
       }
     }
 
     function initChat() {
-      if (chatState.initialized) return;
-      chatState.initialized = true;
       if (!supabaseUrl || !publishableKey) return;
 
       const input = document.getElementById('chat-input');
@@ -3190,57 +3146,48 @@
       const fileInput = document.getElementById('chat-file-input');
       const picker = document.getElementById('chat-reaction-picker');
 
-      // Auto-resize textarea
       input.addEventListener('input', () => {
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 120) + 'px';
       });
-
-      // Send on Enter (Shift+Enter = newline)
       input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGcMessage(); }
       });
-
-      sendBtn.addEventListener('click', sendChatMessage);
-
-      // File attachment
+      sendBtn.addEventListener('click', sendGcMessage);
       fileInput.addEventListener('change', () => {
-        const file = fileInput.files[0];
-        if (!file) return;
-        chatState.pendingFile = file;
-        chatState.pendingFilePath = null;
-        document.getElementById('chat-media-preview-name').textContent = `📎 ${file.name}`;
+        const f = fileInput.files[0]; if (!f) return;
+        gcState.pendingFile = f;
+        document.getElementById('chat-media-preview-name').textContent = '\uD83D\uDCCE ' + f.name;
         document.getElementById('chat-media-preview').hidden = false;
       });
-
       document.getElementById('chat-remove-media').addEventListener('click', () => {
-        chatState.pendingFile = null; chatState.pendingFilePath = null;
+        gcState.pendingFile = null;
         document.getElementById('chat-media-preview').hidden = true;
         fileInput.value = '';
       });
+      document.getElementById('chat-cancel-reply').addEventListener('click', clearGcReply);
 
-      document.getElementById('chat-cancel-reply').addEventListener('click', clearChatReply);
-
-      // Reaction picker
       picker.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-emoji]');
-        if (!btn) return;
+        const btn = e.target.closest('[data-emoji]'); if (!btn) return;
         picker.classList.remove('open');
-        if (chatState.activeReactionMsgId) await toggleChatReaction(chatState.activeReactionMsgId, btn.dataset.emoji);
-        chatState.activeReactionMsgId = null;
+        const msgId = Number(picker.dataset.msgId);
+        if (msgId) await toggleGcReaction(msgId, btn.dataset.emoji);
       });
-
       document.addEventListener('click', (e) => {
         if (!picker.contains(e.target)) picker.classList.remove('open');
       });
 
-      // Load when switching to chat page
-      const origShowPage = window._chatShowPageOrig || null;
-      document.querySelectorAll('[data-page="chat"]').forEach(btn => {
-        btn.addEventListener('click', () => loadChatMessages());
-      });
+      // Poll every 10s for new messages (background, preserves scroll)
+      gcState.pollTimer = setInterval(() => {
+        const focused = document.activeElement;
+        if (focused && focused.id === 'chat-input') return; // don't reload while typing
+        if (!document.getElementById('page-chat').hidden) loadGcMessages(true);
+      }, 10000);
 
-      loadChatMessages();
+      // Load when switching to chat tab
+      document.querySelectorAll('[data-page="chat"]').forEach(btn => {
+        btn.addEventListener('click', () => loadGcMessages(false));
+      });
     }
   </script>
 </body>
