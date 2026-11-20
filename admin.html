@@ -134,6 +134,32 @@
     .admin-thread-reply { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
     .admin-thread-reply textarea { min-height: 43px; resize: vertical; }
     .admin-thread-reply button { align-self: end; }
+    /* Chat bubbles on admin */
+    .chat-bubble-row { display:flex;align-items:flex-end;gap:8px; }
+    .chat-bubble-row.mine { flex-direction:row-reverse; }
+    .chat-avatar { display:grid;width:30px;height:30px;flex:0 0 auto;place-items:center;border-radius:50%;background:#f0e9ed;color:#9a939a;font-size:.72rem;font-weight:750; }
+    .chat-bubble-row.mine .chat-avatar { background:#f8e6ec;color:#e48da8; }
+    .chat-bubble-wrap { max-width:72%;display:flex;flex-direction:column;gap:2px; }
+    .chat-bubble-row.mine .chat-bubble-wrap { align-items:flex-end; }
+    .chat-bubble-name { font-size:.68rem;color:#9a939a;margin:0 4px 2px; }
+    .chat-bubble { position:relative;padding:9px 13px;border-radius:18px;background:#f0e9ed;color:#55535b;font-size:.88rem;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word; }
+    .chat-bubble-row.mine .chat-bubble { background:#f3a9c0;color:#fff;border-bottom-right-radius:4px; }
+    .chat-bubble-row:not(.mine) .chat-bubble { border-bottom-left-radius:4px; }
+    .chat-bubble img { display:block;max-width:100%;max-height:280px;border-radius:12px;margin-top:6px;object-fit:contain; }
+    .chat-bubble video { display:block;max-width:100%;max-height:280px;border-radius:12px;margin-top:6px; }
+    .chat-bubble-deleted { color:#b0a8b0;font-style:italic;font-size:.82rem; }
+    .chat-bubble-time { font-size:.65rem;color:#b0a8b0;margin:0 4px; }
+    .chat-bubble-row.mine .chat-bubble-time { text-align:right; }
+    .chat-bubble-actions { display:none;position:absolute;top:-28px;right:0;flex-direction:row;gap:2px;padding:3px 6px;border-radius:999px;background:#fff;box-shadow:0 2px 8px #0002; }
+    .chat-bubble-row.mine .chat-bubble-actions { right:auto;left:0; }
+    .chat-bubble:hover .chat-bubble-actions { display:flex; }
+    .chat-bubble-action { width:26px;height:26px;border:0;background:transparent;cursor:pointer;font-size:.82rem;border-radius:50%;display:grid;place-items:center; }
+    .chat-bubble-action:hover { background:#f0e9ed; }
+    .chat-reply-quote { margin-bottom:6px;padding:6px 10px;border-left:3px solid #f3a9c0;border-radius:0 8px 8px 0;background:rgba(0,0,0,.07);font-size:.76rem;line-height:1.4; }
+    .chat-bubble-row.mine .chat-reply-quote { border-left-color:rgba(255,255,255,.5);background:rgba(255,255,255,.15);color:rgba(255,255,255,.9); }
+    .chat-reply-quote strong { display:block;font-size:.7rem;opacity:.8;margin-bottom:2px; }
+    .chat-reaction-row { display:flex;flex-wrap:wrap;gap:3px;margin-top:3px; }
+    .chat-reaction-badge { display:inline-flex;align-items:center;gap:2px;padding:1px 7px;border-radius:999px;background:#fff;border:1px solid #f0e9ed;font-size:.78rem;cursor:pointer; }
     .checkin-list { display: grid; gap: 10px; }
     .checkin-row { padding: 14px; border: 1px solid #eee9e2; border-radius: 12px; background: #fff; }
     .checkin-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -470,6 +496,7 @@
         <a class="admin-nav-link" href="#entries" aria-current="page"><span aria-hidden="true">✎</span>Entries</a>
         <a class="admin-nav-link" href="#schedule"><span aria-hidden="true">▦</span>Class schedule</a>
         <a class="admin-nav-link" href="#threads"><span aria-hidden="true">♡</span>Visitor threads</a>
+        <a class="admin-nav-link" href="#chat-inbox"><span aria-hidden="true">✉</span>Messages</a>
         <a class="admin-nav-link" href="#checkins"><span aria-hidden="true">☼</span>Check-ins</a>
         <a class="admin-nav-link" href="#reminders"><span aria-hidden="true">◈</span>Reminders &amp; likes</a>
         <a class="admin-nav-link" href="#visitor-submissions-panel"><span aria-hidden="true">✦</span>Shared moments</a>
@@ -631,7 +658,45 @@
         <p class="status" id="threads-status" role="status" aria-live="polite"></p>
       </section>
 
-      <section class="panel" id="checkins" aria-labelledby="checkins-heading">
+      <section class="panel" id="chat-inbox" aria-labelledby="chat-inbox-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="chat-inbox-heading">Messages</h2>
+            <p class="subtle">Private conversations with each visitor. Click a conversation to open it.</p>
+          </div>
+          <button class="button secondary" id="refresh-chat-inbox" type="button">Refresh</button>
+        </div>
+        <div style="display:grid;grid-template-columns:260px minmax(0,1fr);gap:0;border:1px solid #f0e9ed;border-radius:16px;overflow:hidden;min-height:500px;">
+          <div id="admin-chat-thread-list" style="border-right:1px solid #f0e9ed;overflow-y:auto;background:#fdf9fb;"></div>
+          <div style="display:flex;flex-direction:column;">
+            <div id="admin-chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:4px;min-height:400px;"></div>
+            <div id="admin-chat-reply-banner" hidden style="margin:0 12px 8px;padding:7px 12px;border-left:3px solid #f3a9c0;background:#fff8fa;border-radius:0 8px 8px 0;font-size:.8rem;color:#70656d;display:flex;align-items:center;justify-content:space-between;">
+              <span id="admin-chat-reply-label"></span>
+              <button type="button" id="admin-cancel-reply" style="border:0;background:transparent;cursor:pointer;font-size:1rem;color:#9a939a;">×</button>
+            </div>
+            <div id="admin-chat-media-preview" hidden style="margin:0 12px 8px;padding:6px 12px;border-radius:10px;background:#fff8fa;border:1px solid #f0e9ed;font-size:.8rem;color:#70656d;display:flex;align-items:center;justify-content:space-between;">
+              <span id="admin-chat-media-name"></span>
+              <button type="button" id="admin-remove-media" style="border:0;background:transparent;cursor:pointer;color:#a64e68;">× Remove</button>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:8px;padding:12px;border-top:1px solid #f0e9ed;">
+              <label style="width:36px;height:36px;flex:0 0 auto;border:1px solid #f0e9ed;border-radius:50%;background:#fff;cursor:pointer;display:grid;place-items:center;font-size:1rem;" title="Attach media">
+                📎<input type="file" id="admin-chat-file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime" style="display:none;">
+              </label>
+              <textarea id="admin-chat-input" placeholder="Type a message… (Enter to send)" rows="1" style="flex:1;min-height:40px;max-height:120px;padding:9px 13px;border:1px solid #e7dfe4;border-radius:20px;font:inherit;font-size:.88rem;resize:none;overflow-y:auto;" disabled></textarea>
+              <button id="admin-chat-send" type="button" style="width:38px;height:38px;flex:0 0 auto;border:0;border-radius:50%;background:#f3a9c0;color:#fff;cursor:pointer;font-size:1rem;display:grid;place-items:center;" disabled>➤</button>
+            </div>
+            <p class="status" id="admin-chat-status" role="status" aria-live="polite" style="margin:0 12px 10px;"></p>
+          </div>
+        </div>
+        <div id="admin-chat-reaction-picker" style="display:none;position:fixed;z-index:9999;padding:5px 7px;border-radius:12px;background:#fff;box-shadow:0 4px 16px #0002;gap:3px;">
+          <button data-emoji="like" style="width:30px;height:30px;border:0;background:transparent;cursor:pointer;font-size:1.1rem;border-radius:8px;">👍</button>
+          <button data-emoji="love" style="width:30px;height:30px;border:0;background:transparent;cursor:pointer;font-size:1.1rem;border-radius:8px;">❤️</button>
+          <button data-emoji="haha" style="width:30px;height:30px;border:0;background:transparent;cursor:pointer;font-size:1.1rem;border-radius:8px;">😂</button>
+          <button data-emoji="wow" style="width:30px;height:30px;border:0;background:transparent;cursor:pointer;font-size:1.1rem;border-radius:8px;">😮</button>
+          <button data-emoji="sad" style="width:30px;height:30px;border:0;background:transparent;cursor:pointer;font-size:1.1rem;border-radius:8px;">😢</button>
+        </div>
+      </section>
+<section class="panel" id="checkins" aria-labelledby="checkins-heading">
         <div class="panel-head">
           <div>
             <h2 id="checkins-heading">Visitor check-ins</h2>
@@ -1048,9 +1113,11 @@
         loadVisitorCheckins().catch((error) => setStatus(checkinsStatus, error.message, true)),
         loadReminderLogs(),
         loadVisitorSubmissions(),
-        loadDailyNoteReplies()
+        loadDailyNoteReplies(),
+        loadAdminChatInbox()
       ]);
       startThreadPolling();
+      initAdminChat();
     }
 
     async function restoreOwnerSession() {
@@ -2660,6 +2727,343 @@
 
     resetScheduleForm();
     restoreOwnerSession();
+
+    // ── Admin Chat Inbox ──────────────────────────────────────────────────────
+    const adminChatState = {
+      threads: [],
+      activeThread: null,
+      messages: [],
+      reactions: {},
+      replyTo: null,
+      pendingFile: null,
+      activeReactionMsgId: null
+    };
+    const ADMIN_CHAT_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
+
+    function adminChatDateLabel(value) {
+      const d = new Date(value);
+      if (isNaN(d)) return '';
+      return new Intl.DateTimeFormat('en-PH', {timeZone:'Asia/Manila',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d);
+    }
+
+    function adminChatMediaUrl(path) {
+      return `${supabaseUrl}/storage/v1/object/public/chat-media/${path.split('/').map(encodeURIComponent).join('/')}`;
+    }
+
+    async function loadAdminChatInbox() {
+      try {
+        const threads = await api('/rest/v1/site_chat_threads?select=id,visitor_token,display_name,last_message_at&order=last_message_at.desc');
+        if (!Array.isArray(threads)) return;
+        adminChatState.threads = threads;
+        renderAdminChatThreadList();
+        if (threads.length && adminChatState.activeThread) {
+          await loadAdminChatMessages(adminChatState.activeThread);
+        }
+      } catch (e) { console.error('Could not load chat threads.', e); }
+    }
+
+    function renderAdminChatThreadList() {
+      const list = document.getElementById('admin-chat-thread-list');
+      list.replaceChildren();
+      if (!adminChatState.threads.length) {
+        const empty = document.createElement('p');
+        empty.style.cssText = 'padding:16px;color:#98939a;font-size:.84rem;';
+        empty.textContent = 'No conversations yet.';
+        list.append(empty);
+        return;
+      }
+      adminChatState.threads.forEach(t => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.style.cssText = 'display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid #f0e9ed;background:' + (adminChatState.activeThread === t.visitor_token ? '#fff0f5' : 'transparent') + ';cursor:pointer;text-align:left;';
+        const av = document.createElement('div');
+        av.style.cssText = 'width:36px;height:36px;flex:0 0 auto;border-radius:50%;background:#f8e6ec;color:#e48da8;display:grid;place-items:center;font-size:.8rem;font-weight:750;';
+        av.textContent = (t.display_name || 'V')[0].toUpperCase();
+        const info = document.createElement('div');
+        info.style.cssText = 'min-width:0;';
+        const name = document.createElement('p');
+        name.style.cssText = 'margin:0;font-size:.86rem;font-weight:750;color:#55535b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        name.textContent = t.display_name || 'Visitor';
+        const time = document.createElement('p');
+        time.style.cssText = 'margin:3px 0 0;font-size:.72rem;color:#98939a;';
+        time.textContent = adminChatDateLabel(t.last_message_at);
+        info.append(name, time);
+        item.append(av, info);
+        item.addEventListener('click', () => selectAdminChatThread(t));
+        list.append(item);
+      });
+    }
+
+    async function selectAdminChatThread(thread) {
+      adminChatState.activeThread = thread.visitor_token;
+      renderAdminChatThreadList();
+      document.getElementById('admin-chat-input').disabled = false;
+      document.getElementById('admin-chat-send').disabled = false;
+      await loadAdminChatMessages(thread.visitor_token);
+    }
+
+    async function loadAdminChatMessages(visitorToken) {
+      try {
+        const msgs = await api(`/rest/v1/site_chat_messages?select=id,sender,sender_label,message,media_path,media_type,reply_to_id,reply_preview,is_deleted,created_at,updated_at&thread_id=in.(select+id+from+site_chat_threads+where+visitor_token=eq.${visitorToken})&order=id.asc`);
+        if (!Array.isArray(msgs)) return;
+        adminChatState.messages = msgs;
+        const ids = msgs.map(m => m.id);
+        if (ids.length) {
+          const reacts = await api(`/rest/v1/chat_message_reactions?select=message_id,emoji&message_id=in.(${ids.join(',')})`);
+          adminChatState.reactions = {};
+          if (Array.isArray(reacts)) {
+            reacts.forEach(r => {
+              if (!adminChatState.reactions[r.message_id]) adminChatState.reactions[r.message_id] = {};
+              adminChatState.reactions[r.message_id][r.emoji] = (adminChatState.reactions[r.message_id][r.emoji] || 0) + 1;
+            });
+          }
+        }
+        renderAdminChatMessages();
+      } catch (e) { console.error('Could not load admin chat messages.', e); }
+    }
+
+    function buildAdminChatBubble(msg) {
+      const isOwner = msg.sender === 'owner';
+      const row = document.createElement('div');
+      row.className = 'chat-bubble-row' + (isOwner ? ' mine' : '');
+      row.dataset.msgId = String(msg.id);
+
+      const av = document.createElement('div');
+      av.className = 'chat-avatar';
+      av.textContent = isOwner ? 'R' : (msg.sender_label?.[0] || 'V');
+      av.setAttribute('aria-hidden','true');
+
+      const wrap = document.createElement('div');
+      wrap.className = 'chat-bubble-wrap';
+
+      if (!isOwner) {
+        const name = document.createElement('p');
+        name.className = 'chat-bubble-name';
+        name.textContent = msg.sender_label || 'Visitor';
+        wrap.append(name);
+      }
+
+      const bubble = document.createElement('div');
+      bubble.className = 'chat-bubble';
+
+      if (msg.reply_to_id && msg.reply_preview) {
+        const quote = document.createElement('div');
+        quote.className = 'chat-reply-quote';
+        const replyMsg = adminChatState.messages.find(m => m.id === msg.reply_to_id);
+        const rName = document.createElement('strong');
+        rName.textContent = replyMsg ? (replyMsg.sender_label || 'Visitor') : 'Reply';
+        const rText = document.createElement('span');
+        rText.textContent = msg.reply_preview;
+        quote.append(rName, rText);
+        bubble.append(quote);
+      }
+
+      if (msg.is_deleted) {
+        const del = document.createElement('span');
+        del.className = 'chat-bubble-deleted';
+        del.textContent = 'This message was deleted';
+        bubble.append(del);
+      } else {
+        if (msg.message) { const t = document.createElement('span'); t.textContent = msg.message; bubble.append(t); }
+        if (msg.media_path) {
+          if (msg.media_type === 'video') {
+            const v = document.createElement('video'); v.src = adminChatMediaUrl(msg.media_path);
+            v.controls = true; v.playsInline = true; v.preload = 'metadata'; bubble.append(v);
+          } else {
+            const i = document.createElement('img'); i.src = adminChatMediaUrl(msg.media_path);
+            i.alt = 'Attached image'; i.loading = 'lazy'; bubble.append(i);
+          }
+        }
+        const actions = document.createElement('div');
+        actions.className = 'chat-bubble-actions';
+        // React
+        const reactA = document.createElement('button');
+        reactA.className = 'chat-bubble-action'; reactA.title = 'React'; reactA.textContent = '😊';
+        reactA.addEventListener('click', (e) => { e.stopPropagation(); openAdminChatReactionPicker(msg.id, reactA); });
+        // Reply
+        const replyA = document.createElement('button');
+        replyA.className = 'chat-bubble-action'; replyA.title = 'Reply'; replyA.textContent = '↩';
+        replyA.addEventListener('click', (e) => { e.stopPropagation(); setAdminChatReply(msg); });
+        actions.append(reactA, replyA);
+        // Owner can delete their own messages
+        if (isOwner) {
+          const delA = document.createElement('button');
+          delA.className = 'chat-bubble-action'; delA.title = 'Delete'; delA.textContent = '🗑';
+          delA.addEventListener('click', async (e) => { e.stopPropagation(); await deleteAdminChatMessage(msg.id); });
+          actions.append(delA);
+        }
+        bubble.append(actions);
+      }
+      wrap.append(bubble);
+
+      const reactRow = document.createElement('div');
+      reactRow.className = 'chat-reaction-row';
+      const msgReacts = adminChatState.reactions[msg.id] || {};
+      Object.entries(ADMIN_CHAT_EMOJIS).forEach(([ek, icon]) => {
+        const count = msgReacts[ek] || 0;
+        if (count > 0) {
+          const badge = document.createElement('button');
+          badge.className = 'chat-reaction-badge';
+          badge.textContent = `${icon} ${count}`;
+          badge.addEventListener('click', () => toggleAdminChatReaction(msg.id, ek));
+          reactRow.append(badge);
+        }
+      });
+      wrap.append(reactRow);
+
+      const time = document.createElement('p');
+      time.className = 'chat-bubble-time';
+      time.textContent = adminChatDateLabel(msg.created_at);
+      wrap.append(time);
+
+      row.append(av, wrap);
+      return row;
+    }
+
+    function renderAdminChatMessages() {
+      const container = document.getElementById('admin-chat-messages');
+      container.replaceChildren();
+      if (!adminChatState.messages.length) {
+        const empty = document.createElement('p');
+        empty.style.cssText = 'color:#98939a;font-size:.84rem;text-align:center;margin:auto;padding:24px;';
+        empty.textContent = 'No messages yet.';
+        container.append(empty);
+        return;
+      }
+      adminChatState.messages.forEach(msg => container.append(buildAdminChatBubble(msg)));
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function setAdminChatReply(msg) {
+      adminChatState.replyTo = { id: msg.id, text: msg.message || '(media)', sender: msg.sender_label || 'Visitor' };
+      document.getElementById('admin-chat-reply-label').textContent = `Replying to ${adminChatState.replyTo.sender}: ${adminChatState.replyTo.text.slice(0,60)}`;
+      document.getElementById('admin-chat-reply-banner').style.display = 'flex';
+      document.getElementById('admin-chat-reply-banner').hidden = false;
+      document.getElementById('admin-chat-input').focus();
+    }
+
+    function clearAdminChatReply() {
+      adminChatState.replyTo = null;
+      document.getElementById('admin-chat-reply-banner').hidden = true;
+    }
+
+    function openAdminChatReactionPicker(msgId, anchor) {
+      const picker = document.getElementById('admin-chat-reaction-picker');
+      adminChatState.activeReactionMsgId = msgId;
+      picker.style.display = 'flex';
+      const rect = anchor.getBoundingClientRect();
+      picker.style.top = (rect.top - 48) + 'px';
+      picker.style.left = rect.left + 'px';
+    }
+
+    async function toggleAdminChatReaction(msgId, emoji) {
+      try {
+        await api('/rest/v1/rpc/toggle_chat_reaction', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({p_visitor_token:'00000000-0000-0000-0000-000000000001', p_message_id:msgId, p_emoji:emoji})
+        });
+        await loadAdminChatMessages(adminChatState.activeThread);
+      } catch(e) { console.error('Reaction failed',e); }
+    }
+
+    async function deleteAdminChatMessage(msgId) {
+      try {
+        await api(`/rest/v1/site_chat_messages?id=eq.${msgId}`, {
+          method:'PATCH', headers:{'Content-Type':'application/json', Prefer:'return=minimal'},
+          body: JSON.stringify({is_deleted:true, message:''})
+        });
+        await loadAdminChatMessages(adminChatState.activeThread);
+      } catch(e) { console.error('Delete failed',e); }
+    }
+
+    async function sendAdminChatMessage() {
+      const input = document.getElementById('admin-chat-input');
+      const text = input.value.trim();
+      const thread = adminChatState.threads.find(t => t.visitor_token === adminChatState.activeThread);
+      if (!thread) return;
+      if (!text && !adminChatState.pendingFile) return;
+      input.disabled = true;
+      document.getElementById('admin-chat-send').disabled = true;
+      try {
+        let mediaPath = null, mediaType = null;
+        if (adminChatState.pendingFile) {
+          const exts = {'image/jpeg':'jpg','image/png':'png','image/gif':'gif','image/webp':'webp','image/avif':'avif','video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov'};
+          const f = adminChatState.pendingFile;
+          const ext = exts[f.type] || 'bin';
+          const path = `owner/${crypto.randomUUID()}.${ext}`;
+          const safePath = path.split('/').map(encodeURIComponent).join('/');
+          const up = await fetch(`${supabaseUrl}/storage/v1/object/chat-media/${safePath}`, {
+            method:'POST', headers:{apikey:publishableKey, Authorization:`Bearer ${accessToken}`, 'Content-Type':f.type, 'x-upsert':'false'}, body:f
+          });
+          if (up.ok) { mediaPath = path; mediaType = f.type.startsWith('video/') ? 'video' : 'image'; }
+        }
+        const threadId = thread.id;
+        await api('/rest/v1/site_chat_messages', {
+          method:'POST',
+          headers:{'Content-Type':'application/json', Prefer:'return=minimal'},
+          body: JSON.stringify({
+            thread_id: threadId,
+            sender: 'owner',
+            sender_label: 'Raneb',
+            message: text,
+            media_path: mediaPath,
+            media_type: mediaType,
+            reply_to_id: adminChatState.replyTo ? adminChatState.replyTo.id : null,
+            reply_preview: adminChatState.replyTo ? adminChatState.replyTo.text.slice(0,200) : null
+          })
+        });
+        await api(`/rest/v1/site_chat_threads?id=eq.${threadId}`, {
+          method:'PATCH', headers:{'Content-Type':'application/json', Prefer:'return=minimal'},
+          body: JSON.stringify({last_message_at: new Date().toISOString()})
+        });
+        input.value = '';
+        adminChatState.pendingFile = null;
+        document.getElementById('admin-chat-media-preview').hidden = true;
+        document.getElementById('admin-chat-file').value = '';
+        clearAdminChatReply();
+        await loadAdminChatMessages(adminChatState.activeThread);
+        await loadAdminChatInbox();
+      } catch(e) {
+        console.error('Could not send admin message.',e);
+        setStatus(document.getElementById('admin-chat-status'), e.message || 'Could not send.', true);
+      } finally {
+        input.disabled = false;
+        document.getElementById('admin-chat-send').disabled = false;
+        input.focus();
+      }
+    }
+
+    function initAdminChat() {
+      const input = document.getElementById('admin-chat-input');
+      const sendBtn = document.getElementById('admin-chat-send');
+      const fileInput = document.getElementById('admin-chat-file');
+      const picker = document.getElementById('admin-chat-reaction-picker');
+
+      input.addEventListener('input', () => { input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; });
+      input.addEventListener('keydown', (e) => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendAdminChatMessage(); } });
+      sendBtn.addEventListener('click', sendAdminChatMessage);
+      fileInput.addEventListener('change', () => {
+        const f = fileInput.files[0]; if (!f) return;
+        adminChatState.pendingFile = f;
+        document.getElementById('admin-chat-media-name').textContent = `📎 ${f.name}`;
+        document.getElementById('admin-chat-media-preview').style.display = 'flex';
+        document.getElementById('admin-chat-media-preview').hidden = false;
+      });
+      document.getElementById('admin-remove-media').addEventListener('click', () => {
+        adminChatState.pendingFile = null;
+        document.getElementById('admin-chat-media-preview').hidden = true;
+        fileInput.value = '';
+      });
+      document.getElementById('admin-cancel-reply').addEventListener('click', clearAdminChatReply);
+      document.getElementById('refresh-chat-inbox').addEventListener('click', loadAdminChatInbox);
+      picker.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-emoji]'); if (!btn) return;
+        picker.style.display = 'none';
+        if (adminChatState.activeReactionMsgId) await toggleAdminChatReaction(adminChatState.activeReactionMsgId, btn.dataset.emoji);
+        adminChatState.activeReactionMsgId = null;
+      });
+      document.addEventListener('click', (e) => { if (!picker.contains(e.target)) picker.style.display = 'none'; });
+    }
   </script>
 </body>
 </html>

@@ -1074,6 +1074,72 @@
     .schedule-personal .form-actions { display: flex; flex-wrap: wrap; gap: 9px; }
     .media-status { min-height: 1.5em; margin: 12px 0 0; color: #817a84; font-size: .86rem; line-height: 1.5; }
     .media-status[data-error="true"] { color: #a64e68; }
+    /* ── Chat / DM page ── */
+    .chat-page { display: flex; flex-direction: column; height: calc(100vh - 78px); max-height: 900px; }
+    .chat-header { display: flex; align-items: center; gap: 12px; padding: 14px 0 12px; border-bottom: 1px solid #f0e9ed; }
+    .chat-header-avatar { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #f8e6ec; color: #e48da8; font-family: Georgia, serif; font-size: 1.1rem; }
+    .chat-header-name { font-weight: 750; color: #55535b; font-size: .94rem; }
+    .chat-header-sub { margin: 2px 0 0; color: #98939a; font-size: .74rem; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 16px 0; display: flex; flex-direction: column; gap: 4px; scroll-behavior: smooth; }
+    .chat-bubble-row { display: flex; align-items: flex-end; gap: 8px; }
+    .chat-bubble-row.mine { flex-direction: row-reverse; }
+    .chat-avatar { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #f0e9ed; color: #9a939a; font-size: .72rem; font-weight: 750; }
+    .chat-bubble-row.mine .chat-avatar { background: #f8e6ec; color: #e48da8; }
+    .chat-bubble-wrap { max-width: 72%; display: flex; flex-direction: column; gap: 2px; }
+    .chat-bubble-row.mine .chat-bubble-wrap { align-items: flex-end; }
+    .chat-bubble-name { font-size: .68rem; color: #9a939a; margin: 0 4px 2px; }
+    .chat-bubble {
+      position: relative;
+      padding: 9px 13px;
+      border-radius: 18px;
+      background: #f0e9ed;
+      color: #55535b;
+      font-size: .88rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .chat-bubble-row.mine .chat-bubble { background: #f3a9c0; color: #fff; border-bottom-right-radius: 4px; }
+    .chat-bubble-row:not(.mine) .chat-bubble { border-bottom-left-radius: 4px; }
+    .chat-bubble img { display: block; max-width: 100%; max-height: 280px; border-radius: 12px; margin-top: 6px; object-fit: contain; }
+    .chat-bubble video { display: block; max-width: 100%; max-height: 280px; border-radius: 12px; margin-top: 6px; }
+    .chat-bubble-deleted { color: #b0a8b0; font-style: italic; font-size: .82rem; }
+    .chat-bubble-time { font-size: .65rem; color: #b0a8b0; margin: 0 4px; }
+    .chat-bubble-row.mine .chat-bubble-time { text-align: right; }
+    .chat-bubble-actions { display: none; position: absolute; top: -28px; right: 0; flex-direction: row; gap: 2px; padding: 3px 6px; border-radius: 999px; background: #fff; box-shadow: 0 2px 8px #0002; }
+    .chat-bubble-row.mine .chat-bubble-actions { right: auto; left: 0; }
+    .chat-bubble:hover .chat-bubble-actions { display: flex; }
+    .chat-bubble-action { width: 26px; height: 26px; border: 0; background: transparent; cursor: pointer; font-size: .82rem; border-radius: 50%; display: grid; place-items: center; }
+    .chat-bubble-action:hover { background: #f0e9ed; }
+    .chat-reply-quote { margin-bottom: 6px; padding: 6px 10px; border-left: 3px solid #f3a9c0; border-radius: 0 8px 8px 0; background: rgba(0,0,0,.07); font-size: .76rem; line-height: 1.4; }
+    .chat-bubble-row.mine .chat-reply-quote { border-left-color: rgba(255,255,255,.5); background: rgba(255,255,255,.15); color: rgba(255,255,255,.9); }
+    .chat-reply-quote strong { display: block; font-size: .7rem; opacity: .8; margin-bottom: 2px; }
+    .chat-reaction-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+    .chat-reaction-badge { display: inline-flex; align-items: center; gap: 2px; padding: 1px 7px; border-radius: 999px; background: #fff; border: 1px solid #f0e9ed; font-size: .78rem; cursor: pointer; }
+    .chat-reaction-badge.mine { border-color: #f3a9c0; background: #fff0f5; }
+    .chat-compose { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 0; border-top: 1px solid #f0e9ed; }
+    .chat-reply-banner { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; border-radius: 10px; background: #fff8fa; border-left: 3px solid #f3a9c0; font-size: .8rem; color: #70656d; }
+    .chat-reply-banner button { border: 0; background: transparent; cursor: pointer; font-size: 1rem; color: #9a939a; }
+    .chat-compose-row { display: flex; align-items: flex-end; gap: 8px; }
+    .chat-compose-attach { width: 38px; height: 38px; flex: 0 0 auto; border: 1px solid #f0e9ed; border-radius: 50%; background: #fff; cursor: pointer; font-size: 1.1rem; display: grid; place-items: center; }
+    .chat-compose-attach:hover { background: #fff0f5; }
+    .chat-compose-input { flex: 1; min-height: 40px; max-height: 120px; padding: 9px 13px; border: 1px solid #e7dfe4; border-radius: 20px; background: #fff; color: #55535b; font: inherit; font-size: .88rem; resize: none; overflow-y: auto; line-height: 1.5; }
+    .chat-compose-input:focus-visible { outline: 2px solid #f3a9c0; outline-offset: 2px; }
+    .chat-send { width: 40px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 50%; background: #f3a9c0; color: #fff; cursor: pointer; font-size: 1.1rem; display: grid; place-items: center; }
+    .chat-send:hover { background: #ed98b2; }
+    .chat-send:disabled { opacity: .5; cursor: wait; }
+    .chat-media-preview { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: #fff8fa; border: 1px solid #f0e9ed; font-size: .8rem; color: #70656d; }
+    .chat-media-preview button { border: 0; background: transparent; cursor: pointer; font-size: .9rem; color: #a64e68; }
+    .chat-reaction-picker { display: none; flex-wrap: wrap; gap: 3px; padding: 5px 7px; border-radius: 12px; background: #fff; box-shadow: 0 4px 16px #0002; position: fixed; z-index: 9999; }
+    .chat-reaction-picker.open { display: flex; }
+    .chat-reaction-pick { width: 32px; height: 32px; border: 0; background: transparent; cursor: pointer; font-size: 1.1rem; border-radius: 8px; }
+    .chat-reaction-pick:hover { background: #f8f0fb; }
+    .chat-empty { flex: 1; display: grid; place-items: center; color: #b0a8b0; font-size: .88rem; text-align: center; padding: 24px; }
+    @media (max-width: 720px) {
+      .chat-page { height: calc(100dvh - 64px - 54px); }
+      .chat-bubble-wrap { max-width: 85%; }
+    }
     .schedule-guide .button, .schedule-personal .button {
       min-height: 42px;
       padding: 9px 14px;
@@ -1147,6 +1213,7 @@
       <button class="nav-link" type="button" data-page="media-archive"><span class="nav-icon" aria-hidden="true">✧</span>Archive</button>
       <button class="nav-link" type="button" data-page="schedule"><span class="nav-icon" aria-hidden="true">▦</span>Schedule</button>
       <button class="nav-link" type="button" data-page="threads"><span class="nav-icon" aria-hidden="true">♡</span>Threads</button>
+      <button class="nav-link" type="button" data-page="chat"><span class="nav-icon" aria-hidden="true">✉</span>Messages</button>
     </nav>
     <div class="sidebar-bottom">
       <p class="sidebar-note">A collection of little moments, shared with care.</p>
@@ -1160,6 +1227,7 @@
     <button class="nav-link" type="button" data-page="media-archive"><span class="nav-icon" aria-hidden="true">✧</span>Archive</button>
     <button class="nav-link" type="button" data-page="schedule"><span class="nav-icon" aria-hidden="true">▦</span>Schedule</button>
     <button class="nav-link" type="button" data-page="threads"><span class="nav-icon" aria-hidden="true">♡</span>Threads</button>
+    <button class="nav-link" type="button" data-page="chat"><span class="nav-icon" aria-hidden="true">✉</span>Messages</button>
   </nav>
 
   <div class="main-shell">
@@ -1442,6 +1510,49 @@
           </form>
           <p id="visitor-thread-status" class="media-status" role="status" aria-live="polite"></p>
           <div class="visitor-thread-feed" id="visitor-thread-feed" aria-live="polite"></div>
+        </section>
+
+        <section id="page-chat" data-page-section="chat" hidden>
+          <div class="chat-page">
+            <div class="chat-header">
+              <span class="chat-header-avatar" aria-hidden="true">R</span>
+              <div>
+                <p class="chat-header-name">Raneb</p>
+                <p class="chat-header-sub">Your private conversation</p>
+              </div>
+            </div>
+            <div class="chat-messages" id="chat-messages" aria-live="polite" aria-label="Conversation messages">
+              <div class="chat-empty" id="chat-empty">Start the conversation — say hi! 👋</div>
+            </div>
+            <div class="chat-compose">
+              <div id="chat-reply-banner" hidden>
+                <div class="chat-reply-banner">
+                  <span id="chat-reply-label">Replying to a message</span>
+                  <button type="button" id="chat-cancel-reply" aria-label="Cancel reply">×</button>
+                </div>
+              </div>
+              <div id="chat-media-preview" hidden>
+                <div class="chat-media-preview">
+                  <span id="chat-media-preview-name"></span>
+                  <button type="button" id="chat-remove-media" aria-label="Remove attachment">× Remove</button>
+                </div>
+              </div>
+              <div class="chat-compose-row">
+                <label class="chat-compose-attach" title="Attach photo or video" aria-label="Attach photo or video">
+                  📎<input type="file" id="chat-file-input" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime" style="display:none;">
+                </label>
+                <textarea class="chat-compose-input" id="chat-input" placeholder="Message Raneb…" rows="1" aria-label="Type a message"></textarea>
+                <button class="chat-send" id="chat-send" type="button" aria-label="Send message">➤</button>
+              </div>
+            </div>
+          </div>
+          <div class="chat-reaction-picker" id="chat-reaction-picker" role="toolbar" aria-label="Pick a reaction">
+            <button class="chat-reaction-pick" data-emoji="like" title="Like">👍</button>
+            <button class="chat-reaction-pick" data-emoji="love" title="Love">❤️</button>
+            <button class="chat-reaction-pick" data-emoji="haha" title="Haha">😂</button>
+            <button class="chat-reaction-pick" data-emoji="wow" title="Wow">😮</button>
+            <button class="chat-reaction-pick" data-emoji="sad" title="Sad">😢</button>
+          </div>
         </section>
 
         <p class="load-error" id="site-status" role="status" aria-live="polite" hidden></p>
@@ -2732,7 +2843,405 @@
       _origLoadSiteContent();
       showUploadTip();
       loadVisitorSubmissions();
+      initChat();
     };
+
+    // ── Chat / DM ────────────────────────────────────────────────────────────
+    const chatState = {
+      messages: [],
+      reactions: {},
+      replyTo: null,      // { id, text, sender }
+      pendingFile: null,
+      pendingFilePath: null,
+      pendingFileType: null,
+      sending: false,
+      initialized: false,
+      activeReactionMsgId: null
+    };
+    const CHAT_EMOJIS = ['like','love','haha','wow','sad'];
+    const CHAT_EMOJI_ICONS = { like:'👍', love:'❤️', haha:'😂', wow:'😮', sad:'😢' };
+
+    function chatToken() {
+      return window.VisitorTools ? window.VisitorTools.getToken() : null;
+    }
+
+    async function chatRpc(name, payload) {
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${name}`, {
+        method: 'POST',
+        headers: { apikey: publishableKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const text = await response.text();
+      let result;
+      try { result = text ? JSON.parse(text) : null; } catch(e) { result = null; }
+      if (!response.ok) throw new Error((result && (result.message || result.msg)) || `Request failed (${response.status}).`);
+      return result;
+    }
+
+    function chatDateLabel(value) {
+      const d = new Date(value);
+      if (isNaN(d)) return '';
+      return new Intl.DateTimeFormat('en-PH', { timeZone:'Asia/Manila', hour:'numeric', minute:'2-digit' }).format(d);
+    }
+
+    function chatMediaUrl(path) {
+      return `${supabaseUrl}/storage/v1/object/public/chat-media/${path.split('/').map(encodeURIComponent).join('/')}`;
+    }
+
+    function buildChatBubble(msg, isMe) {
+      const row = document.createElement('div');
+      row.className = 'chat-bubble-row' + (isMe ? ' mine' : '');
+      row.dataset.msgId = String(msg.id);
+
+      const avatar = document.createElement('div');
+      avatar.className = 'chat-avatar';
+      avatar.textContent = isMe ? (msg.sender_label?.[0] || 'V') : 'R';
+      avatar.setAttribute('aria-hidden','true');
+
+      const wrap = document.createElement('div');
+      wrap.className = 'chat-bubble-wrap';
+
+      if (!isMe) {
+        const name = document.createElement('p');
+        name.className = 'chat-bubble-name';
+        name.textContent = msg.sender_label || 'Visitor';
+        wrap.append(name);
+      }
+
+      const bubble = document.createElement('div');
+      bubble.className = 'chat-bubble';
+
+      // Reply quote
+      if (msg.reply_to_id && msg.reply_preview) {
+        const quote = document.createElement('div');
+        quote.className = 'chat-reply-quote';
+        const replyMsg = chatState.messages.find(m => m.id === msg.reply_to_id);
+        const replyName = document.createElement('strong');
+        replyName.textContent = replyMsg ? (replyMsg.sender_label || 'Visitor') : 'Reply';
+        const replyText = document.createElement('span');
+        replyText.textContent = msg.reply_preview;
+        quote.append(replyName, replyText);
+        bubble.append(quote);
+      }
+
+      if (msg.is_deleted) {
+        const del = document.createElement('span');
+        del.className = 'chat-bubble-deleted';
+        del.textContent = 'This message was deleted';
+        bubble.append(del);
+      } else {
+        if (msg.message) {
+          const text = document.createElement('span');
+          text.textContent = msg.message;
+          bubble.append(text);
+        }
+        if (msg.media_path) {
+          if (msg.media_type === 'video') {
+            const vid = document.createElement('video');
+            vid.src = chatMediaUrl(msg.media_path);
+            vid.controls = true; vid.playsInline = true; vid.preload = 'metadata';
+            bubble.append(vid);
+          } else {
+            const img = document.createElement('img');
+            img.src = chatMediaUrl(msg.media_path);
+            img.alt = 'Attached image'; img.loading = 'lazy';
+            bubble.append(img);
+          }
+        }
+        if (!msg.is_deleted) {
+          // Action buttons (shown on hover)
+          const actions = document.createElement('div');
+          actions.className = 'chat-bubble-actions';
+          // React
+          const reactAct = document.createElement('button');
+          reactAct.className = 'chat-bubble-action'; reactAct.title = 'React'; reactAct.textContent = '😊';
+          reactAct.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openChatReactionPicker(msg.id, reactAct);
+          });
+          actions.append(reactAct);
+          // Reply
+          const replyAct = document.createElement('button');
+          replyAct.className = 'chat-bubble-action'; replyAct.title = 'Reply'; replyAct.textContent = '↩';
+          replyAct.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setChatReply(msg);
+          });
+          actions.append(replyAct);
+          // Edit/Delete (own messages only)
+          if (isMe && !msg.is_deleted) {
+            const editAct = document.createElement('button');
+            editAct.className = 'chat-bubble-action'; editAct.title = 'Edit'; editAct.textContent = '✏️';
+            editAct.addEventListener('click', (e) => {
+              e.stopPropagation();
+              startEditChatMessage(msg);
+            });
+            const delAct = document.createElement('button');
+            delAct.className = 'chat-bubble-action'; delAct.title = 'Delete'; delAct.textContent = '🗑';
+            delAct.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              await deleteChatMessage(msg.id);
+            });
+            actions.append(editAct, delAct);
+          }
+          bubble.append(actions);
+        }
+      }
+      wrap.append(bubble);
+
+      // Reactions row
+      const reactRow = document.createElement('div');
+      reactRow.className = 'chat-reaction-row';
+      reactRow.id = `chat-react-row-${msg.id}`;
+      const msgReacts = chatState.reactions[msg.id] || {};
+      CHAT_EMOJIS.forEach(ek => {
+        const count = msgReacts[ek] || 0;
+        if (count > 0) {
+          const badge = document.createElement('button');
+          badge.className = 'chat-reaction-badge' + (msgReacts.myReaction === ek ? ' mine' : '');
+          badge.textContent = `${CHAT_EMOJI_ICONS[ek]} ${count}`;
+          badge.addEventListener('click', () => toggleChatReaction(msg.id, ek));
+          reactRow.append(badge);
+        }
+      });
+      wrap.append(reactRow);
+
+      const time = document.createElement('p');
+      time.className = 'chat-bubble-time';
+      time.textContent = chatDateLabel(msg.created_at) + (msg.updated_at ? ' · edited' : '');
+      wrap.append(time);
+
+      row.append(avatar, wrap);
+      return row;
+    }
+
+    function renderChatMessages() {
+      const container = document.getElementById('chat-messages');
+      const empty = document.getElementById('chat-empty');
+      if (!chatState.messages.length) {
+        container.replaceChildren(empty);
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+      const scrolledToBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
+      container.replaceChildren();
+      const token = chatToken();
+      chatState.messages.forEach(msg => {
+        const isMe = msg.sender === 'visitor';
+        container.append(buildChatBubble(msg, isMe));
+      });
+      if (scrolledToBottom) container.scrollTop = container.scrollHeight;
+    }
+
+    async function loadChatMessages() {
+      const token = chatToken();
+      if (!token || !supabaseUrl || !publishableKey) return;
+      try {
+        const msgs = await chatRpc('get_chat_messages', { p_visitor_token: token });
+        if (!Array.isArray(msgs)) return;
+        chatState.messages = msgs;
+        // Load reactions
+        const ids = msgs.map(m => m.id);
+        if (ids.length) {
+          const reacts = await chatRpc('get_chat_reactions', { p_visitor_token: token, p_message_ids: ids });
+          if (Array.isArray(reacts)) {
+            chatState.reactions = {};
+            reacts.forEach(r => {
+              if (!chatState.reactions[r.message_id]) chatState.reactions[r.message_id] = {};
+              chatState.reactions[r.message_id][r.emoji] = Number(r.reaction_count);
+              if (r.my_reaction) chatState.reactions[r.message_id].myReaction = r.my_reaction;
+            });
+          }
+        }
+        renderChatMessages();
+      } catch (error) {
+        console.error('Could not load chat messages.', error);
+      }
+    }
+
+    function setChatReply(msg) {
+      chatState.replyTo = { id: msg.id, text: msg.message || '(media)', sender: msg.sender_label || 'Visitor' };
+      const banner = document.getElementById('chat-reply-banner');
+      document.getElementById('chat-reply-label').textContent = `Replying to ${chatState.replyTo.sender}: ${chatState.replyTo.text.slice(0, 60)}`;
+      banner.hidden = false;
+      document.getElementById('chat-input').focus();
+    }
+
+    function clearChatReply() {
+      chatState.replyTo = null;
+      document.getElementById('chat-reply-banner').hidden = true;
+    }
+
+    function openChatReactionPicker(msgId, anchorEl) {
+      const picker = document.getElementById('chat-reaction-picker');
+      chatState.activeReactionMsgId = msgId;
+      picker.classList.add('open');
+      const rect = anchorEl.getBoundingClientRect();
+      picker.style.top = (rect.top - 48) + 'px';
+      picker.style.left = rect.left + 'px';
+    }
+
+    async function toggleChatReaction(msgId, emoji) {
+      const token = chatToken();
+      if (!token) return;
+      try {
+        await chatRpc('toggle_chat_reaction', { p_visitor_token: token, p_message_id: msgId, p_emoji: emoji });
+        await loadChatMessages();
+      } catch (e) { console.error('Reaction failed', e); }
+    }
+
+    async function deleteChatMessage(msgId) {
+      const token = chatToken();
+      if (!token) return;
+      try {
+        await chatRpc('delete_chat_message', { p_visitor_token: token, p_message_id: msgId });
+        await loadChatMessages();
+      } catch (e) { console.error('Delete failed', e); }
+    }
+
+    function startEditChatMessage(msg) {
+      const input = document.getElementById('chat-input');
+      input.value = msg.message;
+      input.dataset.editingId = String(msg.id);
+      input.focus();
+      document.getElementById('chat-send').textContent = '✓';
+    }
+
+    function resetChatCompose() {
+      const input = document.getElementById('chat-input');
+      input.value = '';
+      delete input.dataset.editingId;
+      document.getElementById('chat-send').textContent = '➤';
+      clearChatReply();
+      chatState.pendingFile = null;
+      chatState.pendingFilePath = null;
+      chatState.pendingFileType = null;
+      document.getElementById('chat-media-preview').hidden = true;
+      document.getElementById('chat-file-input').value = '';
+    }
+
+    async function uploadChatFile(file, token) {
+      const exts = { 'image/jpeg':'jpg','image/png':'png','image/gif':'gif','image/webp':'webp','image/avif':'avif','video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov' };
+      if (!exts[file.type]) throw new Error('Unsupported file type.');
+      const isVideo = file.type.startsWith('video/');
+      if (file.size > (isVideo ? 100 : 10) * 1024 * 1024) throw new Error(isVideo ? 'Video must be 100 MB or smaller.' : 'Image must be 10 MB or smaller.');
+      const path = `${token}/${crypto.randomUUID()}.${exts[file.type]}`;
+      const safePath = path.split('/').map(encodeURIComponent).join('/');
+      const response = await fetch(`${supabaseUrl}/storage/v1/object/chat-media/${safePath}`, {
+        method: 'POST',
+        headers: { apikey: publishableKey, Authorization: `Bearer ${publishableKey}`, 'Content-Type': file.type, 'x-upsert': 'false' },
+        body: file
+      });
+      if (!response.ok) throw new Error(`Upload failed (${response.status}).`);
+      return { path, mediaType: isVideo ? 'video' : 'image' };
+    }
+
+    async function sendChatMessage() {
+      if (chatState.sending) return;
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      const editingId = input.dataset.editingId;
+      const token = chatToken();
+      if (!token) return;
+      if (!text && !chatState.pendingFile && !editingId) return;
+      chatState.sending = true;
+      const sendBtn = document.getElementById('chat-send');
+      sendBtn.disabled = true;
+      try {
+        if (editingId) {
+          await chatRpc('edit_chat_message', { p_visitor_token: token, p_message_id: Number(editingId), p_new_message: text });
+        } else {
+          let mediaPath = chatState.pendingFilePath;
+          let mediaType = chatState.pendingFileType;
+          if (chatState.pendingFile && !mediaPath) {
+            const uploaded = await uploadChatFile(chatState.pendingFile, token);
+            mediaPath = uploaded.path; mediaType = uploaded.mediaType;
+          }
+          const name = localStorage.getItem('sachel-visitor-chat-name') || 'Visitor';
+          await chatRpc('send_chat_message', {
+            p_visitor_token: token,
+            p_display_name: name,
+            p_message: text,
+            p_media_path: mediaPath || null,
+            p_media_type: mediaType || null,
+            p_reply_to_id: chatState.replyTo ? chatState.replyTo.id : null,
+            p_reply_preview: chatState.replyTo ? chatState.replyTo.text.slice(0, 200) : null
+          });
+        }
+        resetChatCompose();
+        await loadChatMessages();
+        document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+      } catch (error) {
+        console.error('Could not send message.', error);
+      } finally {
+        chatState.sending = false;
+        sendBtn.disabled = false;
+      }
+    }
+
+    function initChat() {
+      if (chatState.initialized) return;
+      chatState.initialized = true;
+      if (!supabaseUrl || !publishableKey) return;
+
+      const input = document.getElementById('chat-input');
+      const sendBtn = document.getElementById('chat-send');
+      const fileInput = document.getElementById('chat-file-input');
+      const picker = document.getElementById('chat-reaction-picker');
+
+      // Auto-resize textarea
+      input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+      });
+
+      // Send on Enter (Shift+Enter = newline)
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+      });
+
+      sendBtn.addEventListener('click', sendChatMessage);
+
+      // File attachment
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        chatState.pendingFile = file;
+        chatState.pendingFilePath = null;
+        document.getElementById('chat-media-preview-name').textContent = `📎 ${file.name}`;
+        document.getElementById('chat-media-preview').hidden = false;
+      });
+
+      document.getElementById('chat-remove-media').addEventListener('click', () => {
+        chatState.pendingFile = null; chatState.pendingFilePath = null;
+        document.getElementById('chat-media-preview').hidden = true;
+        fileInput.value = '';
+      });
+
+      document.getElementById('chat-cancel-reply').addEventListener('click', clearChatReply);
+
+      // Reaction picker
+      picker.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-emoji]');
+        if (!btn) return;
+        picker.classList.remove('open');
+        if (chatState.activeReactionMsgId) await toggleChatReaction(chatState.activeReactionMsgId, btn.dataset.emoji);
+        chatState.activeReactionMsgId = null;
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!picker.contains(e.target)) picker.classList.remove('open');
+      });
+
+      // Load when switching to chat page
+      const origShowPage = window._chatShowPageOrig || null;
+      document.querySelectorAll('[data-page="chat"]').forEach(btn => {
+        btn.addEventListener('click', () => loadChatMessages());
+      });
+
+      loadChatMessages();
+    }
   </script>
 </body>
 </html>

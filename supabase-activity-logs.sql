@@ -2340,3 +2340,271 @@ end;$$;
 grant execute on function public.create_owner_thread(text,text,text,text) to authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ── DM Chat: extend site_chat_messages + fix grants ─────────────────────────
+
+-- Add media, reply_to, and edit support to site_chat_messages
+alter table public.site_chat_messages
+  add column if not exists media_path text
+    check (media_path is null or char_length(media_path) <= 255),
+  add column if not exists media_type text
+    check (media_type is null or media_type in ('image','video')),
+  add column if not exists reply_to_id bigint
+    references public.site_chat_messages(id) on delete set null,
+  add column if not exists reply_preview text
+    check (reply_preview is null or char_length(reply_preview) <= 200),
+  add column if not exists updated_at timestamptz,
+  add column if not exists is_deleted boolean not null default false;
+
+-- Remove old character limit on message (allow longer messages)
+alter table public.site_chat_messages
+  drop constraint if exists site_chat_messages_message_check;
+alter table public.site_chat_messages
+  add constraint site_chat_messages_message_check
+  check (char_length(message) <= 100000 and message = btrim(message));
+
+-- Reactions on chat messages
+create table if not exists public.chat_message_reactions (
+  id bigint generated always as identity primary key,
+  message_id bigint not null references public.site_chat_messages(id) on delete cascade,
+  visitor_token uuid not null,
+  emoji text not null check (emoji in ('like','love','haha','wow','sad')),
+  created_at timestamptz not null default now(),
+  unique (message_id, visitor_token)
+);
+create index if not exists chat_reactions_msg_idx on public.chat_message_reactions (message_id);
+alter table public.chat_message_reactions enable row level security;
+revoke all on public.chat_message_reactions from anon, authenticated;
+grant usage, select on sequence public.chat_message_reactions_id_seq to anon, authenticated;
+grant insert, update, delete on public.chat_message_reactions to anon, authenticated;
+drop policy if exists "Anyone can view chat reactions" on public.chat_message_reactions;
+create policy "Anyone can view chat reactions"
+on public.chat_message_reactions for select to anon, authenticated using (true);
+
+-- Storage bucket for chat media
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'chat-media', 'chat-media', true, 104857600,
+  array['image/jpeg','image/png','image/gif','image/webp','image/avif','video/mp4','video/webm','video/quicktime']
+)
+on conflict (id) do update set file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Anyone can view chat media" on storage.objects;
+create policy "Anyone can view chat media"
+on storage.objects for select to anon, authenticated using (bucket_id = 'chat-media');
+
+drop policy if exists "Visitors can upload chat media" on storage.objects;
+create policy "Visitors can upload chat media"
+on storage.objects for insert to anon, authenticated
+with check (
+  bucket_id = 'chat-media'
+  and (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+);
+
+drop policy if exists "Owner can upload chat media" on storage.objects;
+create policy "Owner can upload chat media"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'chat-media' and (select public.is_log_admin()));
+
+-- Fix: grant execute on existing chat RPCs (were missing)
+grant execute on function public.get_visitor_chat_messages(uuid) to anon, authenticated;
+grant execute on function public.send_visitor_chat_message(uuid, text, text) to anon, authenticated;
+
+-- New RPC: send chat message with media + reply support
+create or replace function public.send_chat_message(
+  p_visitor_token uuid,
+  p_display_name text,
+  p_message text,
+  p_media_path text default null,
+  p_media_type text default null,
+  p_reply_to_id bigint default null,
+  p_reply_preview text default null
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_thread_id bigint;
+  v_last timestamptz;
+  v_msg_id bigint;
+  v_name text;
+  v_msg text;
+begin
+  if p_visitor_token is null then raise exception 'A chat session is required.'; end if;
+  v_name := coalesce(nullif(btrim(p_display_name),''),'Visitor');
+  v_msg := btrim(coalesce(p_message,''));
+  if char_length(v_name) > 60 then raise exception 'Name must be 60 characters or fewer.'; end if;
+  if v_msg = '' and p_media_path is null then raise exception 'Write something or add media.'; end if;
+
+  insert into public.site_chat_threads (visitor_token, display_name)
+  values (p_visitor_token, v_name)
+  on conflict (visitor_token) do update set display_name = excluded.display_name
+  returning id into v_thread_id;
+
+  select max(created_at) into v_last
+  from public.site_chat_messages
+  where thread_id = v_thread_id and sender = 'visitor';
+  if v_last > now() - interval '2 seconds' then raise exception 'Please wait before sending again.'; end if;
+
+  insert into public.site_chat_messages (thread_id, sender, sender_label, message, media_path, media_type, reply_to_id, reply_preview)
+  values (v_thread_id, 'visitor', v_name, v_msg, p_media_path, p_media_type, p_reply_to_id, p_reply_preview)
+  returning id into v_msg_id;
+
+  update public.site_chat_threads set last_message_at = now() where id = v_thread_id;
+  return v_msg_id;
+end;
+$$;
+
+-- RPC: get messages with reaction counts for a visitor
+create or replace function public.get_chat_messages(p_visitor_token uuid)
+returns table (
+  id bigint,
+  sender text,
+  sender_label text,
+  message text,
+  media_path text,
+  media_type text,
+  reply_to_id bigint,
+  reply_preview text,
+  is_deleted boolean,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select m.id, m.sender, m.sender_label, m.message, m.media_path, m.media_type,
+         m.reply_to_id, m.reply_preview, m.is_deleted, m.created_at, m.updated_at
+  from public.site_chat_threads t
+  join public.site_chat_messages m on m.thread_id = t.id
+  where t.visitor_token = p_visitor_token
+  order by m.id;
+$$;
+
+-- RPC: edit visitor's own message
+create or replace function public.edit_chat_message(p_visitor_token uuid, p_message_id bigint, p_new_message text)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare v_thread_id bigint; v_msg text;
+begin
+  if p_visitor_token is null then raise exception 'A session is required.'; end if;
+  v_msg := btrim(coalesce(p_new_message,''));
+  if char_length(v_msg) = 0 then raise exception 'Message cannot be empty.'; end if;
+  select t.id into v_thread_id from public.site_chat_threads t where t.visitor_token = p_visitor_token;
+  update public.site_chat_messages set message = v_msg, updated_at = now()
+  where id = p_message_id and thread_id = v_thread_id and sender = 'visitor';
+  if not found then raise exception 'Message not found for your session.'; end if;
+  return true;
+end;
+$$;
+
+-- RPC: soft-delete visitor's own message
+create or replace function public.delete_chat_message(p_visitor_token uuid, p_message_id bigint)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare v_thread_id bigint;
+begin
+  if p_visitor_token is null then raise exception 'A session is required.'; end if;
+  select t.id into v_thread_id from public.site_chat_threads t where t.visitor_token = p_visitor_token;
+  update public.site_chat_messages set is_deleted = true, message = '', updated_at = now()
+  where id = p_message_id and thread_id = v_thread_id and sender = 'visitor';
+  if not found then raise exception 'Message not found for your session.'; end if;
+  return true;
+end;
+$$;
+
+-- RPC: toggle reaction on a chat message
+create or replace function public.toggle_chat_reaction(p_visitor_token uuid, p_message_id bigint, p_emoji text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare v_existing text;
+begin
+  if p_visitor_token is null then raise exception 'A session is required.'; end if;
+  if p_emoji not in ('like','love','haha','wow','sad') then raise exception 'Invalid emoji.'; end if;
+  select emoji into v_existing from public.chat_message_reactions
+  where message_id = p_message_id and visitor_token = p_visitor_token;
+  if v_existing is null then
+    insert into public.chat_message_reactions (message_id, visitor_token, emoji) values (p_message_id, p_visitor_token, p_emoji);
+  elsif v_existing = p_emoji then
+    delete from public.chat_message_reactions where message_id = p_message_id and visitor_token = p_visitor_token;
+  else
+    update public.chat_message_reactions set emoji = p_emoji where message_id = p_message_id and visitor_token = p_visitor_token;
+  end if;
+end;
+$$;
+
+-- RPC: get reaction counts for a list of message ids
+create or replace function public.get_chat_reactions(p_visitor_token uuid, p_message_ids bigint[])
+returns table (message_id bigint, emoji text, reaction_count bigint, my_reaction text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select r.message_id, r.emoji, count(*) as reaction_count,
+         max(case when r.visitor_token = p_visitor_token then r.emoji end) as my_reaction
+  from public.chat_message_reactions r
+  where r.message_id = any(p_message_ids)
+  group by r.message_id, r.emoji;
+$$;
+
+-- Grant everything
+grant update (message, is_deleted, updated_at, media_path, media_type, reply_to_id, reply_preview) on public.site_chat_messages to authenticated;
+
+revoke all on function public.send_chat_message(uuid,text,text,text,text,bigint,text) from public, anon, authenticated;
+revoke all on function public.get_chat_messages(uuid) from public, anon, authenticated;
+revoke all on function public.edit_chat_message(uuid,bigint,text) from public, anon, authenticated;
+revoke all on function public.delete_chat_message(uuid,bigint) from public, anon, authenticated;
+revoke all on function public.toggle_chat_reaction(uuid,bigint,text) from public, anon, authenticated;
+revoke all on function public.get_chat_reactions(uuid,bigint[]) from public, anon, authenticated;
+
+grant execute on function public.send_chat_message(uuid,text,text,text,text,bigint,text) to anon, authenticated;
+grant execute on function public.get_chat_messages(uuid) to anon, authenticated;
+grant execute on function public.edit_chat_message(uuid,bigint,text) to anon, authenticated;
+grant execute on function public.delete_chat_message(uuid,bigint) to anon, authenticated;
+grant execute on function public.toggle_chat_reaction(uuid,bigint,text) to anon, authenticated;
+grant execute on function public.get_chat_reactions(uuid,bigint[]) to anon, authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ── Allow owner to update chat messages (for soft-delete) ────────────────────
+grant update (is_deleted, message, updated_at, media_path, media_type, reply_to_id, reply_preview) on public.site_chat_messages to authenticated;
+grant update (last_message_at) on public.site_chat_threads to authenticated;
+
+-- Allow owner to insert with new columns
+drop policy if exists "Only the listed owner can reply in chat" on public.site_chat_messages;
+create policy "Only the listed owner can reply in chat"
+on public.site_chat_messages for insert to authenticated
+with check (sender = 'owner' and (select public.is_log_admin()));
+
+-- Allow owner to update (soft delete)
+drop policy if exists "Only the listed owner can update chat messages" on public.site_chat_messages;
+create policy "Only the listed owner can update chat messages"
+on public.site_chat_messages for update to authenticated
+using ((select public.is_log_admin()))
+with check ((select public.is_log_admin()));
+
+-- Allow owner to update thread last_message_at
+drop policy if exists "Only the listed owner can update chat threads" on public.site_chat_threads;
+create policy "Only the listed owner can update chat threads"
+on public.site_chat_threads for update to authenticated
+using ((select public.is_log_admin()))
+with check ((select public.is_log_admin()));
+
+-- Allow visitors to read chat reaction counts (public)
+grant select on public.chat_message_reactions to anon, authenticated;
+
+notify pgrst, 'reload schema';
