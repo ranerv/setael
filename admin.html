@@ -1565,10 +1565,9 @@
       bar.className = "thread-reaction-bar";
       bar.dataset.targetType = targetType;
       bar.dataset.targetId = String(targetId);
-
       const summary = document.createElement("div");
       summary.className = "thread-reaction-summary";
-      ADMIN_EMOJIS.forEach(({ key: ek, icon }) => {
+      ADMIN_EMOJIS.forEach(({key:ek,icon}) => {
         const count = data[ek] || 0;
         if (count > 0) {
           const badge = document.createElement("span");
@@ -1577,62 +1576,43 @@
           summary.append(badge);
         }
       });
-
       const reactBtn = document.createElement("button");
-      reactBtn.type = "button";
-      reactBtn.className = "reaction-btn";
-      reactBtn.textContent = "React";
-
+      reactBtn.type = "button"; reactBtn.className = "reaction-btn"; reactBtn.textContent = "React";
       const picker = document.createElement("div");
-      picker.className = "reaction-picker";
-      picker.hidden = true;
-      ADMIN_EMOJIS.forEach(({ key: ek, icon }) => {
+      picker.className = "reaction-picker"; picker.hidden = true;
+      ADMIN_EMOJIS.forEach(({key:ek,icon}) => {
         const btn = document.createElement("button");
-        btn.type = "button"; btn.className = "reaction-pick"; btn.textContent = icon; btn.dataset.emoji = ek;
+        btn.type="button"; btn.className="reaction-pick"; btn.textContent=icon; btn.dataset.emoji=ek;
         picker.append(btn);
       });
-
       reactBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        document.querySelectorAll(".reaction-picker:not([hidden])").forEach((p) => { p.hidden = true; });
-        if (picker.hidden) {
-          document.body.append(picker);
+        document.querySelectorAll(".reaction-picker:not([hidden])").forEach((p)=>p.hidden=true);
+        picker.hidden = !picker.hidden;
+        if (!picker.hidden) {
           const rect = reactBtn.getBoundingClientRect();
-          picker.style.top = (rect.top - 52 + window.scrollY) + "px";
+          picker.style.position = "fixed";
+          picker.style.top = (rect.top - 52) + "px";
           picker.style.left = rect.left + "px";
-          picker.hidden = false;
-        } else {
-          picker.hidden = true;
+          picker.style.zIndex = "9999";
         }
       });
-
       picker.addEventListener("click", async (e) => {
+        e.stopPropagation();
         const btn = e.target.closest(".reaction-pick[data-emoji]");
         if (!btn) return;
         picker.hidden = true;
         try {
           await api("/rest/v1/rpc/toggle_thread_reaction", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              p_visitor_token: "00000000-0000-0000-0000-000000000001",
-              p_target_type: targetType,
-              p_target_id: Number(targetId),
-              p_emoji: btn.dataset.emoji
-            })
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({p_visitor_token:"00000000-0000-0000-0000-000000000001",p_target_type:targetType,p_target_id:Number(targetId),p_emoji:btn.dataset.emoji})
           });
           adminReactions = {};
-          const threadIds = visitorThreads.map((t) => t.id);
-          const commentIds = threadComments.map((c) => c.id);
-          await Promise.all([
-            loadAdminReactions("thread", threadIds),
-            loadAdminReactions("comment", commentIds)
-          ]);
+          await Promise.all([loadAdminReactions("thread",visitorThreads.map(t=>t.id)),loadAdminReactions("comment",threadComments.map(c=>c.id))]);
           renderVisitorThreads();
-        } catch (e2) { console.error("Could not save reaction.", e2); }
+        } catch(e2) { console.error("reaction error",e2); }
       });
-
-      bar.append(summary, reactBtn);
+      bar.append(summary, reactBtn, picker);
       return bar;
     }
 
@@ -1718,6 +1698,26 @@
           const commentMedia = createAdminMediaElement(comment.media_path, comment.media_type, null);
           if (commentMedia) item.append(commentMedia);
           item.append(buildAdminReactionBar("comment", comment.id));
+          // Reply button
+          const replyBtn = document.createElement("button");
+          replyBtn.type="button"; replyBtn.textContent="Reply";
+          replyBtn.style.cssText="padding:2px 8px;border:0;background:transparent;color:#a64e68;cursor:pointer;font-size:.75rem;font-weight:700;";
+          replyBtn.addEventListener("click", () => {
+            const existing = item.querySelector(".admin-reply-form");
+            if (existing) { existing.remove(); return; }
+            const rf = document.createElement("form"); rf.className="admin-thread-reply admin-reply-form"; rf.dataset.threadId=String(thread.id); rf.dataset.parentCommentId=String(comment.id);
+            const qBox = document.createElement("div"); qBox.style.cssText="margin-bottom:8px;padding:8px 12px;border-left:3px solid #f3a9c0;background:#fff8fa;border-radius:0 8px 8px 0;font-size:.82rem;color:#70656d;";
+            const qA = document.createElement("strong"); qA.style.cssText="display:block;margin-bottom:3px;font-size:.75rem;color:#a64e68;"; qA.textContent=comment.sender_label||"Visitor";
+            const qT = document.createElement("p"); qT.style.cssText="margin:0;white-space:pre-wrap;max-height:60px;overflow:hidden;font-style:italic;"; qT.textContent=comment.content||"(media)";
+            qBox.append(qA,qT);
+            const ta = document.createElement("textarea"); ta.placeholder="Write your reply..."; ta.style.cssText="width:100%;min-height:60px;resize:vertical;";
+            const sb = document.createElement("button"); sb.className="button"; sb.type="submit"; sb.textContent="Reply";
+            const cb = document.createElement("button"); cb.type="button"; cb.textContent="Cancel"; cb.style.cssText="margin-left:8px;padding:7px 12px;border:1px solid #f0e9ed;border-radius:12px;background:#fff;cursor:pointer;font:inherit;font-size:.82rem;";
+            cb.addEventListener("click",()=>rf.remove());
+            const acts=document.createElement("div"); acts.style.cssText="display:flex;margin-top:8px;"; acts.append(sb,cb);
+            rf.append(qBox,ta,acts); item.append(rf); ta.focus();
+          });
+          item.append(replyBtn);
           // Nested replies
           replies.filter((r) => String(r.parent_comment_id) === String(comment.id)).forEach((reply) => {
             const replyItem = document.createElement("article");
@@ -1856,7 +1856,7 @@
     async function submitOwnerThreadComment(event) {
       event.preventDefault();
       const form = event.target;
-      if (!(form instanceof HTMLFormElement) || !form.matches(".admin-thread-reply")) return;
+      if (!(form instanceof HTMLFormElement) || (!form.matches(".admin-thread-reply") && !form.matches(".admin-reply-form"))) return;
       const field = form.querySelector("textarea");
       const fileInput = form.querySelector(".admin-comment-media-input");
       const submit = form.querySelector("button[type='submit']");
@@ -1886,6 +1886,7 @@
           })
         });
         field.value = "";
+        if (form.matches(".admin-reply-form")) form.remove();
         if (fileInput) fileInput.value = "";
         await loadVisitorThreads();
         setStatus(threadsStatus, "Comment sent.");
