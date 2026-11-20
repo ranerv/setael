@@ -669,15 +669,23 @@
       e.stopPropagation();
       // Close all other open pickers first
       document.querySelectorAll(".reaction-picker:not([hidden])").forEach((p) => { p.hidden = true; });
-      if (picker.hidden) {
-        document.body.append(picker);
+      picker.hidden = !picker.hidden;
+      if (!picker.hidden) {
         const rect = reactBtn.getBoundingClientRect();
-        picker.style.top = (rect.top - 52 + window.scrollY) + "px";
+        picker.style.position = "fixed";
+        picker.style.top = (rect.top - 52) + "px";
         picker.style.left = rect.left + "px";
-        picker.hidden = false;
-      } else {
-        picker.hidden = true;
+        picker.style.zIndex = "9999";
       }
+    });
+
+    // Direct click on picker emoji buttons
+    picker.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const btn = e.target.closest("button[data-emoji]");
+      if (!btn) return;
+      picker.hidden = true;
+      handleReaction(targetType, targetId, btn.dataset.emoji);
     });
 
     bar.append(summary, reactBtn, picker);
@@ -1136,16 +1144,7 @@
           if (button.dataset.action === "edit-comment") editComment(button.dataset.commentId, button.dataset.commentContent);
           return;
         }
-        // Reaction picker
-        const emojiBtn = event.target.closest(".reaction-pick[data-emoji]");
-        if (emojiBtn) {
-          const bar = emojiBtn.closest(".thread-reaction-bar");
-          if (bar) {
-            handleReaction(bar.dataset.targetType, bar.dataset.targetId, emojiBtn.dataset.emoji);
-            bar.querySelector(".reaction-picker").hidden = true;
-          }
-        }
-        // Close open pickers on outside click
+        // Close open pickers when clicking outside them
         document.querySelectorAll(".reaction-picker:not([hidden])").forEach((p) => {
           if (!p.contains(event.target)) p.hidden = true;
         });
