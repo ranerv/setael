@@ -1042,6 +1042,16 @@
     .visitor-thread-comment-head { align-items: baseline; justify-content: start; }
     .visitor-thread-comment-head strong { font-size: .76rem; }
     .visitor-thread-comment-head time { color: #9a9298; font-size: .7rem; }
+    /* Reactions */
+    .thread-reaction-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .thread-reaction-summary { display: flex; flex-wrap: wrap; gap: 4px; }
+    .reaction-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border: 1px solid #f0e9ed; border-radius: 999px; background: #fff8fa; font-size: .78rem; cursor: default; }
+    .reaction-badge.mine { border-color: #f3a9c0; background: #fff0f5; font-weight: 700; }
+    .reaction-btn { min-height: 28px; padding: 3px 10px; border: 1px solid #f0e9ed; border-radius: 999px; background: #fff; color: #827d85; cursor: pointer; font: inherit; font-size: .78rem; position: relative; }
+    .reaction-btn:hover { background: #fff0f5; }
+    .reaction-picker { display: flex; gap: 4px; padding: 6px 8px; border: 1px solid #f0e9ed; border-radius: 12px; background: #fff; box-shadow: 0 4px 14px #5c596014; position: absolute; z-index: 10; bottom: calc(100% + 6px); left: 0; }
+    .reaction-pick { width: 34px; height: 34px; border: 0; background: transparent; cursor: pointer; font-size: 1.2rem; border-radius: 8px; transition: transform 120ms ease; }
+    .reaction-pick:hover, .reaction-pick.active { transform: scale(1.3); background: #f8f0fb; }
     .visitor-thread-comment p { margin: 5px 0 0; color: #625c66; font-size: .84rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
     .visitor-thread-comment-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 11px; }
     .visitor-thread-comment-form input { width: 100%; min-height: 42px; padding: 8px 11px; border: 1px solid #e7dfe4; border-radius: 9px; font: inherit; }
@@ -1816,7 +1826,7 @@
         passwordInput.select();
         return;
       }
-      sessionStorage.setItem(accessSessionKey, "true");
+      localStorage.setItem(accessSessionKey, "true");
       passwordInput.value = "";
       loginError.textContent = "";
       unlockSite();
@@ -2436,7 +2446,7 @@
       mediaViewerCaption.textContent = "";
     });
 
-    if (sessionStorage.getItem(accessSessionKey) === "true") unlockSite();
+    if (localStorage.getItem(accessSessionKey) === "true") unlockSite();
 
     // ── Daily note reply ─────────────────────────────────────────────────────
     (function () {

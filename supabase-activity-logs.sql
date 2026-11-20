@@ -2143,3 +2143,182 @@ grant execute on function public.edit_visitor_thread_comment(uuid,bigint,text) t
 grant execute on function public.create_owner_thread(text,text,text,text) to authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ── Thread reactions and comment replies ─────────────────────────────────────
+
+-- Reactions on threads and comments
+create table if not exists public.thread_reactions (
+  id bigint generated always as identity primary key,
+  visitor_token uuid not null,
+  target_type text not null check (target_type in ('thread', 'comment')),
+  target_id bigint not null,
+  emoji text not null check (emoji in ('like','love','haha','wow','sad')),
+  created_at timestamptz not null default now(),
+  unique (visitor_token, target_type, target_id)
+);
+
+create index if not exists thread_reactions_target_idx
+  on public.thread_reactions (target_type, target_id);
+
+alter table public.thread_reactions enable row level security;
+revoke all on public.thread_reactions from anon, authenticated;
+grant usage, select on sequence public.thread_reactions_id_seq to anon, authenticated;
+
+drop policy if exists "Anyone can view thread reactions" on public.thread_reactions;
+create policy "Anyone can view thread reactions"
+on public.thread_reactions for select to anon, authenticated using (true);
+
+-- Toggle reaction: set or change emoji; remove if same emoji clicked again
+create or replace function public.toggle_thread_reaction(
+  p_visitor_token uuid,
+  p_target_type text,
+  p_target_id bigint,
+  p_emoji text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_existing text;
+begin
+  if p_visitor_token is null then raise exception 'A session token is required.'; end if;
+  if p_target_type not in ('thread','comment') then raise exception 'Invalid target type.'; end if;
+  if p_emoji not in ('like','love','haha','wow','sad') then raise exception 'Invalid emoji.'; end if;
+
+  select emoji into v_existing
+  from public.thread_reactions
+  where visitor_token = p_visitor_token
+    and target_type = p_target_type
+    and target_id = p_target_id;
+
+  if v_existing is null then
+    -- No reaction yet — add it
+    insert into public.thread_reactions(visitor_token, target_type, target_id, emoji)
+    values(p_visitor_token, p_target_type, p_target_id, p_emoji);
+  elsif v_existing = p_emoji then
+    -- Same emoji — remove it (toggle off)
+    delete from public.thread_reactions
+    where visitor_token = p_visitor_token
+      and target_type = p_target_type
+      and target_id = p_target_id;
+  else
+    -- Different emoji — replace it
+    update public.thread_reactions
+    set emoji = p_emoji, created_at = now()
+    where visitor_token = p_visitor_token
+      and target_type = p_target_type
+      and target_id = p_target_id;
+  end if;
+end;
+$$;
+
+-- Get reaction counts + current visitor's reaction for a list of targets
+create or replace function public.get_thread_reactions(
+  p_visitor_token uuid,
+  p_target_type text,
+  p_target_ids bigint[]
+)
+returns table (
+  target_id bigint,
+  emoji text,
+  reaction_count bigint,
+  my_reaction text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    r.target_id,
+    r.emoji,
+    count(*) as reaction_count,
+    max(case when r.visitor_token = p_visitor_token then r.emoji end) as my_reaction
+  from public.thread_reactions r
+  where r.target_type = p_target_type
+    and r.target_id = any(p_target_ids)
+  group by r.target_id, r.emoji;
+$$;
+
+-- Comment replies: add parent_comment_id to visitor_thread_comments
+alter table public.visitor_thread_comments
+  add column if not exists parent_comment_id bigint
+    references public.visitor_thread_comments(id) on delete cascade;
+
+create index if not exists visitor_thread_comments_parent_idx
+  on public.visitor_thread_comments (parent_comment_id)
+  where parent_comment_id is not null;
+
+-- Update get_all_thread_comments to include parent_comment_id
+create or replace function public.get_all_thread_comments(p_thread_id bigint)
+returns table (
+  id bigint,
+  visitor_token uuid,
+  sender text,
+  sender_label text,
+  content text,
+  media_path text,
+  media_type text,
+  parent_comment_id bigint,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.id, c.visitor_token, c.sender, c.sender_label, c.content,
+         c.media_path, c.media_type, c.parent_comment_id, c.created_at, c.updated_at
+  from public.visitor_thread_comments c
+  where c.thread_id = p_thread_id
+  order by c.created_at, c.id;
+$$;
+
+-- Update add_comment_to_thread to accept optional parent_comment_id
+create or replace function public.add_comment_to_thread(
+  p_visitor_token uuid,
+  p_thread_id bigint,
+  p_display_name text,
+  p_content text,
+  p_media_path text default null,
+  p_media_type text default null,
+  p_parent_comment_id bigint default null
+)
+returns bigint language plpgsql security definer set search_path = ''
+as $$
+declare v_content text; v_name text; v_last timestamptz; v_id bigint;
+begin
+  if p_visitor_token is null then raise exception 'A session token is required.'; end if;
+  if not exists(select 1 from public.visitor_threads where id=p_thread_id) then raise exception 'Thread not found.'; end if;
+  v_content := btrim(coalesce(p_content,''));
+  v_name := coalesce(nullif(btrim(p_display_name),''),'Visitor');
+  if v_content='' and p_media_path is null then raise exception 'Write something or add media before commenting.'; end if;
+  if p_media_path is not null and (char_length(p_media_path)>255 or split_part(p_media_path,'/',1)<>p_visitor_token::text) then raise exception 'Media does not belong to this session.'; end if;
+  if p_media_path is not null and not exists(select 1 from storage.objects where bucket_id='visitor-thread-images' and name=p_media_path) then raise exception 'Uploaded media not found.'; end if;
+  if p_parent_comment_id is not null and not exists(select 1 from public.visitor_thread_comments where id=p_parent_comment_id and thread_id=p_thread_id) then raise exception 'Parent comment not found.'; end if;
+  select max(created_at) into v_last from public.visitor_thread_comments where thread_id=p_thread_id and visitor_token=p_visitor_token;
+  if v_last > now()-interval '3 seconds' then raise exception 'Please wait before commenting again.'; end if;
+  insert into public.visitor_thread_comments(thread_id,visitor_token,sender,sender_label,content,media_path,media_type,parent_comment_id)
+  values(p_thread_id,p_visitor_token,'visitor',v_name,v_content,p_media_path,p_media_type,p_parent_comment_id) returning id into v_id;
+  return v_id;
+end;$$;
+
+revoke all on function public.toggle_thread_reaction(uuid,text,bigint,text) from public, anon, authenticated;
+revoke all on function public.get_thread_reactions(uuid,text,bigint[]) from public, anon, authenticated;
+revoke all on function public.get_all_thread_comments(bigint) from public, anon, authenticated;
+revoke all on function public.add_comment_to_thread(uuid,bigint,text,text,text,text) from public, anon, authenticated;
+revoke all on function public.add_comment_to_thread(uuid,bigint,text,text,text,text,bigint) from public, anon, authenticated;
+
+grant execute on function public.toggle_thread_reaction(uuid,text,bigint,text) to anon, authenticated;
+grant execute on function public.get_thread_reactions(uuid,text,bigint[]) to anon, authenticated;
+grant execute on function public.get_all_thread_comments(bigint) to anon, authenticated;
+grant execute on function public.add_comment_to_thread(uuid,bigint,text,text,text,text,bigint) to anon, authenticated;
+
+-- Grant insert/delete on thread_reactions for anon
+grant insert, delete on public.thread_reactions to anon, authenticated;
+grant update on public.thread_reactions to anon, authenticated;
+
+notify pgrst, 'reload schema';
