@@ -2995,12 +2995,13 @@
       container.replaceChildren();
 
       if (!gcState.messages.length) {
-        const empty = document.getElementById('chat-empty');
-        empty.hidden = false;
+        const empty = document.createElement('div');
+        empty.className = 'chat-empty';
+        empty.id = 'chat-empty';
+        empty.textContent = 'Start the conversation — say hi! 👋';
         container.append(empty);
         return;
       }
-      document.getElementById('chat-empty').hidden = true;
       gcState.messages.forEach(msg => container.append(buildGcBubble(msg)));
 
       if (!preserveScroll || wasAtBottom) {
