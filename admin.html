@@ -2741,7 +2741,7 @@
     const adminChatState = {
       messages: [], reactions: {}, replyTo: null, pendingFile: null,
       activeReactionMsgId: null, editingId: null, sending: false,
-      pollTimer: null, initialized: false
+      pollTimer: null, initialized: false, loading: false
     };
     const ADMIN_CHAT_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -2777,6 +2777,8 @@
 
     async function loadAdminChatInbox(preserveScroll) {
       const status = document.getElementById('admin-chat-status');
+      if (adminChatState.loading) return;
+      adminChatState.loading = true;
       try {
         const msgs = await adminChatRpc('get_group_chat_messages', {});
         if (!Array.isArray(msgs)) throw new Error('The shared conversation response was invalid.');
@@ -2795,6 +2797,8 @@
       } catch (e) {
         console.error('Could not load the shared conversation.', e);
         setStatus(status, e.message || 'Could not load the shared conversation.', true);
+      } finally {
+        adminChatState.loading = false;
       }
     }
 
@@ -3086,7 +3090,12 @@
         document.addEventListener('click', event => { if (!picker.contains(event.target)) picker.style.display = 'none'; });
       }
       if (!adminChatState.pollTimer) {
-        adminChatState.pollTimer = window.setInterval(() => loadAdminChatInbox(true), 10000);
+        adminChatState.pollTimer = window.setInterval(() => {
+          if (!document.hidden && !dashboard.hidden) loadAdminChatInbox(true);
+        }, 5000);
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden && !dashboard.hidden) loadAdminChatInbox(true);
+        });
       }
     }
   </script>

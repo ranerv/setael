@@ -2853,7 +2853,7 @@
     const gcState = {
       messages: [], reactions: {}, replyTo: null,
       pendingFile: null, sending: false, editingId: null,
-      pollTimer: null, initialized: false
+      pollTimer: null, initialized: false, loading: false
     };
     const GC_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -3012,6 +3012,8 @@
 
     async function loadGcMessages(preserveScroll) {
       const status = document.getElementById('chat-status');
+      if (gcState.loading) return;
+      gcState.loading = true;
       try {
         if (!supabaseUrl || !publishableKey) throw new Error('Chat is not configured yet.');
         const token = gcToken();
@@ -3034,6 +3036,8 @@
         console.error('Could not load group chat.', e);
         status.textContent = e.message || 'Could not load the conversation.';
         status.dataset.error = 'true';
+      } finally {
+        gcState.loading = false;
       }
     }
 
@@ -3213,8 +3217,11 @@
       // Poll every 10s so both sides see new messages without refreshing.
       if (supabaseUrl && publishableKey) {
         gcState.pollTimer = setInterval(() => {
-          if (!document.getElementById('page-chat').hidden) loadGcMessages(true);
-        }, 10000);
+          if (!document.hidden && !document.getElementById('page-chat').hidden) loadGcMessages(true);
+        }, 5000);
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden && !document.getElementById('page-chat').hidden) loadGcMessages(true);
+        });
       } else {
         const status = document.getElementById('chat-status');
         status.textContent = 'Chat is not configured yet.';
