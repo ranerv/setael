@@ -1112,6 +1112,9 @@
     .chat-bubble:hover .chat-bubble-actions { display: flex; }
     .chat-bubble-action { width: 26px; height: 26px; border: 0; background: transparent; cursor: pointer; font-size: .82rem; border-radius: 50%; display: grid; place-items: center; }
     .chat-bubble-action:hover { background: #f0e9ed; }
+    @media (hover: none) {
+      .chat-bubble-actions { position: static; display: flex; justify-content: flex-end; margin-top: 5px; padding: 0; background: transparent; box-shadow: none; }
+    }
     .chat-reply-quote { margin-bottom: 6px; padding: 6px 10px; border-left: 3px solid #f3a9c0; border-radius: 0 8px 8px 0; background: rgba(0,0,0,.07); font-size: .76rem; line-height: 1.4; }
     .chat-bubble-row.mine .chat-reply-quote { border-left-color: rgba(255,255,255,.5); background: rgba(255,255,255,.15); color: rgba(255,255,255,.9); }
     .chat-reply-quote strong { display: block; font-size: .7rem; opacity: .8; margin-bottom: 2px; }
@@ -1224,10 +1227,9 @@
     <button class="nav-link" type="button" data-page="home" aria-current="page"><span class="nav-icon" aria-hidden="true">⌂</span>Home</button>
     <button class="nav-link" type="button" data-page="entries"><span class="nav-icon" aria-hidden="true">▤</span>Entries</button>
     <button class="nav-link" type="button" data-page="photos"><span class="nav-icon" aria-hidden="true">▧</span>Photos</button>
-    <button class="nav-link" type="button" data-page="media-archive"><span class="nav-icon" aria-hidden="true">✧</span>Archive</button>
+    <button class="nav-link" type="button" data-page="chat"><span class="nav-icon" aria-hidden="true">✉</span>Messages</button>
     <button class="nav-link" type="button" data-page="schedule"><span class="nav-icon" aria-hidden="true">▦</span>Schedule</button>
     <button class="nav-link" type="button" data-page="threads"><span class="nav-icon" aria-hidden="true">♡</span>Threads</button>
-    <button class="nav-link" type="button" data-page="chat"><span class="nav-icon" aria-hidden="true">✉</span>Messages</button>
   </nav>
 
   <div class="main-shell">
@@ -1518,7 +1520,7 @@
               <span class="chat-header-avatar" aria-hidden="true">R</span>
               <div>
                 <p class="chat-header-name">Raneb</p>
-                <p class="chat-header-sub">Your private conversation</p>
+                <p class="chat-header-sub">Shared conversation — everyone can join</p>
               </div>
             </div>
             <div class="chat-messages" id="chat-messages" aria-live="polite" aria-label="Conversation messages">
@@ -1544,6 +1546,7 @@
                 <textarea class="chat-compose-input" id="chat-input" placeholder="Message Raneb…" rows="1" aria-label="Type a message"></textarea>
                 <button class="chat-send" id="chat-send" type="button" aria-label="Send message">➤</button>
               </div>
+              <p class="media-status" id="chat-status" role="status" aria-live="polite"></p>
             </div>
           </div>
           <div class="chat-reaction-picker" id="chat-reaction-picker" role="toolbar" aria-label="Pick a reaction">
@@ -2850,7 +2853,7 @@
     const gcState = {
       messages: [], reactions: {}, replyTo: null,
       pendingFile: null, sending: false, editingId: null,
-      pollTimer: null
+      pollTimer: null, initialized: false
     };
     const GC_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -3008,11 +3011,12 @@
     }
 
     async function loadGcMessages(preserveScroll) {
-      const token = gcToken();
-      if (!token || !supabaseUrl || !publishableKey) return;
+      const status = document.getElementById('chat-status');
       try {
+        if (!supabaseUrl || !publishableKey) throw new Error('Chat is not configured yet.');
+        const token = gcToken();
         const msgs = await gcRpc('get_group_chat_messages', {});
-        if (!Array.isArray(msgs)) return;
+        if (!Array.isArray(msgs)) throw new Error('The shared conversation response was invalid.');
         gcState.messages = msgs;
         const reacts = await gcRpc('get_group_chat_reactions', { p_visitor_token: token });
         gcState.reactions = {};
@@ -3024,7 +3028,13 @@
           });
         }
         renderGcMessages(preserveScroll);
-      } catch(e) { console.error('Could not load group chat.', e); }
+        status.textContent = '';
+        delete status.dataset.error;
+      } catch(e) {
+        console.error('Could not load group chat.', e);
+        status.textContent = e.message || 'Could not load the conversation.';
+        status.dataset.error = 'true';
+      }
     }
 
     function setGcReply(msg) {
@@ -3069,44 +3079,55 @@
     }
 
     async function toggleGcReaction(msgId, emoji) {
-      const token = gcToken();
-      if (!token) return;
       try {
+        const token = gcToken();
         await gcRpc('toggle_group_chat_reaction', { p_visitor_token: token, p_message_id: msgId, p_emoji: emoji });
         await loadGcMessages(true);
-      } catch(e) { console.error('Reaction error', e); }
+      } catch(e) {
+        console.error('Reaction error', e);
+        const status = document.getElementById('chat-status');
+        status.textContent = e.message || 'The reaction could not be saved.';
+        status.dataset.error = 'true';
+      }
     }
 
     async function deleteGcMsg(msgId) {
-      const token = gcToken();
-      if (!token) return;
       try {
+        const token = gcToken();
         await gcRpc('delete_group_chat_message', { p_visitor_token: token, p_message_id: msgId });
         await loadGcMessages(true);
-      } catch(e) { console.error('Delete error', e); }
+      } catch(e) {
+        console.error('Delete error', e);
+        const status = document.getElementById('chat-status');
+        status.textContent = e.message || 'The message could not be deleted.';
+        status.dataset.error = 'true';
+      }
     }
 
     async function sendGcMessage() {
       if (gcState.sending) return;
       const input = document.getElementById('chat-input');
       const text = input.value.trim();
-      const token = gcToken();
-      if (!token) return;
       if (!text && !gcState.pendingFile && !gcState.editingId) return;
 
       gcState.sending = true;
       const sendBtn = document.getElementById('chat-send');
+      const status = document.getElementById('chat-status');
       sendBtn.disabled = true;
 
       try {
+        if (!supabaseUrl || !publishableKey) throw new Error('Chat is not configured yet.');
+        const token = gcToken();
         if (gcState.editingId) {
           await gcRpc('edit_group_chat_message', { p_visitor_token: token, p_message_id: gcState.editingId, p_new_message: text });
         } else {
           let mediaPath = null, mediaType = null;
           if (gcState.pendingFile) {
             const f = gcState.pendingFile;
+            if (f.size > 100 * 1024 * 1024) throw new Error('Choose a photo or video smaller than 100 MB.');
             const exts = {'image/jpeg':'jpg','image/png':'png','image/gif':'gif','image/webp':'webp','image/avif':'avif','video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov'};
-            const ext = exts[f.type] || 'bin';
+            const ext = exts[f.type];
+            if (!ext) throw new Error('Choose a supported photo or video file.');
             const path = token + '/' + crypto.randomUUID() + '.' + ext;
             const safePath = path.split('/').map(encodeURIComponent).join('/');
             const up = await fetch(supabaseUrl + '/storage/v1/object/chat-media/' + safePath, {
@@ -3114,7 +3135,14 @@
               headers: { apikey: publishableKey, Authorization: 'Bearer ' + publishableKey, 'Content-Type': f.type, 'x-upsert': 'false' },
               body: f
             });
-            if (up.ok) { mediaPath = path; mediaType = f.type.startsWith('video/') ? 'video' : 'image'; }
+            if (!up.ok) {
+              const responseText = await up.text();
+              let uploadError;
+              try { uploadError = responseText ? JSON.parse(responseText) : null; } catch (e) { uploadError = null; }
+              throw new Error((uploadError && (uploadError.message || uploadError.error)) || `Media upload failed (${up.status}).`);
+            }
+            mediaPath = path;
+            mediaType = f.type.startsWith('video/') ? 'video' : 'image';
           }
           await gcRpc('post_group_chat_message', {
             p_visitor_token: token,
@@ -3129,9 +3157,13 @@
           });
         }
         resetGcCompose();
+        status.textContent = '';
+        delete status.dataset.error;
         await loadGcMessages(false);
       } catch(e) {
         console.error('Send failed', e);
+        status.textContent = e.message || 'Could not send the message.';
+        status.dataset.error = 'true';
       } finally {
         gcState.sending = false;
         sendBtn.disabled = false;
@@ -3139,7 +3171,8 @@
     }
 
     function initChat() {
-      if (!supabaseUrl || !publishableKey) return;
+      if (gcState.initialized) return;
+      gcState.initialized = true;
 
       const input = document.getElementById('chat-input');
       const sendBtn = document.getElementById('chat-send');
@@ -3177,12 +3210,16 @@
         if (!picker.contains(e.target)) picker.classList.remove('open');
       });
 
-      // Poll every 10s for new messages (background, preserves scroll)
-      gcState.pollTimer = setInterval(() => {
-        const focused = document.activeElement;
-        if (focused && focused.id === 'chat-input') return; // don't reload while typing
-        if (!document.getElementById('page-chat').hidden) loadGcMessages(true);
-      }, 10000);
+      // Poll every 10s so both sides see new messages without refreshing.
+      if (supabaseUrl && publishableKey) {
+        gcState.pollTimer = setInterval(() => {
+          if (!document.getElementById('page-chat').hidden) loadGcMessages(true);
+        }, 10000);
+      } else {
+        const status = document.getElementById('chat-status');
+        status.textContent = 'Chat is not configured yet.';
+        status.dataset.error = 'true';
+      }
 
       // Load when switching to chat tab
       document.querySelectorAll('[data-page="chat"]').forEach(btn => {

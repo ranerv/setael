@@ -2683,6 +2683,9 @@ declare
   v_name text; v_msg text; v_id bigint; v_last timestamptz;
 begin
   if p_visitor_token is null then raise exception 'A session token is required.'; end if;
+  if coalesce(p_is_owner, false) and not (select public.is_log_admin()) then
+    raise exception 'Only the owner can post as the owner.';
+  end if;
   v_name := coalesce(nullif(btrim(p_display_name),''),'Visitor');
   v_msg := btrim(coalesce(p_message,''));
   if char_length(v_name) > 60 then raise exception 'Name must be 60 characters or fewer.'; end if;
@@ -2722,9 +2725,11 @@ as $$
 declare v_msg text;
 begin
   v_msg := btrim(coalesce(p_new_message,''));
-  if char_length(v_msg) = 0 then raise exception 'Message cannot be empty.'; end if;
   update public.group_chat_messages set message = v_msg, updated_at = now()
-  where id = p_message_id and visitor_token = p_visitor_token;
+  where id = p_message_id
+    and visitor_token = p_visitor_token
+    and (not is_owner or (select public.is_log_admin()))
+    and (v_msg <> '' or media_path is not null);
   if not found then raise exception 'Message not found for your session.'; end if;
   return true;
 end;$$;
@@ -2735,7 +2740,9 @@ returns boolean language plpgsql security definer set search_path = ''
 as $$
 begin
   update public.group_chat_messages set is_deleted = true, message = '', updated_at = now()
-  where id = p_message_id and visitor_token = p_visitor_token;
+  where id = p_message_id
+    and visitor_token = p_visitor_token
+    and (not is_owner or (select public.is_log_admin()));
   if not found then raise exception 'Message not found for your session.'; end if;
   return true;
 end;$$;
