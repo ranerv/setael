@@ -1080,7 +1080,7 @@
     .chat-header-avatar { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #f8e6ec; color: #e48da8; font-family: Georgia, serif; font-size: 1.1rem; }
     .chat-header-name { font-weight: 750; color: #55535b; font-size: .94rem; }
     .chat-header-sub { margin: 2px 0 0; color: #98939a; font-size: .74rem; }
-    .chat-messages { flex: 1; overflow-y: auto; padding: 16px 0; display: flex; flex-direction: column; gap: 4px; scroll-behavior: smooth; }
+    .chat-messages { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 0; display: flex; flex-direction: column; gap: 4px; scroll-behavior: smooth; }
     .chat-bubble-row { display: flex; align-items: flex-end; gap: 8px; }
     .chat-bubble-row.mine { flex-direction: row-reverse; }
     .chat-avatar { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #f0e9ed; color: #9a939a; font-size: .72rem; font-weight: 750; }
@@ -2853,7 +2853,7 @@
     const gcState = {
       messages: [], reactions: {}, replyTo: null,
       pendingFile: null, sending: false, editingId: null,
-      pollTimer: null, initialized: false, loading: false
+      pollTimer: null, initialized: false, loading: false, seenOwnerIds: new Set()
     };
     const GC_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -3033,6 +3033,22 @@
         renderGcMessages(preserveScroll);
         status.textContent = '';
         delete status.dataset.error;
+        const ownerMessageIds = msgs
+          .filter(message => message.is_owner && !message.is_deleted && !gcState.seenOwnerIds.has(String(message.id)))
+          .map(message => message.id);
+        if (ownerMessageIds.length) {
+          try {
+            await gcRpc('mark_group_chat_seen', {
+              p_visitor_token: token,
+              p_message_ids: ownerMessageIds
+            });
+            ownerMessageIds.forEach(id => gcState.seenOwnerIds.add(String(id)));
+          } catch (e) {
+            console.error('Could not record chat read receipts.', e);
+            status.textContent = 'Messages loaded, but read receipts could not be recorded.';
+            status.dataset.error = 'true';
+          }
+        }
       } catch(e) {
         console.error('Could not load group chat.', e);
         status.textContent = e.message || 'Could not load the conversation.';

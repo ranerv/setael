@@ -2797,3 +2797,65 @@ grant execute on function public.toggle_group_chat_reaction(uuid,bigint,text) to
 grant execute on function public.get_group_chat_reactions(uuid) to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- Visitors record when they read owner messages; only the owner can view counts.
+create table if not exists public.group_chat_read_receipts (
+  message_id bigint not null references public.group_chat_messages(id) on delete cascade,
+  visitor_token uuid not null,
+  read_at timestamptz not null default now(),
+  primary key (message_id, visitor_token)
+);
+
+alter table public.group_chat_read_receipts enable row level security;
+revoke all on public.group_chat_read_receipts from anon, authenticated;
+
+create or replace function public.mark_group_chat_seen(
+  p_visitor_token uuid,
+  p_message_ids bigint[]
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_visitor_token is null then
+    raise exception 'A chat session is required.';
+  end if;
+
+  insert into public.group_chat_read_receipts (message_id, visitor_token)
+  select m.id, p_visitor_token
+  from public.group_chat_messages m
+  where m.id = any(coalesce(p_message_ids, array[]::bigint[]))
+    and m.is_owner
+    and not m.is_deleted
+    and m.visitor_token <> p_visitor_token
+  on conflict (message_id, visitor_token) do nothing;
+end;
+$$;
+
+create or replace function public.get_group_chat_seen_counts()
+returns table (message_id bigint, reader_count bigint)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not (select public.is_log_admin()) then
+    raise exception 'Only the owner can view chat read receipts.';
+  end if;
+
+  return query
+  select r.message_id, count(*)::bigint
+  from public.group_chat_read_receipts r
+  group by r.message_id;
+end;
+$$;
+
+revoke all on function public.mark_group_chat_seen(uuid,bigint[]) from public, anon, authenticated;
+revoke all on function public.get_group_chat_seen_counts() from public, anon, authenticated;
+grant execute on function public.mark_group_chat_seen(uuid,bigint[]) to anon, authenticated;
+grant execute on function public.get_group_chat_seen_counts() to authenticated;
+
+notify pgrst, 'reload schema';
