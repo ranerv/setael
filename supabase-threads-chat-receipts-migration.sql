@@ -67,7 +67,8 @@ end;
 $$;
 
 drop function if exists public.get_group_chat_seen_counts();
-create or replace function public.get_group_chat_seen_counts()
+drop function if exists public.get_group_chat_seen_counts(bigint[]);
+create function public.get_group_chat_seen_counts(p_message_ids bigint[])
 returns table (
   message_id bigint,
   reader_count bigint,
@@ -98,18 +99,22 @@ begin
       order by r.read_at, r.visitor_token
     )
   from public.group_chat_read_receipts r
+  join public.group_chat_messages m on m.id = r.message_id
+  where r.message_id = any(coalesce(p_message_ids, array[]::bigint[]))
+    and m.is_owner
+    and not m.is_deleted
   group by r.message_id;
 end;
 $$;
 
 revoke all on function public.mark_group_chat_seen(uuid, bigint[], text)
   from public, anon, authenticated;
-revoke all on function public.get_group_chat_seen_counts()
+revoke all on function public.get_group_chat_seen_counts(bigint[])
   from public, anon, authenticated;
 
 grant execute on function public.mark_group_chat_seen(uuid, bigint[], text)
   to anon, authenticated;
-grant execute on function public.get_group_chat_seen_counts()
+grant execute on function public.get_group_chat_seen_counts(bigint[])
   to authenticated;
 
 notify pgrst, 'reload schema';
