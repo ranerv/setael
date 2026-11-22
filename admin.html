@@ -2866,7 +2866,8 @@
       pollTimer: null, initialized: false, loading: false, refreshQueued: false, followLatest: true,
       messagesSignature: null, reactionsSignature: null, seenSignature: null,
       userScrollActive: false, userScrollDirection: 0, scrollInteractionTimer: null,
-      seenCounts: {}, seenReaders: {}, historyLoaded: false, hasOlderMessages: false, loadingOlderMessages: false
+      seenCounts: {}, seenReaders: {}, showReceiptSummary: false,
+      historyLoaded: false, hasOlderMessages: false, loadingOlderMessages: false
     };
     const ADMIN_CHAT_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -3078,6 +3079,7 @@
 
     async function loadAdminChatInbox(preserveScroll, showReceiptSummary) {
       const status = document.getElementById('admin-chat-status');
+      if (showReceiptSummary) adminChatState.showReceiptSummary = true;
       if (adminChatState.loading) {
         adminChatState.refreshQueued = true;
         return;
@@ -3145,7 +3147,7 @@
           console.error('Could not refresh chat read receipts.', e);
           loadWarning = loadWarning || 'Messages loaded, but read receipts could not be refreshed.';
         }
-        const receiptSummary = showReceiptSummary
+        const receiptSummary = adminChatState.showReceiptSummary
           ? `Read receipts returned for ${Object.keys(adminChatState.seenCounts).length} message${Object.keys(adminChatState.seenCounts).length === 1 ? '' : 's'}.`
           : '';
         setStatus(status, loadWarning || receiptSummary, Boolean(loadWarning));
