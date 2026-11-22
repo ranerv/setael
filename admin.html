@@ -3294,6 +3294,11 @@
           seen.textContent = `Seen by ${seenCount} visitor${seenCount === 1 ? '' : 's'}`;
           wrap.append(seen);
         }
+      } else if (isOwner) {
+        const seen = document.createElement('p');
+        seen.className = 'chat-seen-status';
+        seen.textContent = 'Not seen yet';
+        wrap.append(seen);
       }
       row.append(av, wrap);
       return row;
