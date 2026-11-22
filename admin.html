@@ -3132,14 +3132,18 @@
           const nextSeenCounts = {};
           const nextSeenReaders = {};
           seenCounts.forEach(r => {
-            nextSeenCounts[r.message_id] = Number(r.reader_count);
-            nextSeenReaders[r.message_id] = Array.isArray(r.visitor_receipts)
+            const readers = Array.isArray(r.visitor_receipts)
               ? r.visitor_receipts.filter(receipt => receipt && typeof receipt.name === 'string' && receipt.name.trim())
               : [];
+            const reportedCount = Number(r.reader_count);
+            const readerCount = Number.isFinite(reportedCount) ? reportedCount : 0;
+            const messageId = String(r.message_id);
+            nextSeenCounts[messageId] = Math.max(readerCount, readers.length);
+            nextSeenReaders[messageId] = readers;
           });
           adminChatState.seenCounts = nextSeenCounts;
           adminChatState.seenReaders = nextSeenReaders;
-          if (seenChanged) {
+          if (seenChanged || adminChatState.showReceiptSummary) {
             adminChatState.seenSignature = seenSignature;
             renderAdminChatMessages(true);
           }
