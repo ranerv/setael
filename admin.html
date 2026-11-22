@@ -115,6 +115,11 @@
     .admin-thread-head time, .admin-thread-empty { color: #8d8991; font-size: .82rem; }
     .admin-thread-content { margin: 13px 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
     .admin-thread-image { display: block; max-width: 100%; max-height: 480px; margin: 12px auto; border-radius: 12px; object-fit: contain; }
+    .thread-media-caption { margin: 0 0 12px; color: #71676d; font-size: .82rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .thread-media-editor { display: grid; gap: 10px; margin-top: 8px; }
+    .thread-media-editor-item { display: grid; gap: 7px; padding: 10px; border: 1px solid #f0e9ed; border-radius: 10px; background: #fffafb; }
+    .thread-media-editor-item label { font-size: .78rem; color: #71676d; }
+    .thread-media-editor-item input { min-width: 0; }
     .admin-thread-comments { display: grid; gap: 8px; margin: 13px 0; }
     .admin-thread-comment { padding: 9px 11px; border-radius: 10px; background: #faf7f8; }
     .admin-thread-comment.owner { background: #fff0f5; }
@@ -686,8 +691,9 @@
             <textarea id="owner-thread-content" placeholder="Write something for everyone to see..." style="min-height:90px;"></textarea>
           </div>
           <div class="field">
-            <label for="owner-thread-media">Add a photo or video (optional, up to 100 MB)</label>
-            <input id="owner-thread-media" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime">
+            <label for="owner-thread-media">Add photos or videos (up to 10 items; each can have a caption)</label>
+            <input id="owner-thread-media" type="file" multiple accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime">
+            <div id="owner-thread-media-list" class="thread-media-editor"></div>
           </div>
           <div class="form-actions" style="margin-top:10px;">
             <button class="button" id="save-owner-thread" type="submit">Post thread</button>
@@ -1025,6 +1031,7 @@
     let scheduleEvents = [];
     let dailyMediaItems = [];
     let visitorThreads = [];
+    let ownerThreadPendingFiles = [];
     let visitorCheckins = [];
     let threadComments = [];
     let threadPollTimer = null;
@@ -1767,6 +1774,28 @@
       return img;
     }
 
+    function adminThreadMediaItems(thread) {
+      if (Array.isArray(thread.media_items) && thread.media_items.length) return thread.media_items;
+      const path = thread.media_path || thread.image_path;
+      return path ? [{ path, type: thread.media_type || "image", caption: "" }] : [];
+    }
+
+    function appendAdminThreadMedia(container, items) {
+      items.forEach((item) => {
+        const media = createAdminMediaElement(item.path, item.type, null);
+        if (!media) return;
+        const wrapper = document.createElement("div");
+        wrapper.append(media);
+        if (item.caption) {
+          const caption = document.createElement("p");
+          caption.className = "thread-media-caption";
+          caption.textContent = item.caption;
+          wrapper.append(caption);
+        }
+        container.append(wrapper);
+      });
+    }
+
     function renderVisitorThreads() {
       adminThreadFeed.replaceChildren();
       if (!visitorThreads.length) {
@@ -1794,8 +1823,7 @@
           content.textContent = thread.content;
           card.append(content);
         }
-        const threadMedia = createAdminMediaElement(thread.media_path, thread.media_type, thread.image_path);
-        if (threadMedia) card.append(threadMedia);
+        appendAdminThreadMedia(card, adminThreadMediaItems(thread));
         // Reaction bar for thread
         card.append(buildAdminReactionBar("thread", thread.id));
         // Comments
@@ -1880,7 +1908,7 @@
     }
     async function loadVisitorThreads() {
       const [threads, comments] = await Promise.all([
-        api("/rest/v1/visitor_threads?select=id,display_name,content,image_path,media_path,media_type,is_owner_post,created_at&order=created_at.desc"),
+        api("/rest/v1/visitor_threads?select=id,display_name,content,image_path,media_path,media_type,media_items,is_owner_post,created_at&order=created_at.desc"),
         api("/rest/v1/visitor_thread_comments?select=id,thread_id,sender,sender_label,content,media_path,media_type,parent_comment_id,created_at&order=created_at.asc")
       ]);
       if (!Array.isArray(threads) || !Array.isArray(comments)) {
@@ -1927,6 +1955,36 @@
       return { path, mediaType: isVideo ? "video" : "image" };
     }
 
+    function renderOwnerThreadMediaEditor() {
+      const editor = document.getElementById("owner-thread-media-list");
+      editor.replaceChildren();
+      ownerThreadPendingFiles.forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = "thread-media-editor-item";
+        const label = document.createElement("label");
+        label.htmlFor = "owner-thread-media-caption-" + index;
+        label.textContent = item.file.name;
+        const caption = document.createElement("textarea");
+        caption.id = "owner-thread-media-caption-" + index;
+        caption.maxLength = 500;
+        caption.rows = 2;
+        caption.placeholder = "Caption for this photo or video";
+        caption.value = item.caption;
+        caption.addEventListener("input", () => { item.caption = caption.value; });
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "button secondary";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", () => {
+          ownerThreadPendingFiles.splice(index, 1);
+          document.getElementById("owner-thread-media").value = "";
+          renderOwnerThreadMediaEditor();
+        });
+        row.append(label, caption, remove);
+        editor.append(row);
+      });
+    }
+
     async function submitOwnerThread(event) {
       event.preventDefault();
       const contentField = document.getElementById("owner-thread-content");
@@ -1934,34 +1992,38 @@
       const submitBtn = document.getElementById("save-owner-thread");
       const statusEl = document.getElementById("owner-thread-status");
       const content = contentField.value.trim();
-      const file = mediaInput.files[0] || null;
-      if (!content && !file) {
+      const files = ownerThreadPendingFiles.slice();
+      if (!content && !files.length) {
         setStatus(statusEl, "Write something or add media before posting.", true);
         return;
       }
+      if (files.length > 10) {
+        setStatus(statusEl, "A thread can have up to 10 photos or videos.", true);
+        return;
+      }
       submitBtn.disabled = true;
-      setStatus(statusEl, file ? "Uploading media..." : "Posting...");
+      setStatus(statusEl, files.length ? "Uploading media..." : "Posting...");
       try {
-        let mediaPath = null;
-        let mediaType = null;
-        if (file) {
-          const uploaded = await uploadAdminMedia(file);
-          mediaPath = uploaded.path;
-          mediaType = uploaded.mediaType;
-          setStatus(statusEl, "Saving thread...");
+        const mediaItems = [];
+        for (const [index, item] of files.entries()) {
+          setStatus(statusEl, `Uploading media ${index + 1} of ${files.length}...`);
+          const uploaded = await uploadAdminMedia(item.file);
+          mediaItems.push({ path: uploaded.path, type: uploaded.mediaType, caption: item.caption.trim() });
         }
-        await api("/rest/v1/rpc/create_owner_thread", {
+        setStatus(statusEl, "Saving thread...");
+        await api("/rest/v1/rpc/create_owner_thread_with_media", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             p_display_name: "Vren",
             p_content: content,
-            p_media_path: mediaPath,
-            p_media_type: mediaType
+            p_media_items: mediaItems
           })
         });
         contentField.value = "";
         mediaInput.value = "";
+        ownerThreadPendingFiles = [];
+        renderOwnerThreadMediaEditor();
         setStatus(statusEl, "Thread posted.");
         await loadVisitorThreads();
       } catch (error) {
@@ -2472,6 +2534,18 @@
     });
     adminThreadFeed.addEventListener("submit", submitOwnerThreadComment);
     document.getElementById("owner-thread-form").addEventListener("submit", submitOwnerThread);
+    document.getElementById("owner-thread-media").addEventListener("change", (event) => {
+      const selected = Array.from(event.target.files || []);
+      if (selected.length > 10) {
+        event.target.value = "";
+        ownerThreadPendingFiles = [];
+        renderOwnerThreadMediaEditor();
+        setStatus(document.getElementById("owner-thread-status"), "A thread can have up to 10 photos or videos.", true);
+        return;
+      }
+      ownerThreadPendingFiles = selected.map((file) => ({ file, caption: "" }));
+      renderOwnerThreadMediaEditor();
+    });
 
     entryForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -2792,7 +2866,7 @@
       pollTimer: null, initialized: false, loading: false, refreshQueued: false, followLatest: true,
       messagesSignature: null, reactionsSignature: null, seenSignature: null,
       userScrollActive: false, userScrollDirection: 0, scrollInteractionTimer: null,
-      seenCounts: {}, seenReaders: {}
+      seenCounts: {}, seenReaders: {}, historyLoaded: false, hasOlderMessages: false, loadingOlderMessages: false
     };
     const ADMIN_CHAT_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -2884,6 +2958,9 @@
           else if (direction > 0) adminChatState.followLatest = distanceFromBottom < 80;
           interactionEnded();
         }
+        if (container.scrollTop < 50 && adminChatState.historyLoaded && adminChatState.hasOlderMessages) {
+          loadOlderAdminChatMessages();
+        }
         previousScrollTop = container.scrollTop;
       }, { passive: true });
     }
@@ -2958,6 +3035,46 @@
       });
     }
 
+    function mergeAdminChatMessages(existing, incoming) {
+      const byId = new Map(existing.map(message => [String(message.id), message]));
+      incoming.forEach(message => byId.set(String(message.id), message));
+      return Array.from(byId.values()).sort((a, b) =>
+        Date.parse(a.created_at) - Date.parse(b.created_at) || Number(a.id) - Number(b.id)
+      );
+    }
+
+    async function loadOlderAdminChatMessages() {
+      if (adminChatState.loadingOlderMessages || !adminChatState.historyLoaded || !adminChatState.hasOlderMessages) return;
+      const oldest = adminChatState.messages[0];
+      if (!oldest) {
+        adminChatState.hasOlderMessages = false;
+        return;
+      }
+      adminChatState.loadingOlderMessages = true;
+      try {
+        const older = await adminChatRpc('get_group_chat_messages_page', {
+          p_before_created_at: oldest.created_at,
+          p_before_id: oldest.id,
+          p_limit: 100
+        });
+        if (!Array.isArray(older)) throw new Error('Older chat messages returned an invalid response.');
+        if (!older.length) {
+          adminChatState.hasOlderMessages = false;
+          return;
+        }
+        const previousCount = adminChatState.messages.length;
+        adminChatState.messages = mergeAdminChatMessages(adminChatState.messages, older);
+        adminChatState.hasOlderMessages = older.length === 100 && adminChatState.messages.length > previousCount;
+        adminChatState.messagesSignature = JSON.stringify(adminChatState.messages);
+        renderAdminChatMessages(true);
+      } catch (error) {
+        console.error('Could not load older chat messages.', error);
+        setStatus(document.getElementById('admin-chat-status'), error.message || 'Could not load older messages.', true);
+      } finally {
+        adminChatState.loadingOlderMessages = false;
+      }
+    }
+
     async function loadAdminChatInbox(preserveScroll) {
       const status = document.getElementById('admin-chat-status');
       if (adminChatState.loading) {
@@ -2966,11 +3083,19 @@
       }
       adminChatState.loading = true;
       try {
-        const msgs = await adminChatRpc('get_group_chat_messages', {});
+        const msgs = await adminChatRpc('get_group_chat_messages_page', {
+          p_before_created_at: null,
+          p_before_id: null,
+          p_limit: 100
+        });
         if (!Array.isArray(msgs)) throw new Error('The shared conversation response was invalid.');
-        const messagesSignature = JSON.stringify(msgs);
+        const firstLoad = !adminChatState.historyLoaded;
+        const nextMessages = firstLoad ? msgs : mergeAdminChatMessages(adminChatState.messages, msgs);
+        const messagesSignature = JSON.stringify(nextMessages);
         const messagesChanged = messagesSignature !== adminChatState.messagesSignature;
-        adminChatState.messages = msgs;
+        adminChatState.messages = nextMessages;
+        adminChatState.historyLoaded = true;
+        if (firstLoad) adminChatState.hasOlderMessages = msgs.length === 100;
         if (messagesChanged) {
           adminChatState.messagesSignature = messagesSignature;
           renderAdminChatMessages(preserveScroll);

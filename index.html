@@ -1037,6 +1037,11 @@
     .visitor-thread-date { margin: 3px 0 0; color: #9a9298; font-size: .75rem; }
     .visitor-thread-content { margin: 14px 0; color: #5f5a62; line-height: 1.65; overflow-wrap: anywhere; white-space: pre-wrap; }
     .visitor-thread-image { display: block; max-width: 100%; max-height: 540px; margin: 12px auto; border-radius: 12px; object-fit: contain; }
+    .thread-media-caption { margin: 0 0 12px; color: #71676d; font-size: .82rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .thread-media-editor { display: grid; gap: 10px; margin-top: 8px; }
+    .thread-media-editor-item { display: grid; gap: 7px; padding: 10px; border: 1px solid #f0e9ed; border-radius: 10px; background: #fffafb; }
+    .thread-media-editor-item label { font-size: .78rem; color: #71676d; }
+    .thread-media-editor-item input { min-width: 0; }
     .visitor-thread-comments { display: grid; gap: 9px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #f0e9ed; }
     .visitor-thread-comment { padding: 10px 12px; border-radius: 11px; background: #faf7f8; }
     .visitor-thread-comment.owner { background: #fff0f5; }
@@ -1527,9 +1532,9 @@
               <textarea id="visitor-thread-content" placeholder="Write something…"></textarea>
             </div>
             <div class="field">
-              <label for="visitor-thread-image">Add a photo or video (optional, up to 100 MB)</label>
-              <input id="visitor-thread-image" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime">
-              <label id="visitor-thread-remove-image-field" hidden><input id="visitor-thread-remove-image" type="checkbox"> Remove the current photo or video</label>
+              <label for="visitor-thread-image">Add photos or videos (up to 10 items; each can have a caption)</label>
+              <input id="visitor-thread-image" type="file" multiple accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime">
+              <div id="visitor-thread-media-list" class="thread-media-editor"></div>
             </div>
             <div class="form-actions">
               <button class="button" id="save-visitor-thread" type="submit">Post thread</button>
@@ -2903,7 +2908,7 @@
       pollTimer: null, initialized: false, loading: false, refreshQueued: false, followLatest: true,
       messagesSignature: null, reactionsSignature: null, userScrollActive: false,
       userScrollDirection: 0, scrollInteractionTimer: null,
-      seenOwnerIds: new Set()
+      seenOwnerIds: new Set(), historyLoaded: false, hasOlderMessages: false, loadingOlderMessages: false
     };
     const GC_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -2993,6 +2998,9 @@
           if (direction < 0) gcState.followLatest = false;
           else if (direction > 0) gcState.followLatest = distanceFromBottom < 80;
           interactionEnded();
+        }
+        if (container.scrollTop < 50 && gcState.historyLoaded && gcState.hasOlderMessages) {
+          loadOlderGcMessages();
         }
         previousScrollTop = container.scrollTop;
       }, { passive: true });
@@ -3169,6 +3177,61 @@
       }
     }
 
+    function mergeGcMessages(existing, incoming) {
+      const byId = new Map(existing.map(message => [String(message.id), message]));
+      incoming.forEach(message => byId.set(String(message.id), message));
+      return Array.from(byId.values()).sort((a, b) =>
+        Date.parse(a.created_at) - Date.parse(b.created_at) || Number(a.id) - Number(b.id)
+      );
+    }
+
+    async function loadOlderGcMessages() {
+      if (gcState.loadingOlderMessages || !gcState.historyLoaded || !gcState.hasOlderMessages) return;
+      const oldest = gcState.messages[0];
+      if (!oldest) {
+        gcState.hasOlderMessages = false;
+        return;
+      }
+      gcState.loadingOlderMessages = true;
+      try {
+        const older = await gcRpc('get_group_chat_messages_page', {
+          p_before_created_at: oldest.created_at,
+          p_before_id: oldest.id,
+          p_limit: 100
+        });
+        if (!Array.isArray(older)) throw new Error('Older chat messages returned an invalid response.');
+        if (!older.length) {
+          gcState.hasOlderMessages = false;
+          return;
+        }
+        const previousCount = gcState.messages.length;
+        gcState.messages = mergeGcMessages(gcState.messages, older);
+        gcState.hasOlderMessages = older.length === 100 && gcState.messages.length > previousCount;
+        gcState.messagesSignature = JSON.stringify(gcState.messages);
+        renderGcMessages(true);
+
+        const token = gcToken();
+        const ownerMessageIds = older
+          .filter(message => message.is_owner && !message.is_deleted && !gcState.seenOwnerIds.has(String(message.id)))
+          .map(message => message.id);
+        if (ownerMessageIds.length) {
+          await gcRpc('mark_group_chat_seen', {
+            p_visitor_token: token,
+            p_display_name: gcDisplayName(),
+            p_message_ids: ownerMessageIds
+          });
+          ownerMessageIds.forEach(id => gcState.seenOwnerIds.add(String(id)));
+        }
+      } catch (error) {
+        console.error('Could not load older chat messages.', error);
+        const status = document.getElementById('chat-status');
+        status.textContent = error.message || 'Could not load older messages.';
+        status.dataset.error = 'true';
+      } finally {
+        gcState.loadingOlderMessages = false;
+      }
+    }
+
     async function loadGcMessages(preserveScroll) {
       const status = document.getElementById('chat-status');
       if (gcState.loading) {
@@ -3179,11 +3242,19 @@
       try {
         if (!supabaseUrl || !publishableKey) throw new Error('Chat is not configured yet.');
         const token = gcToken();
-        const msgs = await gcRpc('get_group_chat_messages', {});
+        const msgs = await gcRpc('get_group_chat_messages_page', {
+          p_before_created_at: null,
+          p_before_id: null,
+          p_limit: 100
+        });
         if (!Array.isArray(msgs)) throw new Error('The shared conversation response was invalid.');
-        const messagesSignature = JSON.stringify(msgs);
+        const firstLoad = !gcState.historyLoaded;
+        const nextMessages = firstLoad ? msgs : mergeGcMessages(gcState.messages, msgs);
+        const messagesSignature = JSON.stringify(nextMessages);
         const messagesChanged = messagesSignature !== gcState.messagesSignature;
-        gcState.messages = msgs;
+        gcState.messages = nextMessages;
+        gcState.historyLoaded = true;
+        if (firstLoad) gcState.hasOlderMessages = msgs.length === 100;
         if (messagesChanged) {
           gcState.messagesSignature = messagesSignature;
           renderGcMessages(preserveScroll);

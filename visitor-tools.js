@@ -24,7 +24,7 @@
   const threadState = {
     token: "", posts: [], comments: {}, reactions: {},
     timer: null, saving: false, editingId: null,
-    imagePath: null, mediaType: null
+    mediaItems: [], pendingFiles: []
   };
 
   function getElement(id) { return document.getElementById(id); }
@@ -578,6 +578,62 @@
     return img;
   }
 
+  function getThreadMediaItems(post) {
+    if (Array.isArray(post.media_items) && post.media_items.length) return post.media_items;
+    const path = post.media_path || post.image_path;
+    return path ? [{ path, type: post.media_type || "image", caption: "" }] : [];
+  }
+
+  function appendThreadMedia(container, items) {
+    items.forEach((item) => {
+      const media = createMediaElement(item.path, item.type, null);
+      if (!media) return;
+      const wrapper = document.createElement("div");
+      wrapper.append(media);
+      if (item.caption) {
+        const caption = document.createElement("p");
+        caption.className = "thread-media-caption";
+        caption.textContent = item.caption;
+        wrapper.append(caption);
+      }
+      container.append(wrapper);
+    });
+  }
+
+  function renderThreadMediaEditor() {
+    const editor = getElement("visitor-thread-media-list");
+    editor.replaceChildren();
+    const entries = [
+      ...threadState.mediaItems.map((item, index) => ({ item, existing: true, index })),
+      ...threadState.pendingFiles.map((item, index) => ({ item, existing: false, index }))
+    ];
+    entries.forEach(({ item, existing, index }) => {
+      const row = document.createElement("div");
+      row.className = "thread-media-editor-item";
+      const label = document.createElement("label");
+      const caption = document.createElement("textarea");
+      caption.id = `visitor-thread-media-caption-${existing ? "saved" : "new"}-${index}`;
+      label.htmlFor = caption.id;
+      caption.maxLength = 500;
+      caption.rows = 2;
+      caption.placeholder = "Caption for " + (existing ? "attached media" : item.file.name);
+      caption.value = item.caption || "";
+      caption.addEventListener("input", () => { item.caption = caption.value; });
+      label.textContent = existing ? "Attached media caption" : item.file.name;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "button secondary";
+      remove.textContent = "Remove";
+      remove.addEventListener("click", () => {
+        if (existing) threadState.mediaItems.splice(index, 1);
+        else threadState.pendingFiles.splice(index, 1);
+        renderThreadMediaEditor();
+      });
+      row.append(label, caption, remove);
+      editor.append(row);
+    });
+  }
+
   function threadDateLabel(value) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
@@ -810,8 +866,7 @@
         content.textContent = post.content;
         card.append(content);
       }
-      const threadMedia = createMediaElement(post.media_path, post.media_type, post.image_path);
-      if (threadMedia) card.append(threadMedia);
+      appendThreadMedia(card, getThreadMediaItems(post));
 
       // Thread reaction bar
       card.append(buildReactionBar("thread", post.id));
@@ -938,11 +993,11 @@
 
   function resetThreadForm() {
     threadState.editingId = null;
-    threadState.imagePath = null;
-    threadState.mediaType = null;
+    threadState.mediaItems = [];
+    threadState.pendingFiles = [];
     getElement("visitor-thread-form").reset();
     getElement("visitor-thread-name").value = localStorage.getItem(threadNameKey) || "";
-    getElement("visitor-thread-remove-image-field").hidden = true;
+    renderThreadMediaEditor();
     getElement("save-visitor-thread").textContent = "Post thread";
     getElement("cancel-visitor-thread-edit").hidden = true;
   }
@@ -951,13 +1006,16 @@
     const post = threadState.posts.find((item) => String(item.id) === id);
     if (!post) return;
     threadState.editingId = post.id;
-    threadState.imagePath = post.image_path || null;
-    threadState.mediaType = post.media_type || (post.image_path ? "image" : null);
+    threadState.mediaItems = getThreadMediaItems(post).map((item) => ({
+      path: item.path || item.media_path,
+      type: item.type || item.media_type || "image",
+      caption: item.caption || ""
+    }));
+    threadState.pendingFiles = [];
     getElement("visitor-thread-name").value = post.display_name || "";
     getElement("visitor-thread-content").value = post.content || "";
     getElement("visitor-thread-image").value = "";
-    getElement("visitor-thread-remove-image").checked = false;
-    getElement("visitor-thread-remove-image-field").hidden = !post.image_path;
+    renderThreadMediaEditor();
     getElement("save-visitor-thread").textContent = "Save changes";
     getElement("cancel-visitor-thread-edit").hidden = false;
     getElement("visitor-thread-form").scrollIntoView({ behavior: "smooth", block: "center" });
@@ -968,9 +1026,12 @@
     if (threadState.saving) return;
     const content = getElement("visitor-thread-content").value.trim();
     const name = getElement("visitor-thread-name").value.trim() || "Visitor";
-    const file = getElement("visitor-thread-image").files[0] || null;
-    const removeImage = getElement("visitor-thread-remove-image").checked;
+    const pendingFiles = threadState.pendingFiles.slice();
     const wasEditing = Boolean(threadState.editingId);
+    if (threadState.mediaItems.length + pendingFiles.length > 10) {
+      setStatus(getElement("visitor-thread-status"), "A thread can have up to 10 photos or videos.", true);
+      return;
+    }
 
     threadState.saving = true;
     const saveButton = getElement("save-visitor-thread");
@@ -978,24 +1039,23 @@
     setStatus(getElement("visitor-thread-status"), threadState.editingId ? "Saving your changes..." : "Posting your thread...", false);
     try {
       const token = visitorToken();
-      let mediaSavePath = threadState.imagePath;
-      let mediaSaveType = threadState.mediaType || "image";
-      if (removeImage) { mediaSavePath = null; mediaSaveType = null; }
-      if (file) {
-        const uploaded = await uploadThreadMedia(file, token);
-        mediaSavePath = uploaded.path;
-        mediaSaveType = uploaded.mediaType;
+      const mediaItems = threadState.mediaItems.map((item) => ({
+        path: item.path, type: item.type, caption: item.caption.trim()
+      }));
+      for (const [index, item] of pendingFiles.entries()) {
+        setStatus(getElement("visitor-thread-status"), `Uploading media ${index + 1} of ${pendingFiles.length}...`, false);
+        const uploaded = await uploadThreadMedia(item.file, token);
+        mediaItems.push({ path: uploaded.path, type: uploaded.mediaType, caption: item.caption.trim() });
       }
-      if (!content && !mediaSavePath) {
+      if (!content && !mediaItems.length) {
         setStatus(getElement("visitor-thread-status"), "Write something or add media before posting.", true);
         return;
       }
-      const imagePath = (mediaSaveType === "image" || !mediaSavePath) ? mediaSavePath : null;
       await callVisitorRpc(
-        threadState.editingId ? "update_visitor_thread" : "create_visitor_thread",
+        threadState.editingId ? "update_visitor_thread_with_media" : "create_visitor_thread_with_media",
         threadState.editingId
-          ? { p_visitor_token: token, p_thread_id: threadState.editingId, p_display_name: name, p_content: content, p_image_path: imagePath, p_media_path: mediaSavePath, p_media_type: mediaSaveType }
-          : { p_visitor_token: token, p_display_name: name, p_content: content, p_image_path: imagePath, p_media_path: mediaSavePath, p_media_type: mediaSaveType }
+          ? { p_visitor_token: token, p_thread_id: threadState.editingId, p_display_name: name, p_content: content, p_media_items: mediaItems }
+          : { p_visitor_token: token, p_display_name: name, p_content: content, p_media_items: mediaItems }
       );
       localStorage.setItem(threadNameKey, name);
       resetThreadForm();
@@ -1133,6 +1193,18 @@
       if (token) threadState.token = token;
       getElement("visitor-thread-name").value = localStorage.getItem(threadNameKey) || "";
       getElement("visitor-thread-form").addEventListener("submit", saveThread);
+      getElement("visitor-thread-image").addEventListener("change", (event) => {
+        const selected = Array.from(event.target.files || []);
+        if (selected.length + threadState.mediaItems.length > 10) {
+          event.target.value = "";
+          threadState.pendingFiles = [];
+          renderThreadMediaEditor();
+          setStatus(getElement("visitor-thread-status"), "A thread can have up to 10 photos or videos.", true);
+          return;
+        }
+        threadState.pendingFiles = selected.map((file) => ({ file, caption: "" }));
+        renderThreadMediaEditor();
+      });
       getElement("cancel-visitor-thread-edit").addEventListener("click", resetThreadForm);
       const feed = getElement("visitor-thread-feed");
       feed.addEventListener("click", (event) => {
