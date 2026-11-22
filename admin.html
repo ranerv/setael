@@ -161,6 +161,7 @@
     .chat-bubble-time { font-size:.65rem;color:#b0a8b0;margin:0 4px; }
     .chat-bubble-row.mine .chat-bubble-time { text-align:right; }
     .chat-seen-status { color:#8d8991;font-size:.68rem;margin:0 4px;overflow-wrap:anywhere; }
+    .chat-seen-status time { margin-left:4px;white-space:nowrap; }
     .chat-bubble-actions { display:none;position:absolute;top:-28px;right:0;flex-direction:row;gap:2px;padding:3px 6px;border-radius:999px;background:#fff;box-shadow:0 2px 8px #0002; }
     .chat-bubble-row.mine .chat-bubble-actions { right:auto;left:0; }
     .chat-bubble:hover .chat-bubble-actions { display:flex; }
@@ -2791,7 +2792,7 @@
       pollTimer: null, initialized: false, loading: false, refreshQueued: false, followLatest: true,
       messagesSignature: null, reactionsSignature: null, seenSignature: null,
       userScrollActive: false, userScrollDirection: 0, scrollInteractionTimer: null,
-      seenCounts: {}, seenNames: {}
+      seenCounts: {}, seenReaders: {}
     };
     const ADMIN_CHAT_EMOJIS = {like:'👍',love:'❤️',haha:'😂',wow:'😮',sad:'😢'};
 
@@ -2811,6 +2812,14 @@
       const d = new Date(value);
       if (isNaN(d)) return '';
       return new Intl.DateTimeFormat('en-PH', {timeZone:'Asia/Manila',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d);
+    }
+
+    function adminChatSeenTimeLabel(value) {
+      const d = new Date(value);
+      if (isNaN(d)) return '';
+      return new Intl.DateTimeFormat('en-PH', {
+        timeZone:'Asia/Manila', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'
+      }).format(d);
     }
 
     function adminChatMediaUrl(path) {
@@ -2993,15 +3002,15 @@
           const seenSignature = JSON.stringify(seenCounts);
           const seenChanged = seenSignature !== adminChatState.seenSignature;
           const nextSeenCounts = {};
-          const nextSeenNames = {};
+          const nextSeenReaders = {};
           seenCounts.forEach(r => {
             nextSeenCounts[r.message_id] = Number(r.reader_count);
-            nextSeenNames[r.message_id] = Array.isArray(r.visitor_names)
-              ? r.visitor_names.filter(name => typeof name === 'string' && name.trim())
+            nextSeenReaders[r.message_id] = Array.isArray(r.visitor_receipts)
+              ? r.visitor_receipts.filter(receipt => receipt && typeof receipt.name === 'string' && receipt.name.trim())
               : [];
           });
           adminChatState.seenCounts = nextSeenCounts;
-          adminChatState.seenNames = nextSeenNames;
+          adminChatState.seenReaders = nextSeenReaders;
           if (seenChanged) {
             adminChatState.seenSignature = seenSignature;
             renderAdminChatMessages(true);
@@ -3138,13 +3147,27 @@
       wrap.append(time);
       const seenCount = isOwner ? (adminChatState.seenCounts[msg.id] || 0) : 0;
       if (seenCount > 0) {
-        const seen = document.createElement('p');
-        seen.className = 'chat-seen-status';
-        const seenNames = adminChatState.seenNames[msg.id] || [];
-        seen.textContent = seenNames.length
-          ? `Seen by ${seenNames.join(', ')}`
-          : `Seen by ${seenCount} visitor${seenCount === 1 ? '' : 's'}`;
-        wrap.append(seen);
+        const readers = adminChatState.seenReaders[msg.id] || [];
+        if (readers.length) {
+          readers.forEach(reader => {
+            const seen = document.createElement('p');
+            seen.className = 'chat-seen-status';
+            seen.append(document.createTextNode(`Seen by ${reader.name}`));
+            const seenAt = adminChatSeenTimeLabel(reader.read_at);
+            if (seenAt) {
+              const time = document.createElement('time');
+              time.dateTime = reader.read_at;
+              time.textContent = `· ${seenAt}`;
+              seen.append(time);
+            }
+            wrap.append(seen);
+          });
+        } else {
+          const seen = document.createElement('p');
+          seen.className = 'chat-seen-status';
+          seen.textContent = `Seen by ${seenCount} visitor${seenCount === 1 ? '' : 's'}`;
+          wrap.append(seen);
+        }
       }
       row.append(av, wrap);
       return row;

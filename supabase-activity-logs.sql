@@ -2865,7 +2865,7 @@ $$;
 
 drop function if exists public.get_group_chat_seen_counts();
 create or replace function public.get_group_chat_seen_counts()
-returns table (message_id bigint, reader_count bigint, visitor_names text[])
+returns table (message_id bigint, reader_count bigint, visitor_receipts jsonb)
 language plpgsql
 stable
 security definer
@@ -2880,8 +2880,11 @@ begin
   select
     r.message_id,
     count(*)::bigint,
-    array_agg(
-      coalesce(nullif(btrim(r.visitor_name), ''), 'Visitor ' || upper(right(r.visitor_token::text, 4)))
+    jsonb_agg(
+      jsonb_build_object(
+        'name', coalesce(nullif(btrim(r.visitor_name), ''), 'Visitor ' || upper(right(r.visitor_token::text, 4))),
+        'read_at', r.read_at
+      )
       order by r.read_at, r.visitor_token
     )
   from public.group_chat_read_receipts r
