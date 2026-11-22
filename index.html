@@ -3260,6 +3260,7 @@
           renderGcMessages(preserveScroll);
         }
 
+        let loadWarning = '';
         const ownerMessageIds = msgs
           .filter(message => message.is_owner && !message.is_deleted && !gcState.seenOwnerIds.has(String(message.id)))
           .map(message => message.id);
@@ -3273,10 +3274,10 @@
             ownerMessageIds.forEach(id => gcState.seenOwnerIds.add(String(id)));
           } catch (e) {
             console.error('Could not record chat read receipts.', e);
+            loadWarning = 'Messages loaded, but read status could not be saved. Refresh to retry.';
           }
         }
 
-        let loadWarning = '';
         try {
           const reacts = await gcRpc('get_group_chat_reactions', { p_visitor_token: token });
           if (!Array.isArray(reacts)) throw new Error('The reactions response was invalid.');
@@ -3295,7 +3296,7 @@
           }
         } catch (e) {
           console.error('Could not refresh chat reactions.', e);
-          loadWarning = 'Messages loaded, but reactions could not be refreshed.';
+          if (!loadWarning) loadWarning = 'Messages loaded, but reactions could not be refreshed.';
         }
         status.textContent = loadWarning;
         if (loadWarning) status.dataset.error = 'true';
