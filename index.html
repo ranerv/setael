@@ -3259,6 +3259,23 @@
           gcState.messagesSignature = messagesSignature;
           renderGcMessages(preserveScroll);
         }
+
+        const ownerMessageIds = msgs
+          .filter(message => message.is_owner && !message.is_deleted && !gcState.seenOwnerIds.has(String(message.id)))
+          .map(message => message.id);
+        if (ownerMessageIds.length) {
+          try {
+            await gcRpc('mark_group_chat_seen', {
+              p_visitor_token: token,
+              p_display_name: gcDisplayName(),
+              p_message_ids: ownerMessageIds
+            });
+            ownerMessageIds.forEach(id => gcState.seenOwnerIds.add(String(id)));
+          } catch (e) {
+            console.error('Could not record chat read receipts.', e);
+          }
+        }
+
         let loadWarning = '';
         try {
           const reacts = await gcRpc('get_group_chat_reactions', { p_visitor_token: token });
@@ -3279,22 +3296,6 @@
         } catch (e) {
           console.error('Could not refresh chat reactions.', e);
           loadWarning = 'Messages loaded, but reactions could not be refreshed.';
-        }
-        const ownerMessageIds = msgs
-          .filter(message => message.is_owner && !message.is_deleted && !gcState.seenOwnerIds.has(String(message.id)))
-          .map(message => message.id);
-        if (ownerMessageIds.length) {
-          try {
-            await gcRpc('mark_group_chat_seen', {
-              p_visitor_token: token,
-              p_display_name: gcDisplayName(),
-              p_message_ids: ownerMessageIds
-            });
-            ownerMessageIds.forEach(id => gcState.seenOwnerIds.add(String(id)));
-          } catch (e) {
-            console.error('Could not record chat read receipts.', e);
-            loadWarning = loadWarning || 'Messages loaded, but read receipts could not be recorded.';
-          }
         }
         status.textContent = loadWarning;
         if (loadWarning) status.dataset.error = 'true';
