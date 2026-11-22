@@ -3076,7 +3076,7 @@
       }
     }
 
-    async function loadAdminChatInbox(preserveScroll) {
+    async function loadAdminChatInbox(preserveScroll, showReceiptSummary) {
       const status = document.getElementById('admin-chat-status');
       if (adminChatState.loading) {
         adminChatState.refreshQueued = true;
@@ -3145,7 +3145,10 @@
           console.error('Could not refresh chat read receipts.', e);
           loadWarning = loadWarning || 'Messages loaded, but read receipts could not be refreshed.';
         }
-        setStatus(status, loadWarning, Boolean(loadWarning));
+        const receiptSummary = showReceiptSummary
+          ? `Read receipts returned for ${Object.keys(adminChatState.seenCounts).length} message${Object.keys(adminChatState.seenCounts).length === 1 ? '' : 's'}.`
+          : '';
+        setStatus(status, loadWarning || receiptSummary, Boolean(loadWarning));
       } catch (e) {
         console.error('Could not load the shared conversation.', e);
         setStatus(status, e.message || 'Could not load the shared conversation.', true);
@@ -3488,7 +3491,7 @@
         });
         document.getElementById('admin-cancel-reply').addEventListener('click', clearAdminChatReply);
         document.getElementById('chat-back-dashboard').addEventListener('click', () => { window.location.hash = '#entries'; });
-        document.getElementById('refresh-chat-inbox').addEventListener('click', () => loadAdminChatInbox(true));
+        document.getElementById('refresh-chat-inbox').addEventListener('click', () => loadAdminChatInbox(true, true));
         picker.addEventListener('click', async event => {
           const button = event.target.closest('[data-emoji]');
           if (!button) return;
