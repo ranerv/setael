@@ -3045,43 +3045,6 @@
       );
     }
 
-    async function refreshAdminChatSeenCounts() {
-      const messageIds = adminChatState.messages
-        .filter(message => Boolean(message.is_owner) && !message.is_deleted)
-        .map(message => Number(message.id));
-      if (messageIds.some(id => !Number.isSafeInteger(id))) {
-        throw new Error('The chat contained an invalid message ID while loading read receipts.');
-      }
-
-      const nextSeenCounts = {};
-      const nextSeenReaders = {};
-      for (let offset = 0; offset < messageIds.length; offset += 500) {
-        const seenCounts = await adminChatRpc('get_group_chat_seen_counts', {
-          p_message_ids: messageIds.slice(offset, offset + 500)
-        });
-        if (!Array.isArray(seenCounts)) throw new Error('The read receipts response was invalid.');
-        seenCounts.forEach(r => {
-          const readers = Array.isArray(r.visitor_receipts)
-            ? r.visitor_receipts.filter(receipt => receipt && typeof receipt.name === 'string' && receipt.name.trim())
-            : [];
-          const reportedCount = Number(r.reader_count);
-          const readerCount = Number.isFinite(reportedCount) ? reportedCount : 0;
-          const messageId = String(r.message_id);
-          nextSeenCounts[messageId] = Math.max(readerCount, readers.length);
-          nextSeenReaders[messageId] = readers;
-        });
-      }
-
-      const seenSignature = JSON.stringify({ counts: nextSeenCounts, readers: nextSeenReaders });
-      const seenChanged = seenSignature !== adminChatState.seenSignature;
-      adminChatState.seenCounts = nextSeenCounts;
-      adminChatState.seenReaders = nextSeenReaders;
-      if (seenChanged || adminChatState.showReceiptSummary) {
-        adminChatState.seenSignature = seenSignature;
-        renderAdminChatMessages(true);
-      }
-    }
-
     async function loadOlderAdminChatMessages() {
       if (adminChatState.loadingOlderMessages || !adminChatState.historyLoaded || !adminChatState.hasOlderMessages) return;
       const oldest = adminChatState.messages[0];
@@ -3106,12 +3069,6 @@
         adminChatState.hasOlderMessages = older.length === 100 && adminChatState.messages.length > previousCount;
         adminChatState.messagesSignature = JSON.stringify(adminChatState.messages);
         renderAdminChatMessages(true);
-        try {
-          await refreshAdminChatSeenCounts();
-        } catch (error) {
-          console.error('Could not refresh chat read receipts.', error);
-          setStatus(document.getElementById('admin-chat-status'), 'Older messages loaded, but read receipts could not be refreshed.', true);
-        }
       } catch (error) {
         console.error('Could not load older chat messages.', error);
         setStatus(document.getElementById('admin-chat-status'), error.message || 'Could not load older messages.', true);
@@ -3168,7 +3125,28 @@
           loadWarning = 'Messages loaded, but reactions could not be refreshed.';
         }
         try {
-          await refreshAdminChatSeenCounts();
+          const seenCounts = await adminChatRpc('get_group_chat_seen_counts', {});
+          if (!Array.isArray(seenCounts)) throw new Error('The read receipts response was invalid.');
+          const seenSignature = JSON.stringify(seenCounts);
+          const seenChanged = seenSignature !== adminChatState.seenSignature;
+          const nextSeenCounts = {};
+          const nextSeenReaders = {};
+          seenCounts.forEach(r => {
+            const readers = Array.isArray(r.visitor_receipts)
+              ? r.visitor_receipts.filter(receipt => receipt && typeof receipt.name === 'string' && receipt.name.trim())
+              : [];
+            const reportedCount = Number(r.reader_count);
+            const readerCount = Number.isFinite(reportedCount) ? reportedCount : 0;
+            const messageId = String(r.message_id);
+            nextSeenCounts[messageId] = Math.max(readerCount, readers.length);
+            nextSeenReaders[messageId] = readers;
+          });
+          adminChatState.seenCounts = nextSeenCounts;
+          adminChatState.seenReaders = nextSeenReaders;
+          if (seenChanged || adminChatState.showReceiptSummary) {
+            adminChatState.seenSignature = seenSignature;
+            renderAdminChatMessages(true);
+          }
         } catch (e) {
           console.error('Could not refresh chat read receipts.', e);
           loadWarning = loadWarning || 'Messages loaded, but read receipts could not be refreshed.';
