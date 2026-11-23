@@ -58,8 +58,7 @@ begin
 end;
 $$;
 
-drop function if exists public.get_group_chat_seen_counts();
-create function public.get_group_chat_seen_counts()
+create or replace function public.get_group_chat_seen_counts()
 returns table (message_id bigint, reader_count bigint, visitor_receipts jsonb)
 language plpgsql
 stable
@@ -90,9 +89,46 @@ begin
 end;
 $$;
 
+create or replace function public.get_group_chat_seen_counts(p_message_ids bigint[])
+returns table (message_id bigint, reader_count bigint, visitor_receipts jsonb)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not (select public.is_log_admin()) then
+    raise exception 'Only the owner can view chat read receipts.';
+  end if;
+
+  return query
+  select
+    r.message_id,
+    count(*)::bigint,
+    jsonb_agg(
+      jsonb_build_object(
+        'name', coalesce(
+          nullif(btrim(r.visitor_name), ''),
+          'Visitor ' || upper(right(r.visitor_token::text, 4))
+        ),
+        'read_at', r.read_at
+      )
+      order by r.read_at, r.visitor_token
+    )
+  from public.group_chat_read_receipts r
+  join public.group_chat_messages m on m.id = r.message_id
+  where r.message_id = any(coalesce(p_message_ids, array[]::bigint[]))
+    and m.is_owner
+    and not m.is_deleted
+  group by r.message_id;
+end;
+$$;
+
 revoke all on function public.mark_group_chat_seen(uuid, bigint[], text) from public, anon, authenticated;
 revoke all on function public.get_group_chat_seen_counts() from public, anon, authenticated;
+revoke all on function public.get_group_chat_seen_counts(bigint[]) from public, anon, authenticated;
 grant execute on function public.mark_group_chat_seen(uuid, bigint[], text) to anon, authenticated;
 grant execute on function public.get_group_chat_seen_counts() to authenticated;
+grant execute on function public.get_group_chat_seen_counts(bigint[]) to authenticated;
 
 notify pgrst, 'reload schema';
