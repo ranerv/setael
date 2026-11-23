@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#090d0a">
+    <meta name="description" content="An immersive, interactive 3D Oriental lily.">
+    <title>Lilium Orientalis</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <style>
+      :root {
+        color-scheme: dark;
+        background: #090d0a;
+        font-family: "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        height: 100dvh;
+        min-height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #090d0a;
+      }
+
+      .scene {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+        background: #090d0a;
+      }
+
+      .scene:fullscreen {
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        border: 0;
+        border-radius: 0;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        outline: none;
+        touch-action: none;
+      }
+
+      .loading,
+      .webgl-error {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+        color: #d7dbc9;
+        text-align: center;
+      }
+
+      .loading[hidden],
+      .webgl-error[hidden] {
+        display: none;
+      }
+
+      .webgl-error {
+        background: #090d0a;
+      }
+
+      .webgl-error p {
+        max-width: 34ch;
+        line-height: 1.7;
+      }
+
+      .message-widget {
+        position: absolute;
+        z-index: 3;
+        top: 50%;
+        left: 50%;
+        width: 78px;
+        height: 64px;
+        perspective: 1000px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translate(-50%, 112px) scale(0.82);
+        transition:
+          width 850ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          transform 850ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          opacity 300ms ease,
+          visibility 300ms;
+      }
+
+      .message-widget.is-visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translate(-50%, 112px) scale(1);
+      }
+
+      .message-widget.is-open {
+        width: min(440px, calc(100vw - 32px));
+        height: auto;
+        transform: translate(-50%, -50%);
+      }
+
+      .folder-toggle {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        width: 100%;
+        height: 100%;
+        place-items: center;
+        border: 1px solid rgb(255 255 255 / 62%);
+        border-radius: 12px 12px 16px 16px;
+        background: linear-gradient(145deg, #d9c9f4, #ad95dc);
+        box-shadow: 0 12px 36px rgb(3 5 4 / 38%);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: opacity 180ms ease, transform 250ms ease, visibility 180ms;
+      }
+
+      .folder-toggle::before {
+        position: absolute;
+        top: -8px;
+        left: 8px;
+        width: 35px;
+        height: 10px;
+        border: 1px solid rgb(255 255 255 / 55%);
+        border-bottom: 0;
+        border-radius: 7px 7px 0 0;
+        background: #c8b3ed;
+        content: "";
+      }
+
+      .folder-toggle:hover,
+      .folder-toggle:focus-visible {
+        outline: 2px solid #f3edff;
+        outline-offset: 4px;
+      }
+
+      .folder-toggle svg {
+        width: 54px;
+        height: 46px;
+        filter: drop-shadow(0 2px 3px rgb(72 53 103 / 22%));
+      }
+
+      .message-widget.is-visible:not(.is-open) .folder-toggle {
+        animation: folder-arrive 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+
+      .message-widget.is-open .folder-toggle {
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+        transform: scale(0.6);
+      }
+
+      .message-card {
+        position: relative;
+        width: 100%;
+        padding: 14px 12px 12px;
+        border: 1px solid rgb(255 255 255 / 58%);
+        border-radius: 22px;
+        background: linear-gradient(145deg, #d9c9f4, #ad95dc);
+        box-shadow: 0 24px 80px rgb(3 5 4 / 52%);
+        opacity: 0;
+        visibility: hidden;
+        transform: rotateX(-54deg) translateY(18px) scale(0.96);
+        transform-origin: center top;
+      }
+
+      .message-card[hidden] {
+        display: none;
+      }
+
+      .message-widget.is-open .message-card {
+        animation: open-folder 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        opacity: 1;
+        visibility: visible;
+        transform: rotateX(0) translateY(0) scale(1);
+      }
+
+      .message-tab {
+        position: absolute;
+        top: -12px;
+        left: 22px;
+        width: 138px;
+        height: 27px;
+        border: 1px solid rgb(255 255 255 / 58%);
+        border-bottom: 0;
+        border-radius: 12px 12px 0 0;
+        background: #c8b3ed;
+      }
+
+      .message-close {
+        position: absolute;
+        z-index: 3;
+        top: 24px;
+        right: 24px;
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 1px solid #ddcff1;
+        border-radius: 50%;
+        background: #fffaff;
+        color: #70588f;
+        font: inherit;
+        font-size: 1.25rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .message-close:hover,
+      .message-close:focus-visible {
+        outline: 2px solid #ad95dc;
+        outline-offset: 2px;
+      }
+
+      .message-paper {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        min-height: 270px;
+        max-height: min(72vh, 560px);
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        margin: 0;
+        padding: 28px clamp(20px, 6vw, 42px);
+        overflow: hidden;
+        border: 1px solid #e8def6;
+        border-radius: 18px;
+        background: linear-gradient(155deg, #fffaff, #f3edff);
+        box-shadow: 0 8px 26px rgb(70 47 104 / 18%);
+        color: #493c61;
+      }
+
+      .flower-stamp {
+        display: grid;
+        width: 66px;
+        height: 66px;
+        align-self: center;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid #ddcff1;
+        border-radius: 50%;
+        background: rgb(255 255 255 / 72%);
+        animation: stamp-bloom 4s ease-in-out infinite;
+      }
+
+      .flower-stamp svg {
+        width: 44px;
+        height: 44px;
+        animation: petal-turn 28s linear infinite;
+      }
+
+      .message-label {
+        margin: 14px 0 18px;
+        color: #8c71b5;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .message-copy {
+        width: 100%;
+        max-width: 38ch;
+        min-height: 0;
+        max-height: min(44vh, 360px);
+        margin: 0 auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+        color: #493c61;
+        font-family: Georgia, serif;
+        font-size: clamp(1.05rem, 3.2vw, 1.25rem);
+        line-height: 1.75;
+        scrollbar-color: #ad95dc transparent;
+        scrollbar-width: thin;
+        text-align: left;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      @keyframes folder-arrive {
+        from {
+          opacity: 0;
+          transform: translateY(14px) scale(0.72);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes open-folder {
+        0% {
+          opacity: 0;
+          transform: rotateX(-54deg) translateY(18px) scale(0.96);
+        }
+        65% {
+          opacity: 1;
+          transform: rotateX(6deg) translateY(-3px) scale(1.01);
+        }
+        100% {
+          opacity: 1;
+          transform: rotateX(0) translateY(0) scale(1);
+        }
+      }
+
+      @keyframes petal-turn {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes stamp-bloom {
+        50% {
+          box-shadow: 0 0 24px rgb(173 149 220 / 30%);
+          transform: scale(1.04);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .message-widget,
+        .folder-toggle,
+        .message-card,
+        .flower-stamp,
+        .flower-stamp svg {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      .replay-button {
+        position: absolute;
+        z-index: 2;
+        bottom: max(1.25rem, env(safe-area-inset-bottom));
+        left: 50%;
+        min-height: 2.8rem;
+        padding: 0.75rem 1.5rem;
+        transform: translateX(-50%);
+        border: 1px solid rgb(232 237 214 / 35%);
+        border-radius: 999px;
+        background: rgb(9 13 10 / 78%);
+        color: #f3f0e7;
+        font: inherit;
+        font-size: 0.9rem;
+        cursor: pointer;
+        backdrop-filter: blur(12px);
+        -webkit-tap-highlight-color: transparent;
+        transition: background 160ms ease, border-color 160ms ease;
+      }
+
+      .replay-button:hover,
+      .replay-button:focus-visible {
+        border-color: #d5e6a3;
+        background: rgb(36 48 30 / 92%);
+        outline: none;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="scene" id="scene" aria-label="Full-screen interactive 3D Oriental lily">
+      <canvas id="flower-canvas" tabindex="0" aria-label="Interactive 3D lily. Drag to orbit and scroll or pinch to zoom."></canvas>
+      <div class="loading" id="loading" role="status">Growing the specimen…</div>
+      <div class="webgl-error" id="webgl-error" hidden role="alert">
+        <p>This browser could not start the 3D viewer. Try a current browser with hardware acceleration enabled.</p>
+      </div>
+      <div class="message-widget" id="message-widget" aria-hidden="true">
+        <button
+          class="folder-toggle"
+          id="folder-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="message-card"
+          aria-label="Open message folder"
+        >
+          <svg viewBox="0 0 64 48" aria-hidden="true">
+            <path d="M5 10a5 5 0 0 1 5-5h15l6 7h23a5 5 0 0 1 5 5v21a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5z" fill="#9277c3"></path>
+            <path d="M5 17h54l-4 21a5 5 0 0 1-5 4H12a5 5 0 0 1-5-4z" fill="#cbb8eb"></path>
+            <g fill="#fffaff">
+              <ellipse cx="32" cy="25" rx="3.2" ry="7"></ellipse>
+              <ellipse cx="32" cy="25" rx="3.2" ry="7" transform="rotate(60 32 25)"></ellipse>
+              <ellipse cx="32" cy="25" rx="3.2" ry="7" transform="rotate(120 32 25)"></ellipse>
+            </g>
+            <circle cx="32" cy="25" r="3" fill="#e5c779"></circle>
+          </svg>
+        </button>
+        <section class="message-card" id="message-card" aria-label="Custom message" hidden>
+          <div class="message-tab" aria-hidden="true"></div>
+          <button class="message-close" id="message-close" type="button" aria-label="Close message">×</button>
+          <article class="message-paper">
+            <div class="flower-stamp" aria-hidden="true">
+              <svg viewBox="0 0 64 64">
+                <g fill="#a88bd6">
+                  <ellipse cx="32" cy="15" rx="7" ry="13"></ellipse>
+                  <ellipse cx="32" cy="15" rx="7" ry="13" transform="rotate(60 32 32)"></ellipse>
+                  <ellipse cx="32" cy="15" rx="7" ry="13" transform="rotate(120 32 32)"></ellipse>
+                  <ellipse cx="32" cy="15" rx="7" ry="13" transform="rotate(180 32 32)"></ellipse>
+                  <ellipse cx="32" cy="15" rx="7" ry="13" transform="rotate(240 32 32)"></ellipse>
+                  <ellipse cx="32" cy="15" rx="7" ry="13" transform="rotate(300 32 32)"></ellipse>
+                </g>
+                <circle cx="32" cy="32" r="6" fill="#e5c779"></circle>
+              </svg>
+            </div>
+            <p class="message-label">A little note</p>
+            <p class="message-copy" id="custom-message">Loading your message…</p>
+          </article>
+        </section>
+      </div>
+      <button class="replay-button" id="replay-button" type="button">Replay animation</button>
+    </main>
+    <script type="module" src="./lily.js"></script>
+  </body>
+</html>
