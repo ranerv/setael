@@ -183,7 +183,7 @@
     body.admin-chat-mode .main-shell { min-height:100dvh;margin-left:0; }
     body.admin-chat-mode .dashboard-main { width:100%;margin:0;padding:0; }
     body.admin-chat-mode .dashboard-main > :not(#chat-inbox) { display:none !important; }
-    body.admin-chat-mode #chat-inbox { position:fixed;z-index:40;inset:var(--chat-viewport-top,0px) 0 auto;display:flex;flex-direction:column;height:var(--chat-viewport-height,100dvh);min-height:0;margin:0;padding:16px clamp(12px,3vw,32px) max(10px,env(safe-area-inset-bottom));overflow:hidden;border:0;border-radius:0; }
+    body.admin-chat-mode #chat-inbox { position:fixed;z-index:40;top:var(--chat-viewport-top,0px);left:50%;right:auto;display:flex;width:min(768px,100vw);height:min(var(--chat-viewport-height,100dvh),1024px);max-height:1024px;min-height:0;margin:0;padding:16px clamp(12px,3vw,32px) max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);flex-direction:column;overflow:hidden;border:1px solid #f0e9ed;border-radius:18px;background:#fffefb;box-shadow:0 18px 55px #211e2333; }
     body.admin-chat-mode #chat-inbox .panel-head { flex:0 0 auto;flex-direction:row;align-items:center;margin-bottom:12px; }
     body.admin-chat-mode #chat-inbox .panel-head p { display:none; }
     body.admin-chat-mode .admin-chat-box { height:auto;min-height:0;flex:1; }
@@ -496,7 +496,7 @@
       .admin-bottom-nav .admin-nav-link span { font-size: 1.08rem; }
       .admin-chat-box { height:min(62vh,600px);min-height:420px; }
       .chat-panel-actions { align-self:stretch;justify-content:flex-end; }
-      body.admin-chat-mode #chat-inbox { padding:10px 12px max(8px,env(safe-area-inset-bottom)); }
+      body.admin-chat-mode #chat-inbox { left:0;width:100%;height:var(--chat-viewport-height,100dvh);max-height:none;padding:10px 12px max(8px,env(safe-area-inset-bottom));transform:none;border:0;border-radius:0;box-shadow:none; }
       body.admin-chat-mode #chat-inbox .panel-head { align-items:center; }
       .admin-chat-media-viewer { padding:56px 10px 12px; }
       .admin-chat-media-viewer img,.admin-chat-media-viewer video { max-height:calc(100dvh - 88px); }
