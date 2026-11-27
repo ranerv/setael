@@ -120,7 +120,7 @@ begin
   return query
   select
     r.message_id,
-    count(*)::bigint,
+    count(*)::bigint,TTTTTT
     jsonb_agg(
       jsonb_build_object(
         'name', coalesce(

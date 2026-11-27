@@ -183,7 +183,7 @@
     body.admin-chat-mode .main-shell { min-height:100dvh;margin-left:0; }
     body.admin-chat-mode .dashboard-main { width:100%;margin:0;padding:0; }
     body.admin-chat-mode .dashboard-main > :not(#chat-inbox) { display:none !important; }
-    body.admin-chat-mode #chat-inbox { position:fixed;z-index:40;top:var(--chat-viewport-top,0px);left:50%;right:auto;display:flex;width:min(768px,100vw);height:min(var(--chat-viewport-height,100dvh),1024px);max-height:1024px;min-height:0;margin:0;padding:16px clamp(12px,3vw,32px) max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);flex-direction:column;overflow:hidden;border:1px solid #f0e9ed;border-radius:18px;background:#fffefb;box-shadow:0 18px 55px #211e2333; }
+     body.admin-chat-mode #chat-inbox { position:fixed;z-index:40;top:var(--chat-viewport-top,0px);left:50%;right:auto;display:flex;width:min(768px,100vw);height:min(var(--chat-viewport-height,100dvh),1024px);max-height:1024px;min-height:0;margin:0;padding:16px clamp(12px,3vw,32px) max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);flex-direction:column;overflow:hidden;border:1px solid #f0e9ed;border-radius:18px;background:#fffefb;box-shadow:0 18px 55px #211e2333; }
     body.admin-chat-mode #chat-inbox .panel-head { flex:0 0 auto;flex-direction:row;align-items:center;margin-bottom:12px; }
     body.admin-chat-mode #chat-inbox .panel-head p { display:none; }
     body.admin-chat-mode .admin-chat-box { height:auto;min-height:0;flex:1; }
@@ -553,6 +553,7 @@
         <a class="admin-nav-link" href="#invitation"><span aria-hidden="true">♡</span>Invitation</a>
       </nav>
       <div class="sidebar-bottom">
+        <a class="admin-nav-link" href="task-tracker.html"><span aria-hidden="true">☷</span>Task Tracker</a>
         <a class="admin-nav-link" href="logs.html"><span aria-hidden="true">◷</span>Activity logs</a>
         <p class="sidebar-note">Visitors cannot edit the published site content.</p>
       </div>
@@ -1172,8 +1173,7 @@
         loadVisitorCheckins().catch((error) => setStatus(checkinsStatus, error.message, true)),
         loadReminderLogs(),
         loadVisitorSubmissions(),
-        loadDailyNoteReplies(),
-        loadAdminChatInbox()
+        loadDailyNoteReplies()
       ]);
       startThreadPolling();
       initAdminChat();
@@ -3042,7 +3042,7 @@
       incoming.forEach(message => byId.set(String(message.id), message));
       return Array.from(byId.values()).sort((a, b) =>
         Date.parse(a.created_at) - Date.parse(b.created_at) || Number(a.id) - Number(b.id)
-      );
+      ).slice(-200);
     }
 
     async function refreshAdminChatSeenCounts() {
@@ -3304,7 +3304,7 @@
 
       const time = document.createElement('p');
       time.className = 'chat-bubble-time';
-      time.textContent = adminChatDateLabel(msg.created_at) + (msg.updated_at ? ' · edited' : '');
+      time.textContent = adminChatDateLabel(msg.created_at);
       wrap.append(time);
       const seenCount = isOwner ? (adminChatState.seenCounts[msg.id] || 0) : 0;
       if (seenCount > 0) {
@@ -3524,6 +3524,9 @@
         document.getElementById('admin-cancel-reply').addEventListener('click', clearAdminChatReply);
         document.getElementById('chat-back-dashboard').addEventListener('click', () => { window.location.hash = '#entries'; });
         document.getElementById('refresh-chat-inbox').addEventListener('click', () => loadAdminChatInbox(true, true));
+        window.addEventListener('hashchange', () => {
+          if (window.location.hash === '#chat-inbox') loadAdminChatInbox(false);
+        });
         picker.addEventListener('click', async event => {
           const button = event.target.closest('[data-emoji]');
           if (!button) return;
@@ -3535,12 +3538,17 @@
       }
       if (!adminChatState.pollTimer) {
         adminChatState.pollTimer = window.setInterval(() => {
-          if (!document.hidden && !dashboard.hidden) loadAdminChatInbox(true);
-        }, 5000);
+          if (!document.hidden && !dashboard.hidden && window.location.hash === '#chat-inbox') {
+            loadAdminChatInbox(true);
+          }
+        }, 30000);
         document.addEventListener('visibilitychange', () => {
-          if (!document.hidden && !dashboard.hidden) loadAdminChatInbox(true);
+          if (!document.hidden && !dashboard.hidden && window.location.hash === '#chat-inbox') {
+            loadAdminChatInbox(true);
+          }
         });
       }
+      if (window.location.hash === '#chat-inbox') loadAdminChatInbox(false);
     }
   </script>
 </body>

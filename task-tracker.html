@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbfafc">
+  <meta name="description" content="Plan and follow tasks together.">
+  <title>Task Tracker | Sachel</title>
+  <link rel="stylesheet" href="task-tracker.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">S</span><span>Sachel</span></a>
+    <nav class="top-links" aria-label="Page links">
+      <a href="index.html">Back to site</a>
+      <a href="admin.html">Admin dashboard</a>
+      <button id="sign-out" type="button" hidden>Sign out</button>
+    </nav>
+  </header>
+
+  <main class="page-shell">
+    <section class="login-panel panel" id="login-panel" aria-labelledby="login-title">
+      <p class="eyebrow">Plan together</p>
+      <h1 id="login-title">Task Tracker</h1>
+      <p class="muted">Sign in with your registered account to open your private board. Admins can choose any user's board.</p>
+      <form id="login-form">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button class="primary-button" id="sign-in" type="submit">Sign in</button>
+      </form>
+      <p class="status" id="login-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="tracker" hidden>
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Your shared workspace</p>
+          <h1>Task Tracker</h1>
+          <p class="muted" id="board-caption">Tasks, progress, and conversation in one place.</p>
+        </div>
+        <button class="primary-button" id="new-task" type="button">＋ New task</button>
+      </div>
+
+      <section class="admin-tools panel" id="admin-tools" hidden aria-label="Admin board selection">
+        <label for="user-picker">Viewing board</label>
+        <select id="user-picker"></select>
+        <span class="muted" id="user-count"></span>
+      </section>
+
+      <p class="status board-status" id="board-status" role="status" aria-live="polite"></p>
+      <div class="board" id="board" aria-label="Kanban board">
+        <section class="board-column" data-drop-status="todo" aria-labelledby="todo-heading">
+          <header class="column-heading"><h2 id="todo-heading">To do</h2><span class="count" data-count="todo">0</span></header>
+          <div class="task-list" data-list-status="todo"></div>
+        </section>
+        <section class="board-column" data-drop-status="in_progress" aria-labelledby="progress-heading">
+          <header class="column-heading"><h2 id="progress-heading">In progress</h2><span class="count" data-count="in_progress">0</span></header>
+          <div class="task-list" data-list-status="in_progress"></div>
+        </section>
+        <section class="board-column" data-drop-status="completed" aria-labelledby="completed-heading">
+          <header class="column-heading"><h2 id="completed-heading">Completed</h2><span class="count" data-count="completed">0</span></header>
+          <div class="task-list" data-list-status="completed"></div>
+        </section>
+      </div>
+
+      <section class="recent-activity panel" aria-labelledby="activity-heading">
+        <div class="section-heading"><h2 id="activity-heading">Recent activity</h2><span class="muted">Latest task and subtask updates</span></div>
+        <ol id="board-activity" class="activity-list"></ol>
+      </section>
+    </section>
+  </main>
+
+  <dialog class="task-dialog" id="task-dialog" aria-labelledby="task-dialog-title">
+    <form id="task-form">
+      <div class="dialog-heading">
+        <div><p class="eyebrow">Task details</p><h2 id="task-dialog-title">New task</h2></div>
+        <button class="icon-button" id="close-task-dialog" type="button" aria-label="Close">×</button>
+      </div>
+      <label for="task-title">Task title <span aria-hidden="true">*</span></label>
+      <input id="task-title" name="title" maxlength="140" required>
+      <label for="task-contents">Contents / notes</label>
+      <textarea id="task-contents" name="contents" maxlength="5000" rows="4" placeholder="Add context or details"></textarea>
+      <div class="form-row">
+        <div><label for="task-priority">Priority</label>
+          <select id="task-priority" name="priority">
+            <option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option>
+          </select>
+        </div>
+        <div class="deadline-fields">
+          <label for="task-deadline-date">Deadline <span class="optional-label">optional · Philippine Time</span></label>
+          <div class="deadline-input-row">
+            <input id="task-deadline-date" name="deadline-date" type="date" aria-label="Deadline date">
+            <label class="visually-hidden" for="task-deadline-time">Deadline time in Philippine Time</label>
+            <input id="task-deadline-time" name="deadline-time" type="time" aria-label="Deadline time in Philippine Time">
+          </div>
+          <small>If no time is selected, it defaults to 11:59 PM PHT.</small>
+        </div>
+      </div>
+      <label for="task-status">Column</label>
+      <select id="task-status" name="status">
+        <option value="todo">To do</option><option value="in_progress">In progress</option><option value="completed">Completed</option>
+      </select>
+      <p class="status" id="task-form-status" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button class="secondary-button" id="cancel-task" type="button">Cancel</button>
+        <button class="primary-button" id="save-task" type="submit">Save task</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="task-dialog action-dialog" id="subtask-dialog" aria-labelledby="subtask-dialog-title">
+    <form id="subtask-form">
+      <div class="dialog-heading">
+        <div><p class="eyebrow">A little step at a time</p><h2 id="subtask-dialog-title">Add a subtask</h2></div>
+        <button class="icon-button" id="close-subtask-dialog" type="button" aria-label="Close">×</button>
+      </div>
+      <p class="muted" id="subtask-task-caption"></p>
+      <label for="subtask-title">Subtask</label>
+      <input id="subtask-title" name="title" maxlength="300" placeholder="What needs to be done?" required>
+      <p class="status" id="subtask-form-status" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button class="secondary-button" id="cancel-subtask" type="button">Cancel</button>
+        <button class="primary-button" id="save-subtask" type="submit">Add subtask</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="task-dialog action-dialog" id="move-dialog" aria-labelledby="move-dialog-title">
+    <form id="move-form">
+      <div class="dialog-heading">
+        <div><p class="eyebrow">Change its place</p><h2 id="move-dialog-title">Move task</h2></div>
+        <button class="icon-button" id="close-move-dialog" type="button" aria-label="Close">×</button>
+      </div>
+      <p class="muted" id="move-task-caption"></p>
+      <label for="move-status">Move to</label>
+      <select id="move-status" name="status">
+        <option value="todo">To do</option><option value="in_progress">In progress</option><option value="completed">Completed</option>
+      </select>
+      <p class="status" id="move-form-status" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button class="secondary-button" id="cancel-move" type="button">Cancel</button>
+        <button class="primary-button" id="save-move" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="activity-log-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="task-tracker.js"></script>
+</body>
+</html>

@@ -300,79 +300,6 @@
     .entry-music-status { margin: 10px 0 0; color: #817a72; font-size: .85rem; }
     .invitation-dialog { width: min(calc(100% - 28px), 760px); }
     .invitation-dialog .dialog-content { margin-bottom: 22px; }
-    .lily-feature-card {
-      display: flex;
-      width: 100%;
-      min-height: 112px;
-      align-items: center;
-      gap: 18px;
-      margin: 22px 0 30px;
-      padding: 20px 24px;
-      border: 1px solid #e8dff0;
-      border-radius: 20px;
-      background: linear-gradient(115deg, #fffafa, #f8f3ff);
-      color: #51465a;
-      cursor: pointer;
-      font: inherit;
-      text-align: left;
-      transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
-    }
-    .lily-feature-card:hover,
-    .lily-feature-card:focus-visible {
-      border-color: #c9b6df;
-      box-shadow: 0 10px 28px #493b2612;
-      outline: none;
-      transform: translateY(-2px);
-    }
-    .lily-feature-icon {
-      display: grid;
-      width: 58px;
-      height: 58px;
-      flex: 0 0 auto;
-      place-items: center;
-      border-radius: 18px;
-      background: #e9dcf5;
-      color: #8065a1;
-      font-size: 1.8rem;
-    }
-    .lily-feature-copy { display: grid; flex: 1; gap: 4px; }
-    .lily-feature-copy strong { color: #51465a; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
-    .lily-feature-copy span:last-child { color: #898087; font-size: .82rem; }
-    .lily-feature-arrow { color: #9c7ab9; font-size: 1.4rem; }
-    .lily-dialog {
-      position: relative;
-      width: min(calc(100% - 24px), 1100px);
-      height: min(86vh, 760px);
-      max-height: 90vh;
-      padding: 0;
-      overflow: hidden;
-      border: 1px solid #514b43;
-      border-radius: 20px;
-      background: #090d0a;
-      color: #f3f0e7;
-    }
-    .lily-dialog::backdrop { background: #151510d9; backdrop-filter: blur(5px); }
-    .lily-dialog iframe { display: block; width: 100%; height: 100%; border: 0; background: #090d0a; }
-    .lily-dialog-close {
-      position: absolute;
-      z-index: 1;
-      top: 12px;
-      right: 12px;
-      display: grid;
-      width: 42px;
-      height: 42px;
-      place-items: center;
-      border: 1px solid #ffffff55;
-      border-radius: 50%;
-      background: #090d0acc;
-      color: #fff;
-      cursor: pointer;
-      font: inherit;
-      font-size: 1.5rem;
-      line-height: 1;
-    }
-    .lily-dialog-close:hover,
-    .lily-dialog-close:focus-visible { background: #273323; outline: 2px solid #d5e6a3; outline-offset: 2px; }
     .invitation-dialog img {
       display: block;
       width: auto;
@@ -1323,6 +1250,7 @@
       <button class="nav-link" type="button" data-page="schedule"><span class="nav-icon" aria-hidden="true">▦</span>Schedule</button>
       <button class="nav-link" type="button" data-page="threads"><span class="nav-icon" aria-hidden="true">♡</span>Threads</button>
       <button class="nav-link" type="button" data-page="chat"><span class="nav-icon" aria-hidden="true">✉</span>Messages</button>
+      <a class="nav-link" href="task-tracker.html"><span class="nav-icon" aria-hidden="true">☷</span>Task Tracker</a>
     </nav>
     <div class="sidebar-bottom">
       <p class="sidebar-note">A collection of little moments, shared with care.</p>
@@ -3234,7 +3162,7 @@
 
       const time = document.createElement('p');
       time.className = 'chat-bubble-time';
-      time.textContent = gcTimeLabel(msg.created_at) + (msg.updated_at ? ' · edited' : '');
+      time.textContent = gcTimeLabel(msg.created_at);
       wrap.append(time);
 
       row.append(av, wrap);
@@ -3280,7 +3208,7 @@
       incoming.forEach(message => byId.set(String(message.id), message));
       return Array.from(byId.values()).sort((a, b) =>
         Date.parse(a.created_at) - Date.parse(b.created_at) || Number(a.id) - Number(b.id)
-      );
+      ).slice(-200);
     }
 
     async function loadOlderGcMessages() {
@@ -3619,7 +3547,7 @@
       if (supabaseUrl && publishableKey) {
         gcState.pollTimer = setInterval(() => {
           if (!document.hidden && !document.getElementById('page-chat').hidden) loadGcMessages(true);
-        }, 5000);
+        }, 30000);
         document.addEventListener('visibilitychange', () => {
           if (!document.hidden && !document.getElementById('page-chat').hidden) loadGcMessages(true);
         });
