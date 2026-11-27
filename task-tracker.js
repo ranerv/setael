@@ -12,9 +12,6 @@
   const loginStatus = document.getElementById("login-status");
   const signInButton = document.getElementById("sign-in");
   const signOutButton = document.getElementById("sign-out");
-  const adminTools = document.getElementById("admin-tools");
-  const userPicker = document.getElementById("user-picker");
-  const userCount = document.getElementById("user-count");
   const boardStatus = document.getElementById("board-status");
   const boardCaption = document.getElementById("board-caption");
   const boardActivity = document.getElementById("board-activity");
@@ -50,8 +47,6 @@
   let refreshPromise = null;
   let currentUser = null;
   let isAdmin = false;
-  let boardUser = null;
-  let users = [];
   let tasks = [];
   let subtasks = [];
   let comments = [];
@@ -193,11 +188,7 @@
     loginPanel.hidden = true;
     tracker.hidden = false;
     signOutButton.hidden = false;
-    adminTools.hidden = !isAdmin;
-    boardUser = currentUser;
-    boardCaption.textContent = isAdmin
-      ? `Signed in as ${currentUser.email || "admin"}. Select a user to open their board.`
-      : "Your private board, with progress and conversation kept together.";
+    boardCaption.textContent = `One shared board for everyone signed in${currentUser.email ? ` · ${currentUser.email}` : ""}.`;
   }
 
   async function restoreSession() {
@@ -281,7 +272,6 @@
     }
     if (keyToClear) clearStoredSession(keyToClear);
     currentUser = null;
-    boardUser = null;
     isAdmin = false;
     tracker.hidden = true;
     loginPanel.hidden = false;
@@ -294,67 +284,19 @@
   }
 
   async function initializeBoard() {
-    if (isAdmin) {
-      try {
-        await loadUsers();
-      } catch (error) {
-        console.error("Could not load registered Task Tracker users.", error);
-        userCount.textContent = `User list unavailable: ${error.message}`;
-        setStatus(boardStatus, `Could not load the user list. ${error.message}`, true);
-      }
-    }
     await loadBoard();
     subscribeToBoard();
   }
 
-  async function loadUsers() {
-    const listedUsers = await request("/rest/v1/rpc/get_task_tracker_users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}"
-    });
-    users = Array.isArray(listedUsers) ? listedUsers : [];
-    userPicker.replaceChildren();
-
-    const ownOption = document.createElement("option");
-    ownOption.value = currentUser.id;
-    ownOption.textContent = `My board (${currentUser.email || "admin"})`;
-    userPicker.append(ownOption);
-    users.forEach((user) => {
-      if (user.id === currentUser.id) return;
-      const option = document.createElement("option");
-      option.value = user.id;
-      option.textContent = user.email || `User ${user.id.slice(0, 8)}`;
-      userPicker.append(option);
-    });
-    userCount.textContent = `${users.length} registered account${users.length === 1 ? "" : "s"}`;
-  }
-
-  function setBoardUser(userId) {
-    if (!isAdmin || userId === currentUser.id) {
-      boardUser = currentUser;
-    } else {
-      boardUser = users.find((user) => user.id === userId) || currentUser;
-    }
-    if (userPicker.value !== boardUser.id) userPicker.value = boardUser.id;
-    boardCaption.textContent = boardUser.id === currentUser.id
-      ? `Viewing ${isAdmin ? "your" : "private"} board${currentUser.email ? ` · ${currentUser.email}` : ""}.`
-      : `Viewing ${boardUser.email || "user"}'s task board.`;
-  }
-
   async function loadBoard(quiet) {
-    if (!boardUser) return;
-    const ownerId = boardUser.id;
     if (!quiet) setStatus(boardStatus, "Loading board...");
     try {
-      const ownerFilter = `owner_id=eq.${encodeURIComponent(ownerId)}`;
       const [nextTasks, nextSubtasks, nextComments, nextActivity] = await Promise.all([
-        request(`/rest/v1/task_tracker_tasks?select=*&${ownerFilter}&order=created_at.asc`),
-        request(`/rest/v1/task_tracker_subtasks?select=*&${ownerFilter}&order=position.asc,created_at.asc`),
-        request(`/rest/v1/task_tracker_comments?select=*&${ownerFilter}&order=created_at.asc`),
-        request(`/rest/v1/task_tracker_activity?select=*&${ownerFilter}&order=created_at.desc&limit=80`)
+        request("/rest/v1/task_tracker_tasks?select=*&order=created_at.asc"),
+        request("/rest/v1/task_tracker_subtasks?select=*&order=position.asc,created_at.asc"),
+        request("/rest/v1/task_tracker_comments?select=*&order=created_at.asc"),
+        request("/rest/v1/task_tracker_activity?select=*&order=created_at.desc&limit=80")
       ]);
-      if (!boardUser || boardUser.id !== ownerId) return;
       tasks = nextTasks;
       subtasks = nextSubtasks;
       comments = nextComments;
@@ -377,18 +319,14 @@
       activeChannel = null;
     }
     client.realtime.setAuth(accessToken);
-    const subscribedOwnerId = boardUser.id;
-    const channel = client.channel(`task-tracker-${subscribedOwnerId}-${Date.now()}`);
+    const channel = client.channel(`task-tracker-shared-${Date.now()}`);
     ["task_tracker_tasks", "task_tracker_subtasks", "task_tracker_comments", "task_tracker_activity"].forEach((table) => {
       channel.on("postgres_changes", { event: "*", schema: "public", table }, (payload) => {
         const changedRow = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
-        if (changedRow && changedRow.owner_id === subscribedOwnerId && boardUser && boardUser.id === subscribedOwnerId) {
-          loadBoard(true);
-        }
+        if (changedRow) loadBoard(true);
       });
     });
     activeChannel = channel.subscribe((status) => {
-      if (boardUser && boardUser.id !== subscribedOwnerId) return;
       if (status === "SUBSCRIBED") {
         setStatus(boardStatus, "Live updates connected.");
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
@@ -631,7 +569,7 @@
     setStatus(taskFormStatus, "Saving...");
     try {
       const body = {
-        owner_id: boardUser.id,
+        owner_id: currentUser.id,
         title: taskTitleInput.value.trim(),
         contents: taskContentsInput.value.trim(),
         priority: taskPriorityInput.value,
@@ -813,12 +751,6 @@
   document.getElementById("close-move-dialog").addEventListener("click", () => moveDialog.close());
   document.getElementById("cancel-move").addEventListener("click", () => moveDialog.close());
   moveForm.addEventListener("submit", saveMove);
-  userPicker.addEventListener("change", async () => {
-    setBoardUser(userPicker.value);
-    await loadBoard();
-    subscribeToBoard();
-  });
-
   document.getElementById("board").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");
     if (button) handleAction(button);

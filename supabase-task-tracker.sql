@@ -1,8 +1,8 @@
--- Per-user task boards, comments, activity history, and admin user selection.
+-- One shared task board for authenticated users, with comments and activity history.
 
 create table if not exists public.task_tracker_tasks (
   id uuid primary key default gen_random_uuid(),
-  owner_id uuid not null references auth.users(id) on delete cascade,
+  owner_id uuid not null,
   title text not null check (char_length(btrim(title)) between 1 and 140),
   contents text not null default '' check (char_length(contents) <= 5000),
   status text not null default 'todo' check (status in ('todo', 'in_progress', 'completed')),
@@ -33,7 +33,7 @@ $$;
 create table if not exists public.task_tracker_subtasks (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references public.task_tracker_tasks(id) on delete cascade,
-  owner_id uuid not null references auth.users(id) on delete cascade,
+  owner_id uuid not null,
   title text not null check (char_length(btrim(title)) between 1 and 300),
   is_completed boolean not null default false,
   position integer not null default 0 check (position >= 0),
@@ -43,7 +43,7 @@ create table if not exists public.task_tracker_subtasks (
 create table if not exists public.task_tracker_comments (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references public.task_tracker_tasks(id) on delete cascade,
-  owner_id uuid not null references auth.users(id) on delete cascade,
+  owner_id uuid not null,
   author_id uuid not null,
   author_email text not null,
   body text not null check (char_length(btrim(body)) between 1 and 2000),
@@ -61,6 +61,13 @@ create table if not exists public.task_tracker_activity (
   actor_email text not null,
   created_at timestamptz not null default now()
 );
+
+alter table public.task_tracker_tasks
+  drop constraint if exists task_tracker_tasks_owner_id_fkey;
+alter table public.task_tracker_subtasks
+  drop constraint if exists task_tracker_subtasks_owner_id_fkey;
+alter table public.task_tracker_comments
+  drop constraint if exists task_tracker_comments_owner_id_fkey;
 
 create index if not exists task_tracker_tasks_owner_status_idx
   on public.task_tracker_tasks (owner_id, status, created_at);
@@ -87,31 +94,36 @@ grant select, insert on public.task_tracker_comments to authenticated;
 grant select on public.task_tracker_activity to authenticated;
 
 drop policy if exists "Task owners and admins manage tasks" on public.task_tracker_tasks;
-create policy "Task owners and admins manage tasks"
+drop policy if exists "All signed-in users manage shared tasks" on public.task_tracker_tasks;
+create policy "All signed-in users manage shared tasks"
 on public.task_tracker_tasks for all to authenticated
-using (owner_id = (select auth.uid()) or (select public.is_log_admin()))
-with check (owner_id = (select auth.uid()) or (select public.is_log_admin()));
+using ((select auth.uid()) is not null)
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Task owners and admins manage subtasks" on public.task_tracker_subtasks;
-create policy "Task owners and admins manage subtasks"
+drop policy if exists "All signed-in users manage shared subtasks" on public.task_tracker_subtasks;
+create policy "All signed-in users manage shared subtasks"
 on public.task_tracker_subtasks for all to authenticated
-using (owner_id = (select auth.uid()) or (select public.is_log_admin()))
-with check (owner_id = (select auth.uid()) or (select public.is_log_admin()));
+using ((select auth.uid()) is not null)
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Task owners and admins view comments" on public.task_tracker_comments;
-create policy "Task owners and admins view comments"
+drop policy if exists "All signed-in users view shared comments" on public.task_tracker_comments;
+create policy "All signed-in users view shared comments"
 on public.task_tracker_comments for select to authenticated
-using (owner_id = (select auth.uid()) or (select public.is_log_admin()));
+using ((select auth.uid()) is not null);
 
 drop policy if exists "Task owners and admins add comments" on public.task_tracker_comments;
-create policy "Task owners and admins add comments"
+drop policy if exists "All signed-in users add shared comments" on public.task_tracker_comments;
+create policy "All signed-in users add shared comments"
 on public.task_tracker_comments for insert to authenticated
-with check (owner_id = (select auth.uid()) or (select public.is_log_admin()));
+with check ((select auth.uid()) is not null);
 
 drop policy if exists "Task owners and admins view activity" on public.task_tracker_activity;
-create policy "Task owners and admins view activity"
+drop policy if exists "All signed-in users view shared activity" on public.task_tracker_activity;
+create policy "All signed-in users view shared activity"
 on public.task_tracker_activity for select to authenticated
-using (owner_id = (select auth.uid()) or (select public.is_log_admin()));
+using ((select auth.uid()) is not null);
 
 create or replace function public.task_tracker_set_child_fields()
 returns trigger
@@ -167,12 +179,13 @@ set search_path = ''
 as $$
 begin
   if tg_op = 'INSERT' then
+    new.owner_id := auth.uid();
     new.created_at := now();
     new.updated_at := new.created_at;
     return new;
   end if;
   if new.owner_id is distinct from old.owner_id then
-    raise exception 'A task cannot be moved to another user board.';
+    raise exception 'Task creator cannot be changed.';
   end if;
   new.created_at := old.created_at;
   new.updated_at := now();
@@ -303,27 +316,7 @@ create trigger task_tracker_log_subtask_change
 after insert or update or delete on public.task_tracker_subtasks
 for each row execute function public.task_tracker_log_subtask_change();
 
-create or replace function public.get_task_tracker_users()
-returns table (id uuid, email text, created_at timestamptz)
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-begin
-  if not (select public.is_log_admin()) then
-    raise exception 'Only an admin can list Task Tracker users.';
-  end if;
-
-  return query
-  select u.id, u.email::text, u.created_at
-  from auth.users as u
-  order by lower(coalesce(u.email, '')), u.created_at;
-end;
-$$;
-
-revoke all on function public.get_task_tracker_users() from public, anon, authenticated;
-grant execute on function public.get_task_tracker_users() to authenticated;
+drop function if exists public.get_task_tracker_users();
 
 alter table public.task_tracker_tasks replica identity full;
 alter table public.task_tracker_subtasks replica identity full;
