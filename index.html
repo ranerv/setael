@@ -262,6 +262,45 @@
       color: var(--ink);
       animation: dialog-appear 260ms ease both;
     }
+    .lily-dialog {
+      width: min(calc(100vw - 32px), 1100px);
+      height: min(86vh, 900px);
+      max-height: 92vh;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid #52614a;
+      background: #090d0a;
+    }
+    .lily-dialog iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #090d0a;
+    }
+    .lily-dialog-close {
+      position: absolute;
+      z-index: 1;
+      top: 12px;
+      right: 12px;
+      display: grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border: 1px solid #cbd6c3;
+      border-radius: 50%;
+      background: #1b251dcc;
+      color: #f3f0e7;
+      font: inherit;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .lily-dialog-close:hover,
+    .lily-dialog-close:focus-visible {
+      outline: 2px solid #d5e6a3;
+      outline-offset: 2px;
+    }
     .entry-dialog::backdrop { background: #25211dcc; backdrop-filter: blur(4px); }
     .dialog-envelope-art {
       position: relative;
