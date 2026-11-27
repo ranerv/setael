@@ -12,6 +12,7 @@
   const loginStatus = document.getElementById("login-status");
   const signInButton = document.getElementById("sign-in");
   const signOutButton = document.getElementById("sign-out");
+  const backLink = document.getElementById("back-link");
   const boardStatus = document.getElementById("board-status");
   const boardCaption = document.getElementById("board-caption");
   const boardActivity = document.getElementById("board-activity");
@@ -188,6 +189,8 @@
     loginPanel.hidden = true;
     tracker.hidden = false;
     signOutButton.hidden = false;
+    backLink.href = isAdmin ? "admin.html" : "index.html";
+    backLink.textContent = isAdmin ? "Back to Admin" : "Back to Site";
     boardCaption.textContent = `One shared board for everyone signed in${currentUser.email ? ` · ${currentUser.email}` : ""}.`;
   }
 
@@ -276,6 +279,8 @@
     tracker.hidden = true;
     loginPanel.hidden = false;
     signOutButton.hidden = true;
+    backLink.href = "index.html";
+    backLink.textContent = "Back to Site";
     if (logoutError) {
       setStatus(loginStatus, `Signed out on this device, but Supabase could not revoke the session: ${logoutError.message}`, true);
     } else {

@@ -715,6 +715,54 @@
     .hero-art .wood { fill: #f1cfb8; stroke: #d49f8c; stroke-width: 2; }
     .hero-art .door-detail { fill: #9bd5de; stroke: #7fb9c6; stroke-width: 2; }
     .hero-art .stem { fill: none; stroke: #a6bd6b; stroke-width: 3; stroke-linecap: round; }
+    .lily-feature-card {
+      display: grid;
+      width: min(100%, 460px);
+      min-height: 76px;
+      grid-template-columns: 42px minmax(0, 1fr) 34px;
+      align-items: center;
+      gap: 13px;
+      margin: 14px 0 20px;
+      padding: 12px 16px;
+      border: 1px solid #f0dfe5;
+      border-radius: 17px;
+      background: linear-gradient(110deg, #fff 0%, #fff7fa 100%);
+      box-shadow: 0 8px 24px #e892ad1f;
+      color: #63565d;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .lily-feature-card:hover { transform: translateY(-2px); border-color: #efc3d1; box-shadow: 0 12px 28px #e892ad2b; }
+    .lily-feature-card:active { transform: translateY(0); }
+    .lily-feature-card:focus-visible { outline: 3px solid #f3b4c8; outline-offset: 3px; }
+    .lily-feature-icon {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #f8c3d2, #f5a8bf);
+      box-shadow: 0 4px 10px #e892ad33;
+      color: #fff;
+      font-size: 1.25rem;
+    }
+    .lily-feature-copy { display: grid; gap: 3px; }
+    .lily-feature-copy .eyebrow { margin: 0; color: #b87d91; font-size: .64rem; letter-spacing: .12em; }
+    .lily-feature-copy strong { color: #62545b; font-size: .95rem; font-weight: 750; }
+    .lily-feature-arrow {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      border-radius: 50%;
+      background: #f8e6ec;
+      color: #c2768d;
+      font-size: 1rem;
+      transition: transform 160ms ease, background 160ms ease;
+    }
+    .lily-feature-card:hover .lily-feature-arrow { transform: translate(2px, -2px); background: #f4d4df; }
     .section-heading { align-items: center; margin: 30px 0 14px; }
     .section-heading h2 { color: #55535b; font-family: "Segoe UI", sans-serif; font-size: 1.02rem; font-weight: 750; }
     .section-heading button { color: #dc8ea7; font-size: .78rem; }
